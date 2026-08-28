@@ -1,0 +1,16 @@
+{
+  "name": "proxi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma de practicas profesionales",
+  "workspaces": ["apps/*", "packages/*"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "npm run dev -w apps/api",
+    "test": "npm test --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:seed": "npm run db:seed -w apps/api"
+  }
+}

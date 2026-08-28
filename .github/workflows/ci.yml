@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: proxi_test
+          POSTGRES_USER: proxi
+          POSTGRES_PASSWORD: proxi_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: proxi_test
+      DB_USER: proxi
+      DB_PASSWORD: proxi_test
+      JWT_ACCESS_SECRET: secreto_de_pruebas_no_usar_en_produccion
+      JWT_REFRESH_SECRET: otro_secreto_de_pruebas
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm run db:migrate --if-present
+      - run: npm test
+      - name: Auditoria de dependencias
+        run: npm audit --audit-level=high
