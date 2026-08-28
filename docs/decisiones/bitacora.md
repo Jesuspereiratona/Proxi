@@ -17,6 +17,55 @@ Formato:
 
 ---
 
+## 2026-08-28 · Bug: `npm test -w apps/api` no encontraba el `.env` de la raíz
+**Contexto:** primer `npm test` real, con Docker ya corriendo. `config/env.js` moría diciendo que
+faltaban las 8 variables obligatorias, aunque `.env` existía y estaba completo.
+**Decisión:** `env.js` ahora resuelve la ruta del `.env` con `path.resolve(__dirname, '../../../../.env')`
+en vez de `dotenv.config()` sin argumentos.
+**Motivo:** `dotenv.config()` busca `.env` relativo a `process.cwd()`, y `npm test --workspaces` (y
+`npm run dev -w apps/api`) cambian el cwd al directorio del workspace (`apps/api`), no la raíz del
+monorepo donde vive el `.env` real. Como sí funcionaba corriendo `node src/server.js` a mano desde la
+raíz, el bug solo aparecía a través de npm — costó un rato aislar que no era un problema de Docker ni
+de las variables mismas.
+**Consecuencia:** cualquier script nuevo en `apps/api/package.json` que dependa de `config/env.js`
+sigue funcionando sin importar desde dónde se invoque. Puerto real usado en este arranque: Postgres en
+`5433` (host) por conflicto con otro contenedor local — ya reflejado en `.env.example` y `docker-compose.yml`.
+
+## 2026-08-28 · Fase 0: qué variables son obligatorias al arrancar
+**Contexto:** `config/env.js` debe fallar al arrancar si falta una variable, pero `.env.example` tiene
+17 claves y varias (SMTP, límites de negocio) no las usa todavía ningún código de esta fase.
+**Decisión:** obligatorias solo `NODE_ENV`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`,
+`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` — exactamente las que ya exige `.github/workflows/ci.yml`.
+El resto tiene default en código (`PORT=3000`, `WEB_URL=http://localhost:5173`, etc.) hasta que una
+fase futura las necesite de verdad.
+**Motivo:** exigir SMTP o los plazos de negocio ahora impediría levantar la API sin sentido (nada los
+lee todavía). Los secretos de auth sí se exigen desde ya, aunque el login no exista hasta la Fase 1,
+porque es la clase de variable que no debe improvisarse nunca ni quedar con un valor de ejemplo.
+**Consecuencia:** cuando la Fase 1/4/7 empiece a leer `SMTP_*`, `SLA_RESPUESTA_DIAS`, etc., hay que
+sumarlas a `REQUERIDAS` en `apps/api/src/config/env.js` en el mismo commit que las usa por primera vez.
+
+## 2026-08-28 · Catálogo de errores como paquete del workspace, no ruta relativa
+**Contexto:** `docs/04-manejo-de-errores.md` dice que el catálogo de códigos vive en `packages/errores/`
+porque lo comparten API y web.
+**Decisión:** `packages/errores` es un paquete real del workspace (`@proxi/errores`, con su
+`package.json`), no una carpeta a la que se llega con `../../../`. `apps/api` lo declara como
+dependencia normal y hace `require('@proxi/errores')`.
+**Motivo:** una ruta relativa profunda se rompe si algún día se mueve `apps/api/src/middlewares/`, y no
+dice nada sobre que ese código es compartido. Con workspaces, `npm install` en la raíz lo enlaza solo.
+**Consecuencia:** cualquier paquete nuevo en `packages/` (validaciones, constantes) sigue este mismo
+patrón: `package.json` propio + `name` con prefijo `@proxi/`.
+
+## 2026-08-28 · `/api/v1/salud` responde 503 si la base no contesta, y nunca expone el motivo en producción
+**Contexto:** el roadmap solo pedía "estado de la app y de la base"; no especificaba el código HTTP ni
+qué tan detallada debía ser la respuesta cuando la base falla.
+**Decisión:** `salud.service.js` devuelve `baseDeDatos.error` con el mensaje real solo si
+`NODE_ENV !== 'production'`; el controller responde `200` si la base contesta y `503` si no.
+**Motivo:** un healthcheck en `200` aunque la base esté caída no sirve para monitoreo (Fase 8 pide
+"aviso ante caídas"), y el mensaje de error de Sequelize puede filtrar detalles de la conexión a quien
+golpee el endpoint desde afuera.
+**Consecuencia:** cualquier monitor de uptime debe tratar `503` de `/salud` como caída real, no como
+error transitorio a ignorar.
+
 ## 2026-08-28 · Método de trabajo: especificación antes que código, de forma selectiva
 **Contexto:** proyecto de un solo desarrollador, asistido por IA. El asistente no recuerda nada entre
 sesiones y el hilo del proyecto se perdía en el chat.

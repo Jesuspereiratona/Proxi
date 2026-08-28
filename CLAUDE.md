@@ -34,7 +34,20 @@ Detalle en `docs/01-arquitectura.md`. Modelo de datos en `docs/02-modelo-de-dato
 - Toda respuesta de error: `{ error: { codigo, mensaje, detalles? } }`. `codigo` es estable y documentado.
 - Commits: `tipo(alcance): mensaje` (feat, fix, docs, refactor, test, chore).
 
-## Cómo respondes
+## Economía de código
+Una sola persona mantiene esto. El código más barato es el que no existe. Detalle en la skill
+`menos-codigo`; lo esencial:
+- Antes de generar, declara **qué archivos vas a tocar y cuántas líneas estimas**. Sobre ~150 líneas
+  por tarea, párate y explica por qué.
+- Un archivo por recurso y capa, **no por clase ni por función**. Nueve clases de error son un archivo.
+- Nada de abstracciones de un solo uso, configurabilidad no pedida ni capas que solo reenvían.
+- Ninguna dependencia nueva sin preguntar; por defecto, biblioteca estándar.
+- Copia el patrón que ya existe en el repo antes de inventar uno.
+- Al cerrar un bloque, relee tu diff y borra lo que no cambie el comportamiento.
+
+Esto recorta ceremonia, nunca seguridad: validación, permisos, manejo de errores y pruebas no se tocan.
+
+## Cómo responde
 Sin preámbulo. Código primero; explicación en máx. 3 renglones y solo si el porqué no es obvio.
 Edita, no reescribas: muéstrame solo las líneas que cambian, con 2 de contexto.
 Ante un error: causa en una línea, arreglo abajo.

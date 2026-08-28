@@ -10,16 +10,16 @@ Marcar el avance aquí mismo: `[ ]` → `[x]`, y anotar en la bitácora lo que v
 ## Fase 0 · Fundaciones
 Sin esto, todo lo demás se construye sobre arena.
 
-- [ ] `git init`, primer commit con la documentación
-- [ ] Estructura de `apps/api/src` según `01-arquitectura.md`
-- [ ] `config/` que valide las variables de entorno y **falle al arrancar** si falta una
-- [ ] Conexión a PostgreSQL con Sequelize y `docker compose up db` funcionando
-- [ ] `GET /api/v1/salud` respondiendo estado de la app y de la base
-- [ ] Clases de error + `manejadorErrores` + `asyncHandler`
-- [ ] Logger pino con `peticionId` y censura de campos sensibles
-- [ ] `helmet`, `cors` con lista blanca, límite de tasa global
-- [ ] Jest + supertest corriendo con una prueba del healthcheck
-- [ ] CI en GitHub Actions: instalar, lint, pruebas, `npm audit`
+- [x] `git init`, primer commit con la documentación
+- [x] Estructura de `apps/api/src` según `01-arquitectura.md`
+- [x] `config/` que valide las variables de entorno y **falle al arrancar** si falta una
+- [x] Conexión a PostgreSQL con Sequelize y `docker compose up db` funcionando
+- [x] `GET /api/v1/salud` respondiendo estado de la app y de la base
+- [x] Clases de error + `manejadorErrores` + `asyncHandler`
+- [x] Logger pino con `peticionId` y censura de campos sensibles
+- [x] `helmet`, `cors` con lista blanca, límite de tasa global
+- [x] `node --test` + supertest corriendo con una prueba del healthcheck (ver ADR 0003, se reemplazó Jest)
+- [ ] CI en GitHub Actions: instalar, lint, pruebas, `npm audit` — workflow ya existe, falta verificar que corre en verde (no se ha subido a GitHub)
 
 **Listo cuando:** `npm test` pasa en CI y `/api/v1/salud` responde 200.
 

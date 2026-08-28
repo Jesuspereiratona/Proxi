@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${DB_USER:-proxi}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-cambiame_en_local}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - proxi_pgdata:/var/lib/postgresql/data
     healthcheck:
