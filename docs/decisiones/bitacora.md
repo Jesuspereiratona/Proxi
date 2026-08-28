@@ -17,6 +17,22 @@ Formato:
 
 ---
 
+## 2026-08-28 · Bug: la CI fallaba dos veces después del primer push
+**Contexto:** al verificar el primer run de CI, dos problemas aparecieron uno detrás del otro.
+**Decisión 1:** `WEB_URL` se agregó al bloque `env` de `ci.yml`. Había pasado a `REQUERIDAS` en
+`config/env.js` en el commit de la auditoría, pero nadie actualizó el workflow — la CI nunca se había
+corrido hasta ese punto, así que nada lo había detectado antes.
+**Decisión 2, más sutil:** `npm run db:migrate --if-present` seguía fallando después de eso. Los
+scripts `db:migrate`/`db:seed` de Fase 0 apuntaban a `npx sequelize-cli db:migrate` sin que existiera
+`config/config.json` ni ninguna migración — `--if-present` solo salta un script que **no existe**, no
+uno que existe y falla al correr. Se sacaron ambos scripts (raíz y `apps/api`) hasta que Fase 1 los
+necesite de verdad, junto con la config real de `sequelize-cli`.
+**Motivo:** son placeholders que nunca se probaron porque nada los ejecutaba en local (`npm test` no
+pasa por ahí). Solo la CI, corriendo por primera vez, los expuso.
+**Consecuencia:** cualquier script nuevo que dependa de una herramienta externa (sequelize-cli, algo de
+Fase 4/5) se agrega junto con su configuración mínima funcionando, no antes — un script que falla al
+correr es peor que uno ausente, porque `--if-present` no lo protege.
+
 ## 2026-08-28 · Auditoría de seguridad de Fase 0, antes del primer push
 **Contexto:** primer código real a punto de subir a GitHub. `auditor-seguridad` revisó config, errores,
 logger, middlewares y el healthcheck. Encontró 2 hallazgos altos activos ya (no hipotéticos) y varios

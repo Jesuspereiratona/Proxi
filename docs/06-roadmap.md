@@ -19,9 +19,9 @@ Sin esto, todo lo demás se construye sobre arena.
 - [x] Logger pino con `peticionId` y censura de campos sensibles
 - [x] `helmet`, `cors` con lista blanca, límite de tasa global
 - [x] `node --test` + supertest corriendo con una prueba del healthcheck (ver ADR 0003, se reemplazó Jest)
-- [ ] CI en GitHub Actions: instalar, lint, pruebas, `npm audit` — workflow ya existe, falta verificar que corre en verde (no se ha subido a GitHub)
+- [x] CI en GitHub Actions: instalar, lint, pruebas, `npm audit` — verde en `github.com/Jesuspereiratona/Proxi`, run `056b9fa`
 
-**Listo cuando:** `npm test` pasa en CI y `/api/v1/salud` responde 200.
+**Listo cuando:** `npm test` pasa en CI y `/api/v1/salud` responde 200. **Cumplido el 2026-08-28.**
 
 ## Fase 1 · Identidad
 - [ ] Migraciones de `usuarios`, `sesiones`, `consentimientos`
