@@ -30,6 +30,8 @@ Sin esto, todo lo demás se construye sobre arena.
 - [ ] JWT de acceso + refresco rotativo en cookie httpOnly
 - [ ] Middlewares `autenticar` y `autorizar(...roles)`
 - [ ] Recuperación de contraseña con token de un solo uso
+- [ ] Ampliar `CAMPOS_CENSURADOS` de `config/logger.js` a las formas reales que tomen los payloads de
+      login/registro antes de loguear nada de esas rutas (hoy solo cubre raíz y `req.body`, un nivel)
 - [ ] Pruebas: credenciales inválidas, token expirado, rol equivocado, enumeración de usuarios
 
 **Listo cuando:** los tres roles pueden entrar y las rutas rechazan a quien no corresponde.
@@ -108,6 +110,8 @@ Ver la especificación completa en `specs/01-ciclo-de-vida-oferta/`.
 ## Fase 8 · Despliegue
 - [ ] Base gestionada con respaldos automáticos y restauración **probada**
 - [ ] Variables de entorno en el proveedor, secretos rotados
+- [ ] Apagado ordenado del servidor (`SIGTERM` + `server.close()` con temporizador) antes de que el
+      supervisor del proveedor mate el proceso — hoy corta peticiones en vuelo en cada despliegue
 - [ ] HTTPS obligatorio, redirección desde HTTP
 - [ ] Monitoreo del healthcheck con aviso ante caídas
 - [ ] Runbook de operación en `07-operacion-y-mantenimiento.md`
