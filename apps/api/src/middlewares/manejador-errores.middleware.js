@@ -2,7 +2,6 @@ const { AppError, ErrorValidacion } = require('../errors');
 const { ERROR_INTERNO, JSON_INVALIDO } = require('@proxi/errores');
 const logger = require('../config/logger');
 
-// eslint-disable-next-line no-unused-vars
 const manejadorErrores = (errorOriginal, req, res, next) => {
   if (res.headersSent) return next(errorOriginal);
 
