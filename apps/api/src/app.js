@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -14,9 +15,12 @@ const rutas = require('./routes');
 const app = express();
 
 app.disable('x-powered-by');
+// Un solo proxy inverso delante (nginx/plataforma de hosting). Sin esto, express-rate-limit usa la
+// IP del proxy para todo el mundo y una sola persona puede agotar el límite para todos.
+if (env.esProduccion) app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors({ origin: env.webUrl, credentials: true }));
-app.use(pinoHttp({ logger }));
+app.use(pinoHttp({ logger, genReqId: () => crypto.randomUUID() }));
 app.use(limitarTasa);
 app.use(express.json({ limit: '1mb' }));
 

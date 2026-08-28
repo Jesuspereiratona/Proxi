@@ -11,19 +11,25 @@ class AppError extends Error {
   }
 }
 
-const clase = (httpStatus) => class extends AppError {
-  constructor(codigo, mensaje, opciones = {}) {
-    super(codigo, mensaje, { ...opciones, httpStatus });
-  }
+// Class expressions no heredan el nombre de la variable externa: sin esto, error.name
+// (usado en logs y auditoría) queda vacío para las nueve subclases.
+const clase = (nombre, httpStatus) => {
+  const Clase = class extends AppError {
+    constructor(codigo, mensaje, opciones = {}) {
+      super(codigo, mensaje, { ...opciones, httpStatus });
+    }
+  };
+  Object.defineProperty(Clase, 'name', { value: nombre });
+  return Clase;
 };
 
-const ErrorValidacion = clase(422);
-const NoAutenticado = clase(401);
-const NoAutorizado = clase(403);
-const NoEncontrado = clase(404);
-const Conflicto = clase(409);
-const ReglaDeNegocio = clase(422);
-const DemasiadasSolicitudes = clase(429);
+const ErrorValidacion = clase('ErrorValidacion', 422);
+const NoAutenticado = clase('NoAutenticado', 401);
+const NoAutorizado = clase('NoAutorizado', 403);
+const NoEncontrado = clase('NoEncontrado', 404);
+const Conflicto = clase('Conflicto', 409);
+const ReglaDeNegocio = clase('ReglaDeNegocio', 422);
+const DemasiadasSolicitudes = clase('DemasiadasSolicitudes', 429);
 
 class ErrorInterno extends AppError {
   constructor(mensaje = 'Ha ocurrido un error interno.', opciones = {}) {

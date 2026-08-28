@@ -17,6 +17,45 @@ Formato:
 
 ---
 
+## 2026-08-28 · Auditoría de seguridad de Fase 0, antes del primer push
+**Contexto:** primer código real a punto de subir a GitHub. `auditor-seguridad` revisó config, errores,
+logger, middlewares y el healthcheck. Encontró 2 hallazgos altos activos ya (no hipotéticos) y varios
+medios; el detalle completo del reporte no se guarda aquí, solo lo que cambió y por qué.
+**Decisión — arreglado antes del push:**
+- `manejadorErrores` traduce el `SyntaxError` de `express.json()` a `422 JSON_INVALIDO` y registra el
+  error con una lista blanca de campos (`tipo`, `mensaje`, `codigo`, `stack`), nunca el objeto completo.
+  Antes, un JSON mal formado dejaba el cuerpo crudo de la petición en el log tal cual, sin pasar por la
+  censura del logger (que no cubre la propiedad `body` de un `SyntaxError`).
+- `detalles` en la respuesta de error ahora exige `esOperacional`, igual que `mensaje`: antes un
+  `ErrorInterno` con `detalles` los devolvía al cliente aunque el mensaje estuviera enmascarado.
+- `WEB_URL` pasó a variable obligatoria: tenía un default silencioso a `localhost:5173` que, con
+  `credentials: true`, es un hueco de CORS si se olvida configurar en un despliegue real.
+- `NODE_ENV` se valida contra una lista blanca (`development`/`test`/`production`) y `env.esProduccion`
+  / `env.esDesarrollo` reemplazan las comparaciones de string sueltas. Antes, un typo como
+  `NODE_ENV=produccion` hacía que `/api/v1/salud` (pública, sin auth) devolviera el mensaje de error de
+  Sequelize completo.
+- `database.js` fuerza TLS (`ssl.require`) cuando `env.esProduccion`.
+- `app.js`: `trust proxy` a 1 salto en producción (sin esto, el límite de tasa cuenta a todos los
+  usuarios detrás del mismo proxy como una sola IP) y `peticionId` pasa a UUID en vez del contador
+  incremental de pino-http (filtraba volumen de tráfico).
+- Las 7 subclases de error generadas por el factory de `errors/index.js` tenían `error.name` vacío
+  (las class expressions no heredan el nombre de la variable externa); se fija con
+  `Object.defineProperty`.
+- `salud.service.js` cachea el resultado 5 segundos: sin eso, el límite de tasa permitía 300
+  `sequelize.authenticate()` por ventana contra un pool de 5 conexiones.
+- `docker-compose.yml` publica Postgres en `127.0.0.1:5433`, no `0.0.0.0`: ya no es alcanzable desde
+  otra máquina en la misma red.
+**Motivo:** ninguno de estos requería una decisión de diseño nueva, solo cerrar huecos entre lo que el
+código decía hacer (los comentarios y docs/03-seguridad.md) y lo que hacía. El de mayor impacto es el
+del log: activa en Fase 0 sin que exista todavía ningún endpoint que reciba datos personales.
+**Descartado por ahora:** apagado ordenado con `SIGTERM`/`server.close()` (Fase 8, cuando exista un
+despliegue real que lo necesite) y redacción recursiva del logger por profundidad arbitraria (la lista
+explícita a nivel raíz + `req.body` cubre los patrones que el código de hoy usa; se amplía cuando Fase 1
+introduzca formas nuevas de loguear).
+**Consecuencia:** cualquier `log.error`/`log.warn` nuevo debe pasar por una forma explícita (como
+`errParaLog` en el manejador), no por el objeto de error completo. Cualquier variable de entorno nueva
+que sea un control de seguridad (como `WEB_URL`) va a `REQUERIDAS`, nunca con default silencioso.
+
 ## 2026-08-28 · Bug: `npm test -w apps/api` no encontraba el `.env` de la raíz
 **Contexto:** primer `npm test` real, con Docker ya corriendo. `config/env.js` moría diciendo que
 faltaban las 8 variables obligatorias, aunque `.env` existía y estaba completo.

@@ -5,8 +5,10 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../../../.env') });
 
 // Sin valor por defecto seguro: si falta alguna, la app no debe arrancar.
+// WEB_URL es la lista blanca de CORS: un default silencioso ahí sería un hueco de seguridad.
 const REQUERIDAS = [
   'NODE_ENV',
+  'WEB_URL',
   'DB_HOST',
   'DB_PORT',
   'DB_NAME',
@@ -21,13 +23,21 @@ if (faltantes.length > 0) {
   throw new Error(`Faltan variables de entorno obligatorias: ${faltantes.join(', ')}`);
 }
 
+const ENTORNOS_VALIDOS = ['development', 'test', 'production'];
+if (!ENTORNOS_VALIDOS.includes(process.env.NODE_ENV)) {
+  throw new Error(`NODE_ENV debe ser uno de ${ENTORNOS_VALIDOS.join(', ')}, no "${process.env.NODE_ENV}"`);
+}
+
 const puerto = Number(process.env.PORT) || 3000;
+const esProduccion = process.env.NODE_ENV === 'production';
 
 const env = {
   nodeEnv: process.env.NODE_ENV,
+  esProduccion,
+  esDesarrollo: process.env.NODE_ENV === 'development',
   puerto,
   apiUrl: process.env.API_URL || `http://localhost:${puerto}`,
-  webUrl: process.env.WEB_URL || 'http://localhost:5173',
+  webUrl: process.env.WEB_URL,
   db: {
     host: process.env.DB_HOST,
     port: Number(process.env.DB_PORT),
@@ -41,7 +51,8 @@ const env = {
     accessTtl: process.env.JWT_ACCESS_TTL || '15m',
     refreshTtl: process.env.JWT_REFRESH_TTL || '7d',
   },
-  bcryptRounds: Number(process.env.BCRYPT_ROUNDS) || 12,
+  // Nunca por debajo de 12 (docs/03-seguridad.md), aunque la variable traiga un valor menor.
+  bcryptRounds: Math.max(12, Number(process.env.BCRYPT_ROUNDS) || 12),
 };
 
 module.exports = env;
