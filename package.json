@@ -1,0 +1,11 @@
+{
+  "name": "@proxi/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cliente web de Proxi",
+  "scripts": {
+    "dev": "node scripts/servidor-dev.js",
+    "test": "node --test"
+  }
+}
