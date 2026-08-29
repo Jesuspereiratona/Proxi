@@ -92,17 +92,28 @@ empresa no responde. **Cumplido el 2026-08-29** — auditado por `auditor-seguri
 graves (ver bitácora).
 
 ## Fase 5 · Indicadores de transparencia
-- [ ] Vista materializada `empresa_indicadores` + recálculo nocturno
-- [ ] Endpoint público del perfil de empresa con indicadores
-- [ ] Umbral mínimo de 3 ofertas cerradas para mostrarlos
-- [ ] Panel de coordinación con el panorama general
+Ver la especificación completa en `specs/03-indicadores-transparencia/`.
+
+- [x] Vista materializada `empresa_indicadores` + recálculo nocturno (`REFRESH ... CONCURRENTLY`,
+      no bloquea lecturas mientras recalcula)
+- [x] Endpoint público del perfil de empresa con indicadores — solo empresas validadas responden
+      (pendiente/rechazada/suspendida dan 404, igual que una que no existe)
+- [x] Umbral mínimo de 3 ofertas cerradas para mostrarlos
+- [x] Panel de coordinación con el panorama general (API únicamente; el panel visual es Fase 6)
+- [x] Extra sobre lo planeado: un segundo umbral por volumen de postulaciones (no solo de ofertas
+      cerradas) para `tasaRespuesta`/`diasPromedioRespuesta` — encontrado por `auditor-seguridad`,
+      ver bitácora
+
+**Listo cuando:** una empresa con historial real muestra sus cuatro indicadores en público, una con
+poco historial no muestra nada que pueda leerse como el trato de un caso puntual, y coordinación ve
+el panorama completo sin ese filtro. **Cumplido el 2026-08-29.**
 
 ## Fase 6 · Cliente web
 
 > **Esta fase todavía no está especificada. No empezar a programarla sin hacer esto primero.**
 > A diferencia de la Fase 3, aquí solo hay una lista de casillas: falta el detalle de comportamiento.
 > Antes de la primera pantalla, usar la skill `nueva-funcionalidad` y escribir:
-> - `specs/03-vitrina-publica/` — qué se ve, cómo se filtra, qué muestra la tarjeta de una oferta,
+> - `specs/04-vitrina-publica/` — qué se ve, cómo se filtra, qué muestra la tarjeta de una oferta,
 >   qué pasa cuando no hay resultados, cómo se comunica "cierra en 3 días" frente a "vencida".
 > - `docs/08-guia-visual.md` — sistema visual mínimo sobre Bootstrap: colores, tipografía y sobre todo
 >   **cómo se ve cada estado**. El estado es el producto: si `publicada`, `cierra pronto` y `cerrada`

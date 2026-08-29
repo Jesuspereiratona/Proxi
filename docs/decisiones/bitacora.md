@@ -17,6 +17,79 @@ Formato:
 
 ---
 
+## 2026-08-29 · Auditoría de seguridad de Fase 5, antes del push
+**Contexto:** fase pequeña frente a Fase 3/4 — una vista materializada de solo lectura y dos
+endpoints de reporte, sin estados nuevos ni escritura. El auditor levantó la base local y ejecutó
+los endpoints con datos reales controlados (no solo leyó el código) para confirmar cada hallazgo
+con la respuesta real del servidor.
+**Arreglado:**
+- **[Medio] El umbral de 3 ofertas cerradas no protegía `tasaRespuesta` ni
+  `diasPromedioRespuesta`, que tienen su propio denominador.** Una empresa con 3 ofertas cerradas
+  (umbral cumplido) y **una sola postulación** mostraba `tasaRespuesta:1` y
+  `diasPromedioRespuesta:"4.2000001157407407"` en el endpoint público, sin sesión — el trato exacto
+  de esa postulación puntual, con precisión de sub-segundo por la falta de redondeo. Es el mismo
+  riesgo que `specs/03-indicadores-transparencia/plan.md` ya invocaba para justificar por qué el
+  panorama de coordinación no es público, pero el propio endpoint público lo reproducía por el lado
+  de las postulaciones. Arreglado con un segundo umbral independiente
+  (`UMBRAL_POSTULACIONES = 5`): la vista ahora calcula dos conteos internos,
+  `postulaciones_terminales` y `postulaciones_con_movimiento` (nunca expuestos), y
+  `indicadores.service.js` solo publica `tasaRespuesta`/`diasPromedioRespuesta` si el conteo
+  correspondiente alcanza el umbral. Las cifras que sí se publican se redondean (2 decimales las
+  tasas, 1 los días): la precisión completa de punto flotante revelaba el denominador exacto.
+- **[Medio-bajo] El endpoint público respondía 200 para cualquier empresa registrada, validada o
+  no.** `obtenerPublico` nunca miraba `estadoValidacion`; una empresa `pendiente`, `rechazada` o
+  `suspendida` —que nunca aparece en la vitrina— sí respondía en este endpoint, permitiendo
+  distinguir por 200-vs-404 qué empresas registradas todavía no son públicas (dato de gestión, no
+  público por diseño). Arreglado: `Empresa.findOne({ where: { id, estadoValidacion: 'validada' },
+  attributes: ['id'] } )` — la condición de validación queda dentro de la misma consulta, y una
+  empresa no validada responde 404, igual que una que no existe.
+- **[Bajo] `Empresa.findByPk` traía la fila completa a memoria para usar solo el id.** Sin
+  filtrar `attributes`, cualquier cambio futuro del tipo `{ ...empresa.toJSON(), ...cifras }`
+  filtraría `rutEmpresa`, `motivoRechazo` o `motivoSuspension` desde el único endpoint sin
+  autenticar de la fase. Cerrado de paso por el `attributes:['id']` del punto anterior.
+- **[Bajo, correctitud] `diasPromedioRespuesta` se servía como string de precisión completa.**
+  `AVG(EXTRACT(EPOCH FROM ...))` es `numeric` en Postgres (a diferencia de las otras dos tasas, ya
+  `double precision`), y node-pg entrega `numeric` como string — el modelo declaraba `DOUBLE`, pero
+  el JSON mandaba `"4.2000001157407407"`. Arreglado con un cast explícito `::double precision` en
+  la vista, igual que ya se hacía para las otras cifras.
+**Pruebas agregadas:** empresa con 3 cerradas y 1 sola postulación (las dos cifras quedan ausentes,
+`tasaCierreDeclarado` no); empresa pendiente/rechazada/suspendida (404); regresión de la lista
+blanca del endpoint público (`ofertasCerradasTotal` nunca presente); regresión del `include` de
+coordinación (`Object.keys(fila.Empresa)` es exactamente `['razonSocial']`); empresa creada después
+del último `REFRESH` (200 con `suficienteHistorial:false`, no error).
+**Confirmado sin cambios:** sin superficie de inyección SQL (la vista y el `REFRESH` no interpolan
+nada, se verificó con grep); el `include` de coordinación sí limita realmente los campos de
+`Empresa`; el manejo de errores de la tarea nocturna no filtra el objeto de error completo ni mata
+el proceso; dos `REFRESH ... CONCURRENTLY` solapados se serializan en Postgres sin corromper nada
+(no puede pasar hoy con una sola instancia y una tarea diaria, pero se revisó igual).
+
+## 2026-08-29 · Fase 5 (Indicadores de transparencia): decisiones y bugs
+**Contexto:** primera fase puramente de lectura — sin escritura, sin estados, sin roles nuevos.
+**Decisiones:**
+- **`UMBRAL_POSTULACIONES = 5`**, agregado tras la auditoría (ver arriba): protege
+  `tasaRespuesta`/`diasPromedioRespuesta` con el mismo espíritu que `UMBRAL_OFERTAS_CERRADAS = 3`
+  protege las otras dos cifras — ambos son constantes del módulo, no variables de entorno, porque
+  son reglas de negocio fijas de la spec, no configuración por ambiente.
+- **`dias_promedio_respuesta` se calcula sin una columna de rol en `postulacion_eventos`.** Los
+  cuatro estados que puede alcanzar una postulación por acción de la empresa
+  (`en_revision`/`entrevista`/`seleccionada`/`no_seleccionada`) solo son alcanzables por el actor
+  `'empresa'` según `services/postulaciones/estados.js` — así que "el primer evento con uno de esos
+  `estado_nuevo`" ya identifica sin ambigüedad "el primer movimiento de la empresa", sin necesitar
+  guardar quién disparó cada evento más allá de lo que Fase 4 ya guarda.
+- **Cifras redondeadas antes de publicarse, nunca en punto flotante crudo.** Ver la entrada de
+  auditoría arriba: no es solo estética, la precisión completa filtraba el denominador exacto y, en
+  el caso de los días, el instante del evento.
+**Bugs encontrados al probar:**
+- **`ofertasPublicadas12m` fallaba con `column "ofertas_publicadas12m" does not exist`.** Mismo bug
+  que `rutUltimos4` en `Estudiante.js` (Fase 2): `underscored:true` no inserta un guion antes de un
+  dígito, así que el mapeo automático buscaba `ofertas_publicadas12m` en vez de la columna real
+  `ofertas_publicadas_12m`. Arreglado con `field: 'ofertas_publicadas_12m'` explícito en el modelo,
+  mismo patrón que la vez anterior.
+- **Los conteos de la vista (`COUNT(*)`) llegaban como string, no como número**, porque `COUNT(*)`
+  es `bigint` en Postgres y node-pg lo devuelve como string para no perder precisión. Arreglado con
+  `::integer` explícito en la vista — a esta escala (ofertas de una facultad) alcanza de sobra, y
+  evita que el JSON mande `"0"` en vez de `0`.
+
 ## 2026-08-29 · Auditoría de seguridad de Fase 4, antes del push
 **Contexto:** primera fase donde el sistema le sirve un dato personal completo (el CV) a un
 tercero — la empresa — y no solo al dueño o a coordinación. `auditor-seguridad` no encontró

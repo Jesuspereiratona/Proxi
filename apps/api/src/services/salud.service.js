@@ -2,6 +2,7 @@ const sequelize = require('../config/database');
 const env = require('../config/env');
 const cerrarOfertasVencidas = require('../tareas/cerrarOfertasVencidas');
 const marcarSinRespuesta = require('../tareas/marcarSinRespuesta');
+const recalcularIndicadores = require('../tareas/recalcularIndicadores');
 
 const INICIO = Date.now();
 const CACHE_MS = 5000; // /salud es pública y sin auth: sin esto, el límite de tasa (300/15min)
@@ -34,6 +35,7 @@ const verificarSalud = async () => {
     tareas: {
       cerrarOfertasVencidas: estadoPublico(cerrarOfertasVencidas),
       marcarSinRespuesta: estadoPublico(marcarSinRespuesta),
+      recalcularIndicadores: estadoPublico(recalcularIndicadores),
     },
   };
   cache = { momento: Date.now(), resultado };

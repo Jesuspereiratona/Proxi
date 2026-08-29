@@ -3,6 +3,7 @@ const env = require('./config/env');
 const logger = require('./config/logger');
 const cerrarOfertasVencidas = require('./tareas/cerrarOfertasVencidas');
 const marcarSinRespuesta = require('./tareas/marcarSinRespuesta');
+const recalcularIndicadores = require('./tareas/recalcularIndicadores');
 
 process.on('unhandledRejection', (error) => {
   logger.fatal(error, 'unhandledRejection');
@@ -19,3 +20,4 @@ app.listen(env.puerto, () => {
 
 cerrarOfertasVencidas.programar();
 marcarSinRespuesta.programar();
+recalcularIndicadores.programar();

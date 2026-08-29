@@ -11,6 +11,7 @@ const Archivo = require('./Archivo');
 const Postulacion = require('./Postulacion');
 const PostulacionEvento = require('./PostulacionEvento');
 const AuditoriaAcceso = require('./AuditoriaAcceso');
+const EmpresaIndicador = require('./EmpresaIndicador');
 
 Usuario.hasMany(Sesion, { foreignKey: 'usuarioId' });
 Sesion.belongsTo(Usuario, { foreignKey: 'usuarioId' });
@@ -51,6 +52,9 @@ PostulacionEvento.belongsTo(Postulacion, { foreignKey: 'postulacionId' });
 Usuario.hasMany(AuditoriaAcceso, { foreignKey: 'usuarioId' });
 AuditoriaAcceso.belongsTo(Usuario, { foreignKey: 'usuarioId' });
 
+Empresa.hasOne(EmpresaIndicador, { foreignKey: 'empresaId' });
+EmpresaIndicador.belongsTo(Empresa, { foreignKey: 'empresaId' });
+
 module.exports = {
   sequelize,
   Usuario,
@@ -65,4 +69,5 @@ module.exports = {
   Postulacion,
   PostulacionEvento,
   AuditoriaAcceso,
+  EmpresaIndicador,
 };

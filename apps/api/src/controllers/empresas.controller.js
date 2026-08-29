@@ -1,5 +1,6 @@
 const asyncHandler = require('../utils/async-handler');
 const empresasService = require('../services/empresas/empresas.service');
+const indicadoresService = require('../services/empresas/indicadores.service');
 
 const crearPerfil = asyncHandler(async (req, res) => {
   const perfil = await empresasService.crearPerfil(req.usuario.id, req.body);
@@ -36,4 +37,24 @@ const suspender = asyncHandler(async (req, res) => {
   res.json(empresa);
 });
 
-module.exports = { crearPerfil, obtenerPropio, actualizarPropio, listarPendientes, validar, rechazar, suspender };
+const obtenerIndicadores = asyncHandler(async (req, res) => {
+  const indicadores = await indicadoresService.obtenerPublico(req.params.id);
+  res.json(indicadores);
+});
+
+const listarIndicadores = asyncHandler(async (req, res) => {
+  const indicadores = await indicadoresService.listarTodos();
+  res.json(indicadores);
+});
+
+module.exports = {
+  crearPerfil,
+  obtenerPropio,
+  actualizarPropio,
+  listarPendientes,
+  validar,
+  rechazar,
+  suspender,
+  obtenerIndicadores,
+  listarIndicadores,
+};

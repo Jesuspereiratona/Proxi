@@ -20,6 +20,8 @@ router.patch(
 );
 
 router.get('/pendientes', autenticar, autorizar('coordinacion'), controller.listarPendientes);
+router.get('/indicadores', autenticar, autorizar('coordinacion'), controller.listarIndicadores);
+router.get('/:id/indicadores', validarParams(idParamEsquema), controller.obtenerIndicadores);
 router.post(
   '/:id/validacion',
   autenticar,
