@@ -1,0 +1,70 @@
+/* Tokens reales del sitio actual de la UAH (docs/08-guia-visual.md), no una paleta inventada. */
+:root {
+  --uah-naranja: #ef6427;
+  --uah-verde: #75fb7e;
+  --uah-marengo-1: #111111;
+  --uah-marengo-2: #222222;
+  --uah-gris-1: #666666;
+  --uah-gris-2: #3c3c3c;
+  --uah-gris-claro: #cccccc;
+  --uah-blanco-2: #f3f2ec;
+  --uah-blanco-3: #f0efe9;
+
+  --bs-primary: var(--uah-naranja);
+  --bs-primary-rgb: 239, 100, 39;
+  --bs-body-color: var(--uah-marengo-1);
+  --bs-body-font-family: 'Rubik', sans-serif;
+  --bs-border-radius: 0.6rem;
+  --bs-border-radius-lg: 1rem;
+  --bs-border-radius-pill: 50rem;
+  --bs-link-color: var(--uah-marengo-1);
+  --bs-link-color-rgb: 17, 17, 17;
+  --bs-link-hover-color: var(--uah-naranja);
+  --bs-link-hover-color-rgb: 239, 100, 39;
+}
+
+body {
+  background-color: var(--uah-blanco-2);
+}
+
+h1, h2, .titular {
+  font-family: 'Frank Ruhl Libre', serif;
+}
+
+/* Nunca texto blanco sobre el naranja de marca: el contraste da 3.2:1, insuficiente para texto
+   normal (docs/08-guia-visual.md, sección Accesibilidad). */
+.btn-primary {
+  color: var(--uah-marengo-1);
+}
+.btn-primary:hover, .btn-primary:focus {
+  color: var(--uah-marengo-1);
+}
+
+.card-oferta {
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  border: none;
+}
+
+/* Insignia de estado de vigencia de una oferta: el color y el texto van siempre juntos, nunca solo
+   uno de los dos (accesibilidad para daltonismo, docs/08-guia-visual.md). */
+.estado-oferta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.3em 0.8em;
+  border-radius: var(--bs-border-radius-pill);
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--uah-marengo-1);
+}
+.estado-oferta.normal {
+  background: var(--uah-naranja);
+}
+.estado-oferta.urgente {
+  background: var(--uah-naranja);
+  border: 2px solid var(--uah-marengo-1);
+}
+.estado-oferta.vencida {
+  background: var(--uah-gris-claro);
+  color: var(--uah-gris-2);
+}

@@ -220,11 +220,16 @@ const cerrarVencidas = async (ahora = new Date()) => {
   return { cerradas, fallidas };
 };
 
-// La llama empresas.service.suspender() al suspender una empresa, dentro de la MISMA transacción
-// (transaction se pasa explícito): si el cierre en cascada falla a mitad de camino, la suspensión
-// también se revierte, en vez de dejar la empresa suspendida con ofertas publicadas colgando
-// (auditoría de Fase 3). Publicadas se cierran con "cancelada"; en_revision vuelve a borrador —
-// no debe poder aprobarse una oferta de una empresa que ya no está validada.
+// Dos llamadores, mismo motivo: cualquier vez que una empresa deja de estar "validada" con
+// ofertas todavía activas, esas ofertas no pueden seguir publicadas o en cola de revisión.
+// empresas.service.suspender() la llama al suspender; empresas.service.actualizarPropio() la
+// llama cuando un cambio de identidad revierte a "pendiente" (auditoría de Fase 6 — sin esto, la
+// vitrina pública seguía mostrando la razón social nueva de una oferta que nadie había vuelto a
+// revisar). Los dos pasan la MISMA transacción (transaction se pasa explícito): si el cierre en
+// cascada falla a mitad de camino, el cambio de estado de la empresa también se revierte, en vez
+// de dejarla sin validar con ofertas publicadas colgando (auditoría de Fase 3). Publicadas se
+// cierran con "cancelada"; en_revision vuelve a borrador — no debe poder aprobarse una oferta de
+// una empresa que ya no está validada.
 const cerrarPorSuspension = async (empresaId, transaction) => {
   const afectables = await Oferta.findAll({
     where: { empresaId, estado: ['publicada', 'en_revision'] },
@@ -257,6 +262,7 @@ const listarPublicas = async ({ area, modalidad, comuna, remunerada, pagina = 1,
 
   const { rows, count } = await Oferta.findAndCountAll({
     where,
+    include: [{ model: Empresa, attributes: ['razonSocial'] }],
     limit: limite,
     offset: (pagina - 1) * limite,
     order: [['fechaCierre', 'ASC']],
@@ -289,7 +295,10 @@ const obtenerDetalle = async (ofertaId, usuarioActual) => {
   const condiciones = [{ estado: 'publicada' }];
   if (empresaId) condiciones.push({ empresaId });
 
-  const oferta = await Oferta.findOne({ where: { id: ofertaId, [Op.or]: condiciones } });
+  const oferta = await Oferta.findOne({
+    where: { id: ofertaId, [Op.or]: condiciones },
+    include: [{ model: Empresa, attributes: ['razonSocial'] }],
+  });
   if (!oferta) throw new NoEncontrado(OFERTA_NO_ENCONTRADA, 'Esa oferta no existe.');
   return oferta;
 };

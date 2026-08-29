@@ -37,6 +37,11 @@ const suspender = asyncHandler(async (req, res) => {
   res.json(empresa);
 });
 
+const obtenerPerfilPublico = asyncHandler(async (req, res) => {
+  const empresa = await empresasService.obtenerPerfilPublico(req.params.id);
+  res.json(empresa);
+});
+
 const obtenerIndicadores = asyncHandler(async (req, res) => {
   const indicadores = await indicadoresService.obtenerPublico(req.params.id);
   res.json(indicadores);
@@ -55,6 +60,7 @@ module.exports = {
   validar,
   rechazar,
   suspender,
+  obtenerPerfilPublico,
   obtenerIndicadores,
   listarIndicadores,
 };

@@ -17,6 +17,106 @@ Formato:
 
 ---
 
+## 2026-08-29 · Auditoría de seguridad de Fase 6 (vitrina pública), antes del push
+**Contexto:** primera vez que el proyecto tiene código de cliente y primera vez que un dato
+escrito por un usuario (`sitioWeb` de una empresa) termina en un `href` que otra persona puede
+hacer clic. `auditor-seguridad` encontró 1 hallazgo grave, 1 medio-alto y 5 bajos — el primero
+verificado de punta a punta contra la API real, no solo en el código.
+**Arreglado:**
+- **[Grave] XSS almacenado vía `sitioWeb` con URI `javascript:`.** El esquema de
+  `empresas.schemas.js` aceptaba cualquier string (`z.string().min(1)`), el servicio lo guardaba
+  tal cual, `obtenerPerfilPublico` lo publicaba sin autenticar, y `empresa.js` lo asignaba directo
+  a `enlaceSitio.href`. Peor: `sitioWeb` está en `CAMPOS_EDITABLES` pero no en `CAMPOS_IDENTIDAD`,
+  así que una empresa ya validada podía cambiarlo sin volver a pasar por revisión de coordinación —
+  el control humano quedaba completamente eludido. Cadena de explotación verificada real: empresa
+  validada → `PATCH /empresas/perfil {"sitioWeb":"javascript:fetch(...)"}` → 200, sigue validada →
+  `GET /empresas/:id` (público) lo expone → cualquiera que hace clic en "Sitio web" ejecuta el
+  script en el origen de Proxi. Arreglado en dos capas: el esquema exige `z.string().url()` **más**
+  un `refine` que confirma el protocolo (`http:`/`https:` únicamente) — `z.string().url()` sola no
+  alcanza, `new URL('javascript:...')` es una URL válida para Zod; y `empresa.js` revalida el
+  protocolo antes de fijar el `href`, defensa en profundidad en el cliente aunque el servidor ya
+  corte el problema de raíz.
+- **[Medio-alto] La vitrina podía mostrar la razón social de una empresa que dejó de estar
+  validada.** El `include` de `Empresa` que se agregó a `listarPublicas`/`obtenerDetalle` no
+  filtraba por `estadoValidacion`. Combinado con que `actualizarPropio()` revierte una empresa
+  `validada → pendiente` al cambiar razón social/RUT pero **nunca tocaba sus ofertas ya
+  publicadas** (a diferencia de `suspender()`, que sí cierra en cascada desde Fase 3), una empresa
+  podía cambiar su identidad y la vitrina seguía mostrando el nombre nuevo — sin revisar — pegado a
+  una oferta vigente. Arreglado por el lado del dominio, no con un parche en la consulta:
+  `actualizarPropio()` ahora llama a la misma `ofertasService.cerrarPorSuspension()` que ya usa
+  `suspender()`, dentro de la misma transacción, cuando la transición es `validada → pendiente`.
+  Ver la decisión de renombrar (o no) esa función más abajo.
+- **[Bajo] `servidor-dev.js`: el chequeo de path traversal usaba `startsWith(RAIZ)` sin
+  separador**, así que un hermano como `apps/web-backup` habría pasado el filtro por compartir el
+  prefijo de texto. Arreglado con `path.relative` + chequeo de `..`/ruta absoluta, más
+  `fs.realpath` antes de servir (para que un symlink dentro de `apps/web` no lo esquive) y
+  `X-Content-Type-Options: nosniff` en cada respuesta.
+- **[Bajo] `servidor-dev.js` escuchaba en todas las interfaces.** Con `npm run dev` corriendo en
+  la red de la universidad, el sitio de desarrollo quedaba alcanzable por cualquiera en esa red.
+  Arreglado: `servidor.listen(PUERTO, '127.0.0.1', ...)`.
+- **[Bajo] El `id` de la URL entraba sin `encodeURIComponent` a la ruta de la API.** Inofensivo hoy
+  (el cliente no manda credenciales), pero es el hábito que hay que tener antes de que una fase
+  futura le agregue sesión a este mismo `cliente.js`. Arreglado en `api/ofertas.js` y
+  `api/empresas.js`.
+- **[Bajo] Sin debounce, escribir en el filtro de área disparaba una petición por tecla** contra el
+  límite de tasa global compartido por IP — en la red de la universidad, un puñado de personas
+  usando la vitrina normalmente agotaba el límite para todos. Arreglado con debounce de 300ms en
+  `vitrina.js`, más un contador de petición para descartar una respuesta lenta que llegue después
+  de una más nueva (evita que una respuesta fuera de orden pise el filtro que la persona ya cambió).
+- **[Observación] CDN sin `integrity`.** Se agregó `integrity`/`crossorigin` al `<link>` de
+  Bootstrap en las tres páginas, con el hash sha384 calculado sobre el artefacto real de la versión
+  fijada (5.3.3) — no un valor de un tercero sin verificar. Google Fonts se deja sin `integrity` a
+  propósito: su respuesta varía por user-agent, es la práctica estándar no fijarla.
+**Registrado sin cambiar código:** la CSP de `helmet()` (Fase 0) protege solo a `apps/api`; las
+páginas de `apps/web` no tienen CSP propia todavía, y una CSP ahí habría bloqueado igual el `href`
+`javascript:` del hallazgo grave. Ya estaba anotado como pendiente de Fase 8 en `config.js`; queda
+confirmado que es un requisito de despliegue, no un detalle.
+**Pruebas agregadas:** `sitioWeb` con `javascript:`/`data:` → 422, en creación y en edición; cambiar
+razón social de una empresa validada con una oferta publicada → la oferta deja de estar
+`publicada` y desaparece del listado público.
+
+## 2026-08-29 · Fase 6 (primera entrega): vitrina pública — decisiones
+**Contexto:** primera fase con `apps/web`, y primer código de cliente del proyecto. Antes de
+programar, se investigó el sitio real de la UAH (`docs/08-guia-visual.md`) para no construir un
+frontend con la estética genérica por defecto de un LLM, y se especificó `specs/04-vitrina-publica/`
+antes de escribir HTML, como exige la nota de la Fase 6 en `docs/06-roadmap.md`.
+**Decisiones:**
+- **`apps/web` usa módulos ES nativos del navegador (`<script type="module">`, `import`/`export`),
+  no CommonJS.** `CLAUDE.md` dice "CommonJS, no mezclar con ESM" pensando en `apps/api` (Node): un
+  navegador no puede ejecutar `require()` sin un bundler, y el proyecto no quiere paso de build.
+  Son dos runtimes que solo se hablan por HTTP (`docs/01-arquitectura.md`), así que no hay mezcla
+  real — decisión consultada con el usuario antes de escribir el primer archivo. `apps/api` sigue
+  en CommonJS puro, sin cambios.
+- **Paleta y tipografía tomadas del sitio real de la UAH** (`uahurtado.cl`, tema `UAH-Futura24`),
+  no inventadas: naranja `#ef6427` como color de marca, verde `#75fb7e` como acento, Rubik + Frank
+  Ruhl Libre. Se verificó el contraste WCAG de cada combinación real que se usa (texto sobre
+  naranja da 3.2:1 — insuficiente para texto normal, solo texto grande/UI), en vez de asumir que
+  cualquier color de marca sirve para cualquier texto. Detalle completo en `docs/08-guia-visual.md`.
+- **`GET /api/v1/empresas/:id` (perfil público) se agregó recién ahora**, no en Fase 2 ni Fase 5:
+  ninguna fase anterior necesitaba mostrarle a un tercero la razón social/comuna/sitio web de una
+  empresa — Fase 5 solo expone indicadores. Mismo patrón de lista blanca y de umbral de validación
+  que `indicadoresService.obtenerPublico`. De paso, `ofertas.service.js listarPublicas`/
+  `obtenerDetalle` agregan un `include` de `Empresa` (`razonSocial` solamente) para que la vitrina
+  no necesite una segunda llamada por cada tarjeta.
+- **Servidor de desarrollo propio (`scripts/servidor-dev.js`), sin dependencia nueva.** Un
+  servidor estático de estas características son ~40 líneas de `http`/`fs` de Node; no se pidió
+  aprobación para instalar `http-server`/`serve` porque no hacía falta. Nunca se usa en producción
+  (Fase 8 decide cómo se sirve `apps/web` en el hosting real).
+**Limitación reconocida, resuelta más tarde el mismo día:** en el momento de escribir esto no se
+había encontrado herramienta de navegador. Se verificó todo lo que se pudo sin una (200 sirviendo
+las tres páginas, respuestas reales de la API calzando con lo que cada página espera, 10 pruebas de
+funciones puras) pero el render visual y el foco quedaron sin confirmar. Se resolvió después: el
+Chrome ya instalado en la máquina soporta modo headless nativo (`--headless=new --screenshot`),
+sin ninguna dependencia nueva — no hacía falta Playwright ni `chromium-cli`. Con eso se tomaron
+capturas reales de las tres páginas contra la API real, y se usó `getComputedStyle` (vía una página
+de prueba descartable, no parte del repo) para confirmar en números, no a ojo, que la insignia
+"normal" y la "urgente" sí tienen bordes distintos — la primera captura las hacía ver casi iguales,
+y antes de asumir que eso era un bug se verificó el valor real de `border-width` de cada una.
+De paso se encontró y corrigió un bug real de esa primera pasada visual: los enlaces se veían en
+el azul por defecto de Bootstrap en vez del naranja/marengo de la paleta de la UAH (`--bs-link-color`
+no estaba sobreescrito en `uah-theme.css`). Detalle completo de la auditoría de seguridad que salió
+de esta misma verificación, en la entrada de arriba.
+
 ## 2026-08-29 · Auditoría de seguridad de Fase 5, antes del push
 **Contexto:** fase pequeña frente a Fase 3/4 — una vista materializada de solo lectura y dos
 endpoints de reporte, sin estados nuevos ni escritura. El auditor levantó la base local y ejecutó

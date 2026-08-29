@@ -126,13 +126,23 @@ el panorama completo sin ese filtro. **Cumplido el 2026-08-29.**
 > Se dejó para después a propósito: especificar pantallas antes de que exista la API es dibujar sobre
 > datos que todavía no existen. Pero "después" no es "nunca".
 
-- [ ] Vitrina pública responsiva con Bootstrap: tarjetas con "cierra en N días"
-- [ ] Detalle de oferta + perfil público de empresa con indicadores
-- [ ] Cliente HTTP central (`assets/js/api/`) con manejo de 401/403/422/429/5xx
+Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
+
+- [x] Vitrina pública responsiva con Bootstrap: tarjetas con "cierra en N días"
+- [x] Detalle de oferta + perfil público de empresa con indicadores
+- [x] Cliente HTTP central (`assets/js/api/`) — maneja 4xx/5xx/error de red con mensajes en
+      español; 401/403 no aplican todavía porque la vitrina es pública y sin sesión
 - [ ] Panel estudiante: perfil, CV, mis postulaciones con línea de tiempo de estados
 - [ ] Panel empresa: mis ofertas, publicar, revisar postulantes, cerrar con motivo
 - [ ] Panel coordinación: validar empresas, moderar ofertas, ver indicadores
-- [ ] Accesibilidad básica: etiquetas, foco visible, contraste, navegación por teclado
+- [ ] Accesibilidad básica en el resto de la fase (pendiente de los paneles); en la vitrina pública
+      ya está verificada con capturas reales de Chrome headless: labels, `aria-live`, foco visible
+      por defecto de Bootstrap sin overrides, orden de tabulación natural del DOM
+- [x] Extra sobre lo planeado: `GET /api/v1/empresas/:id` (perfil público de empresa), que
+      ninguna fase anterior había expuesto
+- [x] Extra sobre lo planeado: auditoría de seguridad de la primera entrega encontró y corrigió un
+      XSS almacenado y un hueco de revisión humana (ver bitácora) — la vitrina fue la primera vez
+      que el proyecto expuso un `href` construido con datos de un tercero
 
 ## Fase 7 · Datos personales
 - [ ] `GET /mi-cuenta/datos` (portabilidad en JSON)

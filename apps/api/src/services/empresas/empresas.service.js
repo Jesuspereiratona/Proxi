@@ -66,6 +66,7 @@ const actualizarPropio = async (usuarioId, datos) => {
 
   if (Object.keys(cambios).length === 0) return empresa;
 
+  let vuelveAPendienteDesdeValidada = false;
   if (empresa.estadoValidacion === 'rechazada' && puedeTransicionar('rechazada', 'pendiente', 'empresa')) {
     cambios.estadoValidacion = 'pendiente';
     cambios.motivoRechazo = null;
@@ -75,10 +76,23 @@ const actualizarPropio = async (usuarioId, datos) => {
       cambios.estadoValidacion = 'pendiente';
       cambios.validadaPorUsuarioId = null;
       cambios.validadaAt = null;
+      vuelveAPendienteDesdeValidada = true;
     }
   }
 
-  await empresa.update(cambios);
+  if (vuelveAPendienteDesdeValidada) {
+    // Mismo problema que resolvió suspender(), encontrado recién en la auditoría de Fase 6: sin
+    // esto, una empresa validada que cambia de identidad volvía a "pendiente" pero sus ofertas
+    // seguían publicadas con el nombre nuevo, sin que nadie de coordinación lo hubiera revisado —
+    // la vitrina pública terminaba mostrando una razón social que nunca pasó por validación.
+    const ofertasService = require('../ofertas/ofertas.service');
+    await sequelize.transaction(async (t) => {
+      await empresa.update(cambios, { transaction: t });
+      await ofertasService.cerrarPorSuspension(empresa.id, t);
+    });
+  } else {
+    await empresa.update(cambios);
+  }
   return obtenerPropio(usuarioId);
 };
 
@@ -86,6 +100,19 @@ const listarPendientes = () => Empresa.findAll({ where: { estadoValidacion: 'pen
 
 const obtenerPorId = async (id) => {
   const empresa = await Empresa.findByPk(id);
+  if (!empresa) throw new NoEncontrado(PERFIL_NO_ENCONTRADO, 'Esa empresa no existe.');
+  return empresa;
+};
+
+// Perfil público (Fase 6): solo una empresa validada es visible, con una lista blanca de campos —
+// nunca rutEmpresa, contactoNombre/Cargo ni los motivos de rechazo/suspensión, que son de gestión
+// interna. Misma condición dentro del where que indicadoresService.obtenerPublico (Fase 5): una
+// empresa pendiente/rechazada/suspendida responde igual que una que no existe.
+const obtenerPerfilPublico = async (id) => {
+  const empresa = await Empresa.findOne({
+    where: { id, estadoValidacion: 'validada' },
+    attributes: ['id', 'razonSocial', 'giro', 'sitioWeb', 'comuna'],
+  });
   if (!empresa) throw new NoEncontrado(PERFIL_NO_ENCONTRADO, 'Esa empresa no existe.');
   return empresa;
 };
@@ -139,4 +166,13 @@ const suspender = async (id, motivoSuspension) => {
   });
 };
 
-module.exports = { crearPerfil, obtenerPropio, actualizarPropio, listarPendientes, validar, rechazar, suspender };
+module.exports = {
+  crearPerfil,
+  obtenerPropio,
+  actualizarPropio,
+  listarPendientes,
+  obtenerPerfilPublico,
+  validar,
+  rechazar,
+  suspender,
+};

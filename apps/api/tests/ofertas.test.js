@@ -439,6 +439,20 @@ describe('listado público', () => {
     assert.equal(listado.body.ofertas.length, 1);
     assert.equal(listado.body.ofertas[0].estado, 'publicada');
   });
+
+  test('el listado y el detalle incluyen la razón social de la empresa (Fase 6, vitrina)', async () => {
+    const empresa = await crearEmpresaValidada();
+    const creada = await request(app).post('/api/v1/ofertas').set('Authorization', `Bearer ${empresa.accessToken}`).send(datosOferta());
+    await request(app).post(`/api/v1/ofertas/${creada.body.id}/revision`).set('Authorization', `Bearer ${empresa.accessToken}`);
+    await request(app).post(`/api/v1/ofertas/${creada.body.id}/aprobacion`).set('Authorization', `Bearer ${empresa.coordinacion.accessToken}`);
+
+    const detalle = await request(app).get(`/api/v1/ofertas/${creada.body.id}`);
+    assert.equal(detalle.body.Empresa.razonSocial, 'Empresa de prueba');
+
+    const listado = await request(app).get('/api/v1/ofertas');
+    const fila = listado.body.ofertas.find((o) => o.id === creada.body.id);
+    assert.equal(fila.Empresa.razonSocial, 'Empresa de prueba');
+  });
 });
 
 describe('rastro de auditoría en oferta_eventos', () => {
