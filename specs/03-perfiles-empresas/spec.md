@@ -59,21 +59,21 @@ cuándo) o rechaza (exige motivo). Una empresa rechazada puede editar su perfil 
 | Dos empresas distintas usan el mismo `rut_empresa` | 409 (constraint único) |
 
 ## Criterios de aceptación
-- [ ] Dado un estudiante autenticado sin perfil, cuando crea uno con datos válidos, entonces responde 201 y el RUT no aparece en texto plano en la respuesta
-- [ ] Dado un estudiante con perfil, cuando intenta crear otro, entonces responde 409 `PERFIL_YA_EXISTE`
-- [ ] Dado un RUT con dígito verificador inválido, cuando se envía en la creación, entonces responde 422 `RUT_INVALIDO`
-- [ ] Dados dos estudiantes con perfil, cuando el estudiante A consulta `GET /estudiantes/perfil`, entonces solo ve sus propios datos, nunca los de B
-- [ ] Dado un `PATCH` con un `usuarioId` distinto al propio en el cuerpo, cuando se procesa, entonces el perfil modificado sigue siendo el del usuario autenticado
+- [x] Dado un estudiante autenticado sin perfil, cuando crea uno con datos válidos, entonces responde 201 y el RUT no aparece en texto plano en la respuesta
+- [x] Dado un estudiante con perfil, cuando intenta crear otro, entonces responde 409 `PERFIL_YA_EXISTE`
+- [x] Dado un RUT con dígito verificador inválido, cuando se envía en la creación, entonces responde 422 `RUT_INVALIDO`
+- [x] Dados dos estudiantes con perfil, cuando el estudiante A consulta `GET /estudiantes/perfil`, entonces solo ve sus propios datos, nunca los de B
+- [x] Dado un `PATCH` con un `usuarioId` distinto al propio en el cuerpo, cuando se procesa, entonces el perfil modificado sigue siendo el del usuario autenticado
 - [ ] Dada una empresa autenticada sin perfil, cuando crea uno con datos válidos, entonces responde 201 con `estadoValidacion = pendiente`
-- [ ] Dado un `rut_empresa` ya usado por otra empresa, cuando se intenta registrar, entonces responde 409
+- [x] Dado un `rut_empresa` ya usado por otra empresa, cuando se intenta registrar, entonces responde 409
 - [ ] Dada una empresa `pendiente`, cuando coordinación la valida, entonces queda `validada` con `validadaPorUsuarioId` y `validadaAt`
 - [ ] Dada una empresa `pendiente`, cuando coordinación la rechaza sin motivo, entonces responde 422
 - [ ] Dada una empresa `pendiente`, cuando coordinación la rechaza con motivo, entonces queda `rechazada` con el motivo guardado
 - [ ] Dada una empresa `rechazada`, cuando edita su propio perfil, entonces queda `pendiente` de nuevo
 - [ ] Dada una empresa `validada`, cuando coordinación intenta validarla otra vez, entonces responde 409 `EMPRESA_TRANSICION_INVALIDA`
-- [ ] Dado un estudiante autenticado, cuando llama a la cola de empresas pendientes de coordinación, entonces responde 403
+- [x] Dado un estudiante autenticado, cuando llama a la cola de empresas pendientes de coordinación, entonces responde 403
 - [ ] Dada una empresa `pendiente` o `rechazada`, cuando se llama `verificarValidada`, entonces lanza `EMPRESA_NO_VALIDADA`
-- [ ] Dado el RUT cifrado de un estudiante, cuando coordinación lo consulta por la vía autorizada, entonces se descifra correctamente; cuando lo intenta cualquier otro rol, responde 403
+- [x] Dado el RUT cifrado de un estudiante, cuando coordinación lo consulta por la vía autorizada, entonces se descifra correctamente; cuando lo intenta cualquier otro rol, responde 403
 
 ## Fuera de alcance
 Subida de CV (`cv_archivo_id` queda `NULL`, Fase 4), perfil público de empresa e indicadores de

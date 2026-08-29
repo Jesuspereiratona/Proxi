@@ -6,7 +6,10 @@ const { sequelize, Usuario, Sesion, TokenVerificacion } = require('../src/models
 const tokensService = require('../src/services/auth/tokens');
 const passwords = require('../src/services/auth/passwords');
 
-const DOMINIO_PRUEBA = 'test.uahurtado.cl';
+// Dominio propio de este archivo: node --test corre los archivos en paralelo contra la misma base,
+// así que un dominio compartido con otro archivo hace que el after() de uno borre a mitad de prueba
+// los usuarios que el otro todavía está usando (pasó con perfiles.test.js, ver la bitácora).
+const DOMINIO_PRUEBA = 'auth.uahurtado.test';
 const correoUnico = (prefijo) => `${prefijo}.${Date.now()}.${Math.random().toString(36).slice(2)}@${DOMINIO_PRUEBA}`;
 const CLAVE = 'claveDePrueba123456';
 

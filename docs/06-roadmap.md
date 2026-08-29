@@ -41,11 +41,13 @@ contra HTTP real; se probó con pruebas unitarias del middleware. La primera rut
 prueba de acceso cruzado a nivel de integración.
 
 ## Fase 2 · Perfiles y validación de empresas
-- [ ] Migraciones de `estudiantes` y `empresas`
-- [ ] Perfil de estudiante (RUT cifrado) y de empresa
-- [ ] Flujo de validación: `pendiente` → `validada` / `rechazada` por coordinación
-- [ ] Bloqueo: empresa no validada no puede publicar
-- [ ] Pruebas de acceso cruzado entre perfiles
+- [x] Migraciones de `estudiantes` y `empresas`
+- [x] Perfil de estudiante (RUT cifrado con pgcrypto) y de empresa
+- [x] Flujo de validación: `pendiente` → `validada` / `rechazada` por coordinación (con reenvío
+      automático a `pendiente` al editar un perfil rechazado)
+- [x] Bloqueo: `services/empresas/reglas.js verificarValidada` listo para que Fase 3 lo use antes de
+      publicar — todavía no hay ninguna ruta que la llame
+- [x] Pruebas de acceso cruzado entre perfiles (73 pruebas, 0 fallas)
 
 ## Fase 3 · Ofertas y ciclo de vida ← el corazón del proyecto
 Ver la especificación completa en `specs/01-ciclo-de-vida-oferta/`.
@@ -109,6 +111,14 @@ Ver la especificación completa en `specs/01-ciclo-de-vida-oferta/`.
 - [ ] `DELETE /mi-cuenta` (borra CV, anonimiza postulaciones)
 - [ ] Tarea de retención: aviso y eliminación tras inactividad
 - [ ] Política de privacidad versionada y visible
+- [ ] Términos de uso de la plataforma
+- [ ] DPA (acuerdo de procesamiento de datos) con el proveedor de hosting
+
+> **Plantillas disponibles como punto de partida** (fuera del repo, en `proyectos/Skills/Legal y
+> Cumplimiento.zip`): `politica-privacidad`, `lista-cumplimiento-gdpr`, `acuerdo-procesamiento-datos`
+> y `terminos-servicio`. Son genéricas y están escritas para marco GDPR/EE.UU., no para la Ley 21.719
+> chilena: sirven como esqueleto, **nunca como texto final**. Si la plataforma opera con datos reales
+> de estudiantes, estos documentos los revisa alguien con formación legal de la facultad.
 - [ ] Procedimiento de brecha escrito y probado en seco
 
 ## Fase 8 · Despliegue

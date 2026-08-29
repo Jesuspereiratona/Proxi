@@ -31,7 +31,7 @@ cp .env.example .env      # completar secretos
 docker compose up -d db   # PostgreSQL local
 npm install
 npm run db:migrate
-npm run db:seed
+npm run db:seed           # datos de prueba inventados; se niega a correr si NODE_ENV=production
 npm run dev -w apps/api   # http://localhost:3000
 npm run dev -w apps/web   # http://localhost:5173
 ```

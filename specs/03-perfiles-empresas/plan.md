@@ -41,7 +41,12 @@ como en Fase 1 — no se reescribe lo que ya funciona.
 | GET | `/api/v1/empresas/pendientes` | coordinacion | Cola de empresas `pendiente` |
 | POST | `/api/v1/empresas/:id/validacion` | coordinacion | `pendiente` → `validada` |
 | POST | `/api/v1/empresas/:id/rechazo` | coordinacion | `pendiente` → `rechazada`, motivo obligatorio |
+| POST | `/api/v1/empresas/:id/suspension` | coordinacion | `validada` → `suspendida`, motivo obligatorio — agregada en la auditoría, ver más abajo |
 | GET | `/api/v1/estudiantes/:id/rut` | coordinacion | RUT descifrado, uso puntual y auditable |
+
+`:id` en las rutas de `empresas` es el `id` propio de la tabla `empresas`; en `estudiantes/:id/rut` es
+el `id` propio de `estudiantes` (no el `usuario_id`) — es la clave con la que Fase 4 va a referenciar
+estudiantes desde `postulaciones.estudiante_id`, así que conviene ser consistente desde ahora.
 
 Todas las rutas de "perfil propio" ignoran cualquier `usuarioId`/`id` que venga en el cuerpo: el
 `usuarioId` sale siempre de `req.usuario.id`, nunca del payload del cliente.
@@ -93,8 +98,16 @@ const TRANSICIONES = {
   un chequeo de pertenencia.
 - `GET /estudiantes/pendientes` → en realidad no existe (los estudiantes no se validan); la única
   cola es `GET /empresas/pendientes`, con `autorizar('coordinacion')`.
-- `RUT_CIFRADO_KEY` nunca se registra en logs (ya cubierto por el patrón `*_KEY`/`*Secret` si se
-  nombra así; se revisa explícito en `config/logger.js`).
+- `RUT_CIFRADO_KEY` y el RUT en claro nunca tocan la cadena de SQL: `repositories/estudiantes.repository.js`
+  usa `bind`, no `replacements` — con `replacements` Sequelize interpola el valor en el texto del SQL
+  antes de enviarlo, así que quedaba expuesto en el log de consultas y en el log de errores de
+  Postgres ante cualquier fallo. Detalle de por qué en la bitácora (auditoría de Fase 2).
+- Una empresa `validada` que cambia `razonSocial` o `rutEmpresa` vuelve a `pendiente` automáticamente
+  (agregado en la auditoría: sin esto, una empresa podía cambiarse la identidad sin que coordinación
+  volviera a revisarla). `POST /empresas/:id/suspension` cubre el caso de un fraude descubierto
+  después de validar, que antes no tenía remedio salvo editar la base a mano.
+- Los seeds de demostración no corren si `NODE_ENV=production`, y la contraseña de las cuentas de
+  prueba se genera al azar en cada corrida — nunca un literal en el repo.
 
 ## Pruebas
 Unitarias: `utils/rut.js` (dígito verificador con casos válidos e inválidos conocidos),

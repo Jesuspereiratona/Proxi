@@ -16,6 +16,7 @@ const REQUERIDAS = [
   'DB_PASSWORD',
   'JWT_ACCESS_SECRET',
   'JWT_REFRESH_SECRET',
+  'RUT_CIFRADO_KEY',
 ];
 
 const faltantes = REQUERIDAS.filter((clave) => !process.env[clave]);
@@ -26,6 +27,11 @@ if (faltantes.length > 0) {
 const ENTORNOS_VALIDOS = ['development', 'test', 'production'];
 if (!ENTORNOS_VALIDOS.includes(process.env.NODE_ENV)) {
   throw new Error(`NODE_ENV debe ser uno de ${ENTORNOS_VALIDOS.join(', ')}, no "${process.env.NODE_ENV}"`);
+}
+
+// Una clave corta ("1234") arrancaría igual y cifraría todos los RUT con una passphrase débil.
+if (process.env.RUT_CIFRADO_KEY.length < 32) {
+  throw new Error('RUT_CIFRADO_KEY debe tener al menos 32 caracteres.');
 }
 
 const puerto = Number(process.env.PORT) || 3000;
@@ -61,6 +67,7 @@ const env = {
     password: process.env.SMTP_PASSWORD || '',
   },
   mailFrom: process.env.MAIL_FROM || 'Proxi <no-responder@proxi.cl>',
+  rutCifradoKey: process.env.RUT_CIFRADO_KEY,
 };
 
 module.exports = env;

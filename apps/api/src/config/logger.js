@@ -16,9 +16,14 @@ const NOMBRES_SENSIBLES = [
   'accessToken',
   'refreshToken',
   'rut',
+  'rutUltimos4',
+  'rutCifradoKey',
   'email',
   'correo',
   'cv',
+  'telefono',
+  'nombres',
+  'apellidos',
 ];
 const CAMPOS_CENSURADOS = [
   'req.headers.authorization',

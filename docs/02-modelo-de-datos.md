@@ -71,6 +71,7 @@ Un solo mecanismo para dos flujos: verificar correo y restablecer clave. Se dist
 | validada_por_usuario_id | bigint FK NULL | quién de coordinación la validó |
 | validada_at | timestamptz NULL | |
 | motivo_rechazo | text NULL | |
+| motivo_suspension | text NULL | agregada en la auditoría de Fase 2: distinta de `motivo_rechazo`, para `validada → suspendida` |
 
 **Regla:** una empresa en estado distinto de `validada` no puede publicar. Puede escribir borradores.
 

@@ -17,6 +17,93 @@ Formato:
 
 ---
 
+## 2026-08-29 · Auditoría de seguridad de Fase 2, antes del push
+**Contexto:** primera vez que Proxi guarda datos personales reales (RUT cifrado, teléfono, carrera).
+`auditor-seguridad` revisó todo el código de perfiles y validación de empresas antes de comitear.
+Encontró 2 hallazgos graves, 1 alto y 2 medios, todos reales y activos, no hipotéticos.
+**Arreglado:**
+- **[Grave] El RUT en claro y `RUT_CIFRADO_KEY` completa se filtraban al log.**
+  `repositories/estudiantes.repository.js` usaba `replacements` en vez de `bind`. En Sequelize,
+  `replacements` se interpolan en el texto del SQL *antes* de enviarlo (pensado para nombres de
+  tabla/columna, nunca para un valor secreto); `bind` viaja como parámetro real del protocolo y
+  nunca toca la cadena de la sentencia. Con `replacements`, cualquier `POST/PATCH /estudiantes/perfil`
+  dejaba el RUT y la clave de cifrado completos en el log de consultas de desarrollo, y Postgres los
+  habría registrado igual en producción ante cualquier error de la sentencia (ej. una violación de
+  unicidad). Cambiado a `bind` con placeholders `$1, $2...` y `logging: false` explícito por
+  consulta como segunda barrera. Verificado a mano: con el logging global forzado a capturar todo,
+  las tres consultas del repositorio no escriben nada.
+- **[Grave] El seed traía una contraseña fija y publicada para una cuenta `coordinacion`.**
+  Sin guarda de entorno, ese seed podía correr contra producción (`config-cli.js` mapea
+  `development`/`test`/`production` a la misma configuración) y cualquiera que leyera el repo público
+  tenía la clave de una cuenta con acceso a `GET /estudiantes/:id/rut`. Arreglado: `up()` lanza si
+  `env.esProduccion`, y la clave se genera con `crypto.randomBytes` en cada corrida (se imprime una
+  vez, nunca queda en el archivo). Los cuerpos de RUT de los seeds también se movieron al rango
+  `99.xxx.xxx`, que el Registro Civil no asigna a personas naturales (antes usaban un rango que sí
+  corresponde a RUT real y vigente, aunque el número exacto fuera inventado).
+- **[Alta] Una empresa `validada` podía cambiar `razonSocial`/`rutEmpresa` sin volver a revisión, y
+  no había forma de revocar una validación.** Se agregó: cambiar un campo de identidad
+  (`razonSocial` o `rutEmpresa`) en una empresa `validada` la manda de vuelta a `pendiente`
+  automáticamente (mismo mecanismo que ya existía para `rechazada`); y `POST /empresas/:id/suspension`
+  (`validada → suspendida`, motivo obligatorio, columna nueva `motivo_suspension` vía migración) para
+  cuando un fraude se descubre después de validar. Reactivar una empresa suspendida queda fuera de
+  alcance a propósito: no hay flujo definido todavía.
+- **[Media] Un `PATCH` con cuerpo vacío reencolaba una empresa `rechazada` sin ningún cambio real.**
+  `actualizarPropio` calculaba los cambios de estado *antes* de comprobar si había cambios de datos
+  reales, así que `{}` bastaba para poner `motivoRechazo` en `null` y volver a `pendiente`. Arreglado:
+  el reseteo de estado solo se dispara si `cambios` tiene al menos un campo real (y se compara contra
+  el valor actual, no solo contra `undefined`).
+- **[Media] `GET /estudiantes/:id/rut` no dejaba ningún rastro de quién lo consultó.** Se agregó un
+  `req.log.info` con el id de coordinación y el id del estudiante (nunca el RUT), como sustituto
+  mínimo hasta que exista `auditoria_accesos` de verdad en Fase 4. Se agregó también un límite de
+  tasa propio de esa ruta (30/15min): el global no alcanza para frenar una cuenta comprometida
+  recorriendo ids en secuencia.
+- Observaciones menores cerradas de paso: `:id` de ruta sin validar devolvía 500 con un id no
+  numérico (ahora 422 vía `validar-params.middleware.js`); `RUT_CIFRADO_KEY` se exigía pero no se
+  validaba su largo (ahora mínimo 32 caracteres); `telefono`/`nombres`/`apellidos`/`rutUltimos4`/
+  `rutCifradoKey` se agregaron a `CAMPOS_CENSURADOS` del logger, preventivo; el orden del spread en
+  `estudiantes.service.crearPerfil` se invirtió (`{...datos, usuarioId}`) como defensa en profundidad
+  aunque el esquema zod ya descartaba un `usuarioId` forjado.
+**Bug encontrado arreglando lo anterior, no por la auditoría:** el `FK` de
+`empresas.validada_por_usuario_id` no tenía `ON DELETE`, así que el `after()` de las pruebas de
+integración —que borra usuarios de prueba por dominio de correo— fallaba completo (Postgres revierte
+toda la sentencia) en cuanto alguna empresa de esa corrida había sido validada por un usuario
+`coordinacion` de la misma tanda. El resultado: 70 usuarios de pruebas anteriores quedaron
+acumulados en la base sin que ningún test lo reportara como fallo, hasta que un `generarRutValido()`
+basado en un contador (en vez de aleatorio) repitió un RUT de una corrida vieja y chocó. Arreglado en
+dos capas: la migración de `empresas` ahora usa `onDelete: 'SET NULL'` en esa FK, y el generador de
+RUT de las pruebas pasó de un contador determinístico a un valor aleatorio (así una corrida nunca
+depende de que la anterior se haya limpiado bien).
+**Consecuencia:** cualquier FK opcional (`allowNull: true`) hacia `usuarios` necesita `onDelete`
+explícito (`SET NULL` normalmente), no dejarlo en el default de Postgres (`NO ACTION`, que revienta
+un `DELETE` masivo entero). Y ningún generador de datos de prueba debería depender de un contador que
+reinicia por corrida si existe la posibilidad de que la corrida anterior no haya limpiado del todo.
+
+## 2026-08-29 · Fase 2 (Perfiles y validación de empresas): decisiones y bugs
+**Contexto:** `specs/03-perfiles-empresas/` ya anotaba las decisiones grandes (RUT vía pgcrypto,
+`repositories/` aparece por primera vez, `RUT_CIFRADO_KEY` obligatoria, reenvío automático
+`rechazada → pendiente`). Esto es lo que salió durante la implementación, no en el plan.
+**Decisión — `:id` en las rutas de coordinación es el id de `estudiantes`/`empresas`, no el de
+`usuarios`.** Ninguna ruta de "perfil propio" recibe `:id` (siempre `req.usuario.id` del JWT), pero
+`GET /estudiantes/:id/rut` sí, y ese `:id` es el id propio de la tabla `estudiantes` — la misma clave
+que `postulaciones.estudiante_id` va a usar en Fase 4. Se eligió así para no tener dos formas
+distintas de referenciar un estudiante en el modelo de datos.
+**Bug 1: `rut_ultimos_4` no se leía.** El mapeo automático `underscored: true` de Sequelize convierte
+`rutUltimos4` a `rut_ultimos4` (sin guion antes del dígito), pero la columna real es `rut_ultimos_4`.
+Toda consulta a `estudiantes` fallaba con `column "rut_ultimos4" does not exist`. Se arregla con
+`field: 'rut_ultimos_4'` explícito en el modelo. Se revisó el resto de los modelos por el mismo patrón
+(ningún otro campo termina en dígito) y no hay más casos.
+**Bug 2: dos archivos de prueba compartían dominio de correo y se pisaban entre sí.**
+`apps/api/tests/auth.test.js` y `apps/api/tests/perfiles.test.js` usaban el mismo
+`DOMINIO_PRUEBA = 'test.uahurtado.cl'`. `node --test` corre los archivos en paralelo contra la misma
+base de Postgres (no hay aislamiento por archivo), así que el `after()` de un archivo —que borra por
+`email LIKE '%@dominio'`— podía borrar usuarios que el otro archivo todavía estaba usando a mitad de
+una prueba. Se vio como un `SequelizeInstanceError: Instance could not be reloaded` en un test de
+`auth.test.js` que no tocaba nada de Fase 2. Arreglo: cada archivo de pruebas usa su propio dominio
+(`auth.uahurtado.test`, `perfiles.uahurtado.test`), con un comentario explícito para que el próximo
+archivo de pruebas no repita el error.
+**Consecuencia:** cualquier archivo de pruebas de integración nuevo necesita su propio dominio de
+correo único. Es la regla a seguir de ahora en adelante, no solo una corrección puntual.
+
 ## 2026-08-29 · Fase 1 (Identidad): decisiones de la implementación
 **Contexto:** `specs/02-identidad/` quedó aprobada con varias decisiones ya anotadas ahí (tabla
 `tokens_verificacion`, columna `intentos_fallidos_desde`, Ethereal para correo). Durante la

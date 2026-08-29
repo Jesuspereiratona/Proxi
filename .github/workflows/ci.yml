@@ -31,6 +31,7 @@ jobs:
       DB_PASSWORD: proxi_test
       JWT_ACCESS_SECRET: secreto_de_pruebas_no_usar_en_produccion
       JWT_REFRESH_SECRET: otro_secreto_de_pruebas
+      RUT_CIFRADO_KEY: clave_de_pruebas_para_pgcrypto_no_usar_en_produccion
 
     steps:
       - uses: actions/checkout@v4
