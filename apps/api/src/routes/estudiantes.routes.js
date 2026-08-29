@@ -5,6 +5,7 @@ const validarParams = require('../middlewares/validar-params.middleware');
 const autenticar = require('../middlewares/autenticar.middleware');
 const autorizar = require('../middlewares/autorizar.middleware');
 const limitarTasaRut = require('../middlewares/limitar-tasa-rut.middleware');
+const subirCv = require('../middlewares/subir-cv.middleware');
 const esquemas = require('../schemas/estudiantes.schemas');
 const { idParamEsquema } = require('../schemas/comun.schemas');
 
@@ -19,6 +20,7 @@ router.patch(
   validar(esquemas.actualizarPerfilEsquema),
   controller.actualizarPropio,
 );
+router.post('/mi-cv', autenticar, autorizar('estudiante'), subirCv, controller.subirCv);
 router.get(
   '/:id/rut',
   autenticar,

@@ -17,6 +17,90 @@ Formato:
 
 ---
 
+## 2026-08-29 · Auditoría de seguridad de Fase 4, antes del push
+**Contexto:** primera fase donde el sistema le sirve un dato personal completo (el CV) a un
+tercero — la empresa — y no solo al dueño o a coordinación. `auditor-seguridad` no encontró
+hallazgos graves: confirmó explícitamente que el control de acceso al CV (el punto de mayor riesgo
+señalado de antemano) está bien resuelto, incluido el detalle de que el `include`+`where` de
+Sequelize genera un INNER JOIN real dentro de la consulta, no un post-filtro en memoria. Encontró 3
+medios y 2 bajos, todos reales.
+**Arreglado:**
+- **[Medio] Una empresa suspendida seguía pudiendo descargar CVs y mover postulaciones de sus
+  ofertas.** La suspensión (Fase 2/3) corta la publicación de ofertas nuevas, pero
+  `archivos.service.puedeDescargar` y `postulaciones.service.listarDeOferta`/`empresaTransita`
+  nunca miraban `estadoValidacion`. Una empresa marcada por fraude conservaba acceso a los CV
+  completos de todos los que alguna vez le postularon. Arreglado: `Empresa.findOne` para la rama
+  empresa de la descarga ahora exige `estadoValidacion:'validada'` dentro del mismo `where`, y
+  `listarDeOferta`/`empresaTransita` llaman a `empresasReglas.verificarValidada()` — la misma regla
+  que ya usa `ofertas.service.js` desde Fase 3.
+- **[Medio] `subir-cv.middleware.js` solo acotaba `fileSize`.** Sin límite de `fields`/`fieldSize`,
+  una petición autenticada con miles de campos de texto agotaba la memoria del proceso antes de
+  llegar siquiera al límite de tamaño del archivo. Arreglado con
+  `files:1, fields:0, fieldNameSize:64, fieldSize:1024, fieldNestingDepth:1,
+  fieldArrayIndexLimit:0`. `parts:1` se probó primero y se descartó: busboy lo cuenta con un margen
+  que rechazaba incluso una subida de un solo archivo válida — bug real, ver la entrada de abajo.
+- **[Medio-bajo] Los CV se escribían en disco con permisos por defecto del sistema** (típicamente
+  0644/0755), legibles por cualquier otra cuenta de la máquina. Arreglado:
+  `archivos.service.subirCv` crea el directorio con `mode:0o700` y el archivo con `mode:0o600`.
+- **[Bajo] La comprobación de dueño en `archivos.service.descargar` (rama estudiante) era un
+  `findByPk` seguido de un `if`.** Funcionaba porque Sequelize devuelve BIGINT como string, igual
+  que el `sub` del JWT, pero es una comparación `===` a través de una frontera de tipos, frágil
+  ante un cambio futuro en cualquiera de los dos lados. Se movió a
+  `Archivo.findOne({ where: { id, propietarioUsuarioId } })`, la misma consulta que ya usa
+  `obtenerPropiaDeEstudiante` en `postulaciones.service.js`.
+- **[Bajo] Faltaba la prueba de acceso cruzado obligatoria de `GET /postulaciones/:id`**
+  (`docs/03-seguridad.md`). Estaban las de `/revision`, `/retiro`, `/oferta/:id` y las de descarga,
+  pero no la del propio `obtenerDetalle`, la única ruta con `:id` de la fase con tres ramas de
+  visibilidad distintas según el rol. Agregada: estudiante contra postulación ajena, empresa contra
+  postulación de una oferta ajena.
+**Registrado sin cambiar código:**
+- `postular()` responde 404 `OFERTA_NO_ENCONTRADA` si el id no existe y 422 `OFERTA_NO_VIGENTE` si
+  existe pero no está publicada, lo que deja inferir la existencia de una oferta ajena en borrador
+  o en revisión recorriendo ids. Se deja así a propósito: es el criterio de aceptación aprobado en
+  `specs/02-postulaciones/spec.md`, y el costo es bajo (solo confirma que un id existe, nunca su
+  contenido).
+- `GET /salud` (pública, sin autenticación) exponía `cantidadCerradas`/`cantidadMarcadas` de las
+  dos tareas nocturnas. Se recortó a `{ultimaEjecucionAt, huboError}` para ambas — afecta también a
+  `cerrarOfertasVencidas` de Fase 3, no solo a la tarea nueva: el volumen de actividad nocturna es
+  dato de gestión, no algo para publicar sin auth.
+- `nombre_original` del CV se guardaba sin tope de longitud; se acotó a 255 caracteres al subir.
+- Si el archivo ya no está en disco al momento de descargar, ahora se corta antes de escribir en
+  `auditoria_accesos` (evita una fila de "descarga" que nunca ocurrió) y antes de que la ruta
+  absoluta llegue al log de errores no operacionales.
+
+## 2026-08-29 · Fase 4 (Postulaciones): decisiones y bugs
+**Contexto:** cuarta fase, primera que combina un dato personal completo (el CV) con acceso de un
+tercero — la empresa — a ese dato, no solo del dueño o de coordinación.
+**Decisiones:**
+- **`multer` como dependencia nueva**, consultada y aprobada explícitamente antes de instalarla
+  (regla dura de `CLAUDE.md`: ninguna dependencia nueva sin preguntar). Modo `memoryStorage()`: el
+  buffer se valida (número mágico `%PDF-`) antes de tocar disco, nunca se confía en `mimetype` ni
+  en el nombre que manda el cliente.
+- **El CV nunca se borra al reemplazarlo.** Subir un CV nuevo crea una fila y un archivo nuevos y
+  solo actualiza `estudiante.cv_archivo_id`; el archivo anterior queda huérfano pero intacto. Es la
+  forma más simple de cumplir "el CV se congela" (`docs/02-modelo-de-datos.md`): las postulaciones
+  ya enviadas siguen apuntando al archivo original sin ningún mecanismo adicional. El costo
+  (archivos huérfanos acumulándose) se resuelve con la política de retención de Fase 7, no antes.
+- **`postulaciones.cv_archivo_id` usa `onDelete:'RESTRICT'`**, no `SET NULL` como el resto de las
+  FK nullable del proyecto: acá la columna es `NOT NULL` (una postulación sin CV no tiene sentido),
+  así que la base debe impedir borrar un archivo todavía referenciado en vez de dejar la fila en un
+  estado inconsistente.
+- **Un endpoint por transición de postulación** (`/revision`, `/entrevista`, `/seleccion`,
+  `/rechazo`, `/retiro`), no un `PATCH` genérico de estado — mismo patrón que `services/ofertas/*`
+  de Fase 3 y mismo motivo: cada ruta declara su propio esquema de entrada y su propio permiso.
+- **La FK de `estudiantes.cv_archivo_id` se completó en una migración aparte**
+  (`20260829160100-agregar-fk-cv-archivo-estudiantes`) en vez de dentro de la de `crear-archivos`:
+  la migración de Fase 2 ya había dejado la columna sin referencia a propósito, con un comentario
+  que decía literalmente "se agrega la referencia en Fase 4".
+**Bugs encontrados al probar:**
+- **`multer` con `limits.parts:1` rechazaba una subida de un solo archivo válida**
+  (`LIMIT_PART_COUNT`), aunque `files:1` + `fields:0` ya cubrían la misma protección contra
+  agotamiento de memoria. Se aisló con un script mínimo que probó cada límite por separado contra
+  el mismo request real; se descartó `parts` y se dejaron los demás.
+- **ESLint no tenía `Buffer` en sus globals** (`eslint.config.js`): ningún archivo anterior lo
+  usaba por nombre directamente. Se agregó al listado manual de globals, mismo patrón que las
+  demás incorporaciones puntuales desde Fase 0.
+
 ## 2026-08-29 · Auditoría de seguridad de Fase 3, antes del push
 **Contexto:** el "corazón del proyecto" — ciclo de vida de ofertas. `auditor-seguridad` encontró 2
 hallazgos graves y 2 altos, todos reales, más varios medios y bajos. A diferencia de Fase 0/1/2, esta

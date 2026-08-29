@@ -1,5 +1,5 @@
 const { AppError, ErrorValidacion } = require('../errors');
-const { ERROR_INTERNO, JSON_INVALIDO } = require('@proxi/errores');
+const { ERROR_INTERNO, JSON_INVALIDO, ARCHIVO_INVALIDO } = require('@proxi/errores');
 const logger = require('../config/logger');
 
 const manejadorErrores = (errorOriginal, req, res, next) => {
@@ -9,9 +9,14 @@ const manejadorErrores = (errorOriginal, req, res, next) => {
   // `body`). Si se registrara tal cual, cualquier JSON mal formado filtraría al log lo que sea
   // que el cliente haya mandado sin necesidad de ningún endpoint que use esos datos todavía.
   const esJsonInvalido = errorOriginal instanceof SyntaxError && errorOriginal.status === 400 && 'body' in errorOriginal;
+  // multer (subida de CV) lanza su propio MulterError -- tamaño excedido, campo inesperado, etc.
+  // Sin este caso caía como 500 en vez de un 422 que el cliente pueda mostrar.
+  const esErrorMulter = errorOriginal?.name === 'MulterError';
   const error = esJsonInvalido
     ? new ErrorValidacion(JSON_INVALIDO, 'El cuerpo de la petición no es JSON válido.')
-    : errorOriginal;
+    : esErrorMulter
+      ? new ErrorValidacion(ARCHIVO_INVALIDO, 'El archivo no cumple los requisitos de tamaño o formato.')
+      : errorOriginal;
 
   const esAppError = error instanceof AppError;
   const status = esAppError ? error.httpStatus : 500;

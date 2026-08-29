@@ -7,6 +7,10 @@ const Estudiante = require('./Estudiante');
 const Empresa = require('./Empresa');
 const Oferta = require('./Oferta');
 const OfertaEvento = require('./OfertaEvento');
+const Archivo = require('./Archivo');
+const Postulacion = require('./Postulacion');
+const PostulacionEvento = require('./PostulacionEvento');
+const AuditoriaAcceso = require('./AuditoriaAcceso');
 
 Usuario.hasMany(Sesion, { foreignKey: 'usuarioId' });
 Sesion.belongsTo(Usuario, { foreignKey: 'usuarioId' });
@@ -29,6 +33,24 @@ Oferta.belongsTo(Empresa, { foreignKey: 'empresaId' });
 Oferta.hasMany(OfertaEvento, { foreignKey: 'ofertaId' });
 OfertaEvento.belongsTo(Oferta, { foreignKey: 'ofertaId' });
 
+Usuario.hasMany(Archivo, { foreignKey: 'propietarioUsuarioId' });
+Archivo.belongsTo(Usuario, { foreignKey: 'propietarioUsuarioId' });
+
+Estudiante.hasMany(Postulacion, { foreignKey: 'estudianteId' });
+Postulacion.belongsTo(Estudiante, { foreignKey: 'estudianteId' });
+
+Oferta.hasMany(Postulacion, { foreignKey: 'ofertaId' });
+Postulacion.belongsTo(Oferta, { foreignKey: 'ofertaId' });
+
+Archivo.hasMany(Postulacion, { foreignKey: 'cvArchivoId' });
+Postulacion.belongsTo(Archivo, { foreignKey: 'cvArchivoId' });
+
+Postulacion.hasMany(PostulacionEvento, { foreignKey: 'postulacionId' });
+PostulacionEvento.belongsTo(Postulacion, { foreignKey: 'postulacionId' });
+
+Usuario.hasMany(AuditoriaAcceso, { foreignKey: 'usuarioId' });
+AuditoriaAcceso.belongsTo(Usuario, { foreignKey: 'usuarioId' });
+
 module.exports = {
   sequelize,
   Usuario,
@@ -39,4 +61,8 @@ module.exports = {
   Empresa,
   Oferta,
   OfertaEvento,
+  Archivo,
+  Postulacion,
+  PostulacionEvento,
+  AuditoriaAcceso,
 };

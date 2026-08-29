@@ -70,6 +70,11 @@ const env = {
   rutCifradoKey: process.env.RUT_CIFRADO_KEY,
   // Regla de negocio, no un secreto: default igual al de .env.example si no está seteada.
   plazoDeclararCierreDias: Number(process.env.PLAZO_DECLARAR_CIERRE_DIAS) || 7,
+  slaRespuestaDias: Number(process.env.SLA_RESPUESTA_DIAS) || 15,
+  // Relativo a la raíz del monorepo, igual que la ruta del .env de arriba: fuera de apps/web y
+  // fuera de cualquier carpeta que la API sirva como estática (hoy no sirve ninguna).
+  uploadDir: path.resolve(__dirname, '../../../../', process.env.UPLOAD_DIR || 'almacenamiento/cv'),
+  uploadMaxBytes: Number(process.env.UPLOAD_MAX_BYTES) || 5 * 1024 * 1024,
 };
 
 module.exports = env;

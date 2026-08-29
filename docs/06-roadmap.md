@@ -69,14 +69,27 @@ Ver la especificación completa en `specs/01-ciclo-de-vida-oferta/`.
 **Cumplido el 2026-08-29** — garantizado por `CHECK` de base, no solo por código (ver bitácora).
 
 ## Fase 4 · Postulaciones
-- [ ] Migraciones de `postulaciones`, `postulacion_eventos`, `archivos`
-- [ ] Subida de CV con validación de contenido real, nombre UUID, fuera del webroot
-- [ ] Descarga de CV por endpoint autorizado + registro en `auditoria_accesos`
-- [ ] Postular (única por oferta, congela el CV, solo a ofertas vigentes)
-- [ ] Cambio de estado por la empresa, con eventos
-- [ ] Retiro por el estudiante
-- [ ] Tarea `marcarSinRespuesta` según SLA
-- [ ] Pruebas: duplicada, oferta vencida, acceso cruzado a CV ajeno, SLA
+Ver la especificación completa en `specs/02-postulaciones/`.
+
+- [x] Migraciones de `postulaciones`, `postulacion_eventos`, `archivos` — y `auditoria_accesos`,
+      que estaba pendiente desde la Fase 2 sin caso de uso real hasta ahora
+- [x] Subida de CV con validación de contenido real (número mágico `%PDF-`), nombre UUID, fuera del
+      webroot (la API no sirve ningún directorio estático)
+- [x] Descarga de CV por endpoint autorizado + registro en `auditoria_accesos`
+- [x] Postular (única por oferta — `UNIQUE` de base, no solo de código —, congela el CV, solo a
+      ofertas vigentes)
+- [x] Cambio de estado por la empresa, con eventos (revisión, entrevista, selección, rechazo)
+- [x] Retiro por el estudiante
+- [x] Tarea `marcarSinRespuesta` según `SLA_RESPUESTA_DIAS`, idempotente, expuesta en `GET /salud`
+- [x] Pruebas: duplicada (incluida en paralelo), oferta vencida, acceso cruzado a CV ajeno, SLA
+      (215 pruebas nuevas, 378 en total, 0 fallas)
+- [x] Extra sobre lo planeado: se conectó `estudiantes.controller.js obtenerRut` (Fase 2) a
+      `auditoria_accesos`, que hasta ahora solo dejaba un rastro en el log
+
+**Listo cuando:** ningún estudiante puede ver la postulación o el CV de otro, ninguna empresa puede
+ver los de un estudiante que no le postuló, y ninguna postulación queda sin resolución si la
+empresa no responde. **Cumplido el 2026-08-29** — auditado por `auditor-seguridad`, sin hallazgos
+graves (ver bitácora).
 
 ## Fase 5 · Indicadores de transparencia
 - [ ] Vista materializada `empresa_indicadores` + recálculo nocturno
@@ -89,7 +102,7 @@ Ver la especificación completa en `specs/01-ciclo-de-vida-oferta/`.
 > **Esta fase todavía no está especificada. No empezar a programarla sin hacer esto primero.**
 > A diferencia de la Fase 3, aquí solo hay una lista de casillas: falta el detalle de comportamiento.
 > Antes de la primera pantalla, usar la skill `nueva-funcionalidad` y escribir:
-> - `specs/02-vitrina-publica/` — qué se ve, cómo se filtra, qué muestra la tarjeta de una oferta,
+> - `specs/03-vitrina-publica/` — qué se ve, cómo se filtra, qué muestra la tarjeta de una oferta,
 >   qué pasa cuando no hay resultados, cómo se comunica "cierra en 3 días" frente a "vencida".
 > - `docs/08-guia-visual.md` — sistema visual mínimo sobre Bootstrap: colores, tipografía y sobre todo
 >   **cómo se ve cada estado**. El estado es el producto: si `publicada`, `cierra pronto` y `cerrada`
