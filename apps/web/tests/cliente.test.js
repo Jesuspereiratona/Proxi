@@ -1,10 +1,11 @@
 import { test, describe, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { obtener, ErrorApi, mensajeParaCodigo } from '../assets/js/api/cliente.js';
+import { obtener, obtenerAutenticado, enviar, fijarToken, limpiarToken, ErrorApi, mensajeParaCodigo } from '../assets/js/api/cliente.js';
 
 const fetchOriginal = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = fetchOriginal;
+  limpiarToken(); // el token vive en una variable de módulo: sin esto, un test deja sesión puesta para el siguiente
 });
 
 const respuestaFalsa = (status, cuerpo) => ({
@@ -61,5 +62,103 @@ describe('obtener', () => {
         return true;
       },
     );
+  });
+});
+
+describe('sesión: token en memoria, nunca en localStorage/sessionStorage', () => {
+  test('obtenerAutenticado manda el token fijado en el header Authorization', async () => {
+    fijarToken('token-de-prueba');
+    let encabezados;
+    globalThis.fetch = async (url, opciones) => {
+      encabezados = opciones.headers;
+      return respuestaFalsa(200, { ok: true });
+    };
+    await obtenerAutenticado('/estudiantes/perfil');
+    assert.equal(encabezados.Authorization, 'Bearer token-de-prueba');
+  });
+
+  test('sin token fijado, no manda header Authorization', async () => {
+    let encabezados;
+    globalThis.fetch = async (url, opciones) => {
+      encabezados = opciones.headers;
+      return respuestaFalsa(200, {});
+    };
+    await obtenerAutenticado('/estudiantes/perfil');
+    assert.equal(encabezados.Authorization, undefined);
+  });
+
+  test('un 401 en una petición autenticada intenta refrescar una vez y reintenta con el token nuevo', async () => {
+    fijarToken('token-vencido');
+    let intentos = 0;
+    globalThis.fetch = async (url) => {
+      const ruta = url instanceof URL ? url.pathname : url;
+      if (ruta.endsWith('/auth/refrescar')) return respuestaFalsa(200, { accessToken: 'token-nuevo' });
+      intentos += 1;
+      if (intentos === 1) return respuestaFalsa(401, { error: { codigo: 'AUTH_TOKEN_EXPIRADO' } });
+      return respuestaFalsa(200, { ok: true });
+    };
+    const resultado = await obtenerAutenticado('/estudiantes/perfil');
+    assert.deepEqual(resultado, { ok: true });
+    assert.equal(intentos, 2);
+  });
+
+  test('dos peticiones autenticadas en paralelo con el token vencido disparan un solo refresco (auditoría de sesión web)', async () => {
+    // El backend rota el token de refresco (Fase 1): dos refrescos en paralelo con la misma
+    // cookie se leen como reuso y revocan TODAS las sesiones del usuario. Sin serializar,
+    // "refrescos" daría 2 acá.
+    fijarToken('token-vencido');
+    let refrescos = 0;
+    const intentosPorRuta = {};
+    globalThis.fetch = async (url) => {
+      const ruta = url instanceof URL ? url.pathname : url;
+      if (ruta.endsWith('/auth/refrescar')) {
+        refrescos += 1;
+        return respuestaFalsa(200, { accessToken: 'token-nuevo' });
+      }
+      intentosPorRuta[ruta] = (intentosPorRuta[ruta] || 0) + 1;
+      if (intentosPorRuta[ruta] === 1) return respuestaFalsa(401, { error: { codigo: 'AUTH_TOKEN_EXPIRADO' } });
+      return respuestaFalsa(200, { ok: ruta });
+    };
+
+    const [a, b] = await Promise.all([obtenerAutenticado('/a'), obtenerAutenticado('/b')]);
+    assert.deepEqual(a, { ok: '/api/v1/a' });
+    assert.deepEqual(b, { ok: '/api/v1/b' });
+    assert.equal(refrescos, 1);
+  });
+
+  test('si el refresco también falla, se rinde con el error de sesión traducido', async () => {
+    fijarToken('token-vencido');
+    globalThis.fetch = async (url) => {
+      const ruta = url instanceof URL ? url.pathname : url;
+      if (ruta.endsWith('/auth/refrescar')) return respuestaFalsa(401, {});
+      return respuestaFalsa(401, { error: { codigo: 'AUTH_TOKEN_EXPIRADO' } });
+    };
+    await assert.rejects(
+      () => obtenerAutenticado('/estudiantes/perfil'),
+      (error) => {
+        assert.equal(error.codigo, 'AUTH_TOKEN_EXPIRADO');
+        assert.equal(error.message, 'Tu sesión expiró. Inicia sesión de nuevo.');
+        return true;
+      },
+    );
+  });
+
+  test('enviar manda el cuerpo como JSON con Content-Type', async () => {
+    let cuerpoEnviado;
+    let encabezados;
+    globalThis.fetch = async (url, opciones) => {
+      cuerpoEnviado = opciones.body;
+      encabezados = opciones.headers;
+      return respuestaFalsa(200, { accessToken: 'x', usuario: {} });
+    };
+    await enviar('POST', '/auth/login', { email: 'a@b.test', clave: 'x' }, { credenciales: true });
+    assert.equal(encabezados['Content-Type'], 'application/json');
+    assert.deepEqual(JSON.parse(cuerpoEnviado), { email: 'a@b.test', clave: 'x' });
+  });
+
+  test('una respuesta 204 se resuelve como null, no intenta parsear JSON vacío', async () => {
+    globalThis.fetch = async () => ({ ok: true, status: 204 });
+    const resultado = await enviar('POST', '/auth/logout', undefined, { autenticado: true, credenciales: true });
+    assert.equal(resultado, null);
   });
 });

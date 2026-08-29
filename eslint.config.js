@@ -41,6 +41,7 @@ module.exports = [
         process: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
+        navigator: 'readonly',
       },
     },
     rules: {

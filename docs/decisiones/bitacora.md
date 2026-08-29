@@ -17,6 +17,64 @@ Formato:
 
 ---
 
+## 2026-08-29 · Sesión web (login) — decisión y auditoría de seguridad, antes del push
+**Contexto:** primera vez que `apps/web` maneja credenciales, cookies y un token de acceso — hasta
+ahora todo era público y sin sesión. Es la base que necesitan los tres paneles de Fase 6
+(estudiante, empresa, coordinación), así que se construyó antes que cualquiera de los tres.
+**Decisión:** el token de acceso vive **solo en una variable de módulo en memoria**, nunca en
+`localStorage` ni `sessionStorage` (`docs/03-seguridad.md`). Como `apps/web` es multipágina (cada
+HTML es una carga nueva, no una SPA con router), esa variable se pierde en cada navegación a
+propósito — cada página protegida la repone llamando a `POST /auth/refrescar`, apoyándose en la
+cookie `httpOnly` que ya emite el login de Fase 1. Cuesta una llamada de red extra por carga de
+página; a cambio, ningún script de la página puede leer el token en ningún momento entre
+navegaciones, porque no hay ningún momento en que esté guardado en algo que JS pueda leer aparte de
+esa variable.
+**Auditado con `auditor-seguridad` antes del push** — encontró algo real y no trivial:
+- **[Alto] Dos peticiones autenticadas en paralelo, con el token vencido, disparan dos refrescos
+  simultáneos.** El backend de Fase 1 rota el token de refresco en cada uso y detecta reuso: un
+  segundo refresco con la misma cookie mientras el primero ya la invalidó se lee como robo y
+  **revoca todas las sesiones del usuario**, en todos sus dispositivos. Es justo el mecanismo que
+  existe para detectar un token robado — dispararlo solo por una carrera del cliente lo vuelve
+  inservible como señal real (quien opere esto aprende a ignorarlo). Latente en este push (ninguna
+  pantalla llama todavía a una ruta autenticada), pero se vuelve real en cuanto exista la primera
+  pantalla protegida, así que se arregló ahora en vez de dejarlo para después. Arreglado
+  serializando `refrescarSesion()` en dos niveles: un `promise` compartido dentro de la misma
+  pestaña, y `navigator.locks` (Web Locks, nativo del navegador, sin dependencia nueva) entre
+  pestañas del mismo origen — el caso más probable es abrir varias pestañas juntas al iniciar el
+  navegador, todas comparten la misma cookie. De paso, un refresco fallido ahora limpia el token en
+  vez de dejarlo "vivo" en memoria (evitaba que cada llamada autenticada gastara dos peticiones
+  contra el límite de tasa compartido por IP, sin forma de que la interfaz supiera que la sesión
+  había muerto).
+- **[Medio] `AUTH_CUENTA_BLOQUEADA` con mensaje propio reintroducía la enumeración de usuarios.**
+  Ese código solo se lanza si el correo existe, antes de revisar la contraseña — Fase 1 ya se había
+  cuidado de esto en el backend, pero el cliente nuevo lo deshacía mostrando un texto distinto al
+  de credenciales inválidas. Con el patrón de correos institucionales de la FEN, es una forma
+  barata de armar una lista de destinatarios para phishing dirigido. Arreglado: mismo mensaje que
+  `AUTH_CREDENCIALES_INVALIDAS`. `AUTH_EMAIL_NO_VERIFICADO` no tiene este problema (se lanza
+  después de validar la contraseña).
+- **[Medio-bajo] El formulario de login no declaraba `method="post"`.** Si el módulo de `login.js`
+  no llegaba a ejecutarse por cualquier motivo (CSP futura, error de red al pedir el script), el
+  envío nativo del navegador mandaba la contraseña como query string en un GET — queda en el
+  historial del navegador y en cualquier log de acceso. Arreglado con un atributo.
+**Verificado real, no solo con mocks:** login real desde `localhost:5173` hacia `localhost:3000`
+establece la cookie cross-origin y un refresco posterior la usa con éxito; contraseña incorrecta
+muestra el mensaje traducido. La corrección de la carrera se probó con `node --test` real —
+Node 26 trae una implementación real de `navigator.locks`, así que la prueba no es un mock del
+mecanismo de bloqueo, es el mecanismo real ejercitado con dos llamadas en paralelo. No se pudo
+reproducir el mismo escenario con dos peticiones reales concurrentes en un navegador real dentro de
+este entorno: la combinación específica de dos `POST` con cookies bajo el modo de tiempo virtual de
+Chrome headless se colgó de forma reproducible incluso con las piezas por separado funcionando bien
+(Web Locks solos, `fetch` concurrente solo, login+refresco secuencial) — se documenta como
+limitación de la herramienta de verificación usada en este entorno, no como algo sin resolver del
+lado de la aplicación.
+**Riesgo de despliegue anotado para Fase 8, no resuelto ahora:** la cookie de refresco usa
+`sameSite: 'strict'`; `localhost:5173`/`localhost:3000` son *same-site* (el puerto no cuenta para
+`SameSite`, solo el dominio registrable), así que esta verificación no prueba el caso donde Fase 8
+ponga la API y la web en dominios registrables distintos — ahí la cookie se perdería en silencio.
+Es una decisión de hosting que hay que tomar antes de escribir la infraestructura, no después.
+También falta CSP propia para `apps/web` (pendiente de Fase 8, ya anotado en la auditoría de la
+vitrina pública) — ahora hay una página que recibe contraseñas, así que pesa más que antes.
+
 ## 2026-08-29 · Auditoría de seguridad de Fase 6 (vitrina pública), antes del push
 **Contexto:** primera vez que el proyecto tiene código de cliente y primera vez que un dato
 escrito por un usuario (`sitioWeb` de una empresa) termina en un `href` que otra persona puede

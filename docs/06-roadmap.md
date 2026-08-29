@@ -131,7 +131,10 @@ Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
 - [x] Vitrina pública responsiva con Bootstrap: tarjetas con "cierra en N días"
 - [x] Detalle de oferta + perfil público de empresa con indicadores
 - [x] Cliente HTTP central (`assets/js/api/`) — maneja 4xx/5xx/error de red con mensajes en
-      español; 401/403 no aplican todavía porque la vitrina es pública y sin sesión
+      español, y ya maneja 401 con refresco automático y reintento (ver login más abajo)
+- [x] Login (`login.html`) y sesión: token de acceso solo en memoria (nunca `localStorage`), se
+      repone en cada carga de página con la cookie `httpOnly` de Fase 1 — base para los tres
+      paneles, ninguno puede empezar sin esto
 - [ ] Panel estudiante: perfil, CV, mis postulaciones con línea de tiempo de estados
 - [ ] Panel empresa: mis ofertas, publicar, revisar postulantes, cerrar con motivo
 - [ ] Panel coordinación: validar empresas, moderar ofertas, ver indicadores
@@ -143,6 +146,8 @@ Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
 - [x] Extra sobre lo planeado: auditoría de seguridad de la primera entrega encontró y corrigió un
       XSS almacenado y un hueco de revisión humana (ver bitácora) — la vitrina fue la primera vez
       que el proyecto expuso un `href` construido con datos de un tercero
+- [x] Extra sobre lo planeado: auditoría de seguridad de la sesión encontró y corrigió una carrera
+      real entre refrescos de token que habría revocado sesiones de usuarios enteras (ver bitácora)
 
 ## Fase 7 · Datos personales
 - [ ] `GET /mi-cuenta/datos` (portabilidad en JSON)
