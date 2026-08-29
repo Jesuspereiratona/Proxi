@@ -13,7 +13,14 @@ export const crearTarjetaOferta = (oferta) => {
   enlace.className = 'text-decoration-none';
 
   const tarjeta = document.createElement('article');
-  tarjeta.className = 'card card-oferta h-100 p-3';
+  tarjeta.className = 'card card-oferta h-100';
+
+  // .card-body, no hijos directos de .card: Bootstrap 5 define .card como
+  // display:flex;flex-direction:column, así que un hijo directo se estira al ancho completo de
+  // la tarjeta (align-items:stretch heredado) — se verificó con getComputedStyle que la insignia
+  // medía el ancho entero de la tarjeta en vez de su contenido. .card-body no hereda ese flex.
+  const cuerpo = document.createElement('div');
+  cuerpo.className = 'card-body';
 
   const insignia = document.createElement('span');
   insignia.className = `estado-oferta ${estado.clase}`;
@@ -32,7 +39,8 @@ export const crearTarjetaOferta = (oferta) => {
   const partes = [oferta.modalidad, oferta.comuna, oferta.remunerada ? 'Remunerada' : 'No remunerada'].filter(Boolean);
   detalle.textContent = partes.join(' · ');
 
-  tarjeta.append(insignia, titulo, empresa, detalle);
+  cuerpo.append(insignia, titulo, empresa, detalle);
+  tarjeta.append(cuerpo);
   enlace.append(tarjeta);
   columna.append(enlace);
   return columna;

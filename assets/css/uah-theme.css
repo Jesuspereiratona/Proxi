@@ -31,13 +31,39 @@ h1, h2, .titular {
   font-family: 'Frank Ruhl Libre', serif;
 }
 
-/* Nunca texto blanco sobre el naranja de marca: el contraste da 3.2:1, insuficiente para texto
-   normal (docs/08-guia-visual.md, sección Accesibilidad). */
+/* El Bootstrap precompilado del CDN no rearma sus componentes a partir de --bs-primary: cada
+   variante de botón trae sus propios --bs-btn-* con el azul de Bootstrap ya fijo en la hoja
+   minificada (verificado leyendo el CSS real, no asumido). Sobreescribir --bs-primary en :root no
+   alcanza — hay que fijar las variables del propio .btn-primary. Texto siempre marengo, nunca
+   blanco: el contraste del naranja de marca da 3.2:1, insuficiente para texto normal
+   (docs/08-guia-visual.md, sección Accesibilidad). El borde marengo al pasar el mouse es la misma
+   idea que ya usa la insignia "urgente": naranja + borde marengo como estado de énfasis. */
 .btn-primary {
-  color: var(--uah-marengo-1);
+  --bs-btn-color: var(--uah-marengo-1);
+  --bs-btn-bg: var(--uah-naranja);
+  --bs-btn-border-color: var(--uah-naranja);
+  --bs-btn-hover-color: var(--uah-marengo-1);
+  --bs-btn-hover-bg: var(--uah-naranja);
+  --bs-btn-hover-border-color: var(--uah-marengo-1);
+  --bs-btn-active-color: var(--uah-marengo-1);
+  --bs-btn-active-bg: var(--uah-naranja);
+  --bs-btn-active-border-color: var(--uah-marengo-1);
+  --bs-btn-disabled-color: var(--uah-marengo-1);
+  --bs-btn-disabled-bg: var(--uah-naranja);
+  --bs-btn-disabled-border-color: var(--uah-naranja);
 }
-.btn-primary:hover, .btn-primary:focus {
-  color: var(--uah-marengo-1);
+
+.btn-outline-primary {
+  --bs-btn-color: var(--uah-naranja);
+  --bs-btn-border-color: var(--uah-naranja);
+  --bs-btn-hover-color: var(--uah-marengo-1);
+  --bs-btn-hover-bg: var(--uah-naranja);
+  --bs-btn-hover-border-color: var(--uah-naranja);
+  --bs-btn-active-color: var(--uah-marengo-1);
+  --bs-btn-active-bg: var(--uah-naranja);
+  --bs-btn-active-border-color: var(--uah-naranja);
+  --bs-btn-disabled-color: var(--uah-naranja);
+  --bs-btn-disabled-border-color: var(--uah-naranja);
 }
 
 .card-oferta {
