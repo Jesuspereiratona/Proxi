@@ -68,6 +68,8 @@ const env = {
   },
   mailFrom: process.env.MAIL_FROM || 'Proxi <no-responder@proxi.cl>',
   rutCifradoKey: process.env.RUT_CIFRADO_KEY,
+  // Regla de negocio, no un secreto: default igual al de .env.example si no está seteada.
+  plazoDeclararCierreDias: Number(process.env.PLAZO_DECLARAR_CIERRE_DIAS) || 7,
 };
 
 module.exports = env;

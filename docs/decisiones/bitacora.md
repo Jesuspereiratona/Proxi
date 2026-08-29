@@ -17,6 +17,119 @@ Formato:
 
 ---
 
+## 2026-08-29 · Auditoría de seguridad de Fase 3, antes del push
+**Contexto:** el "corazón del proyecto" — ciclo de vida de ofertas. `auditor-seguridad` encontró 2
+hallazgos graves y 2 altos, todos reales, más varios medios y bajos. A diferencia de Fase 0/1/2, esta
+vez confirmó explícitamente que **no hay IDOR**: la pertenencia por `:id` está bien implementada en
+todo el módulo.
+**Arreglado:**
+- **[Grave] Una empresa podía reescribir el contenido de una oferta ya aprobada sin nueva revisión.**
+  `editar()` solo bloqueaba `remunerada`/`montoMensual` en estado `publicada`; título, descripción,
+  requisitos, área, modalidad, comuna y cupos se sobrescribían en caliente, incluso con la oferta ya
+  en el listado público, sin dejar rastro en `oferta_eventos`. Arreglado: tocar cualquier campo de
+  contenido (`CAMPOS_CONTENIDO`) en una oferta `en_revision` o `publicada` la manda de vuelta a
+  `borrador` automáticamente (mismo mecanismo que ya existía para empresas rechazadas/validadas), con
+  su evento correspondiente. Se agregaron las transiciones `en_revision→borrador` y
+  `publicada→borrador` por actor `empresa` a `services/ofertas/estados.js`.
+- **[Grave] Coordinación podía aprobar la oferta de una empresa que mientras tanto quedó suspendida.**
+  `aprobar()` nunca consultaba el estado de la empresa dueña, solo el de la oferta. Arreglado:
+  `aprobar()` carga la `Empresa` y llama `verificarValidada()` antes de aprobar. Además,
+  `cerrarPorSuspension()` ahora también revierte a `borrador` las ofertas `en_revision` de la empresa
+  suspendida (antes solo cerraba las `publicada`), para que no queden colgadas en la cola de revisión
+  esperando que alguien las apruebe.
+- **[Alto] Suspender una empresa no era atómico.** Si `cerrarPorSuspension` fallaba a mitad de camino,
+  la empresa quedaba `suspendida` con ofertas todavía publicadas, y `estados.js` no permite reintentar
+  (`suspendida` no tiene transiciones salientes, así que un segundo `POST .../suspension` da 409).
+  Arreglado: `empresas.service.suspender()` envuelve la actualización de la empresa y el cierre en
+  cascada en una sola `sequelize.transaction`, pasando la `transaction` explícita a
+  `cerrarPorSuspension`. `transicionar()` en `ofertas.service.js` ahora acepta una `transaction`
+  externa opcional para poder participar de una transacción ya abierta por el llamador.
+- **[Alto] Una oferta cerrada por vencimiento bloqueaba a su empresa para siempre.** La spec ya
+  aprobaba el caso borde "la empresa cierra una oferta que ya cerró el sistema: completa la
+  declaración", pero `cerrada` no tenía ninguna transición de salida utilizable por `empresa`, y sin
+  declarar el resultado, `verificarCierresPendientes` bloqueaba cualquier envío a revisión futuro
+  indefinidamente. Arreglado: `cerrar()` detecta el caso `estado==='cerrada' && !resultadoDeclarado` y
+  llama a una función nueva, `declararResultadoTardio`, que actualiza `motivoCierre`/
+  `resultadoDeclarado` sin cambiar de estado (no es una transición real, así que no pasa por
+  `estados.js`) y conserva el `cerradaAt` original.
+- **[Medio] Condición de carrera real entre transiciones simultáneas.** `transicionar()` leía la
+  oferta, decidía si la transición era válida, y recién después escribía — sin nada que impidiera que
+  dos peticiones (ej. la empresa cerrando una oferta justo cuando corre `cerrarOfertasVencidas`)
+  hicieran la misma secuencia sobre la misma fila y una pisara a la otra en silencio. Arreglado con
+  compare-and-set: el `UPDATE` ahora lleva `WHERE id = ? AND estado = <estado que se leyó>`; si 0
+  filas se actualizan (porque alguien más ya cambió el estado), se lanza `OFERTA_TRANSICION_INVALIDA`
+  (409) en vez de sobrescribir. Se agregó una prueba con dos cierres disparados en paralelo
+  (`Promise.all`) que confirma un 200 y un 409, nunca dos "cerrada" en `oferta_eventos`.
+- **[Medio] `cerrarVencidas` abortaba toda la corrida en la primera oferta que fallara.** Sin
+  `try/catch` por elemento, una sola fila problemática dejaba sin cerrar todas las que venían después,
+  cada noche, hasta que alguien interviniera a mano. Arreglado: cada oferta se cierra en su propio
+  `try/catch`, acumulando `{ cerradas, fallidas }` (antes devolvía solo un número). Cambia la forma de
+  retorno de `cerrarVencidas()` — se actualizaron `tareas/cerrarOfertasVencidas.js` y sus pruebas.
+- **[Medio-bajo] `/api/v1/salud` filtraba el mensaje de error interno de la tarea nocturna, sin la
+  guarda de entorno que ya protege el error de conexión a la base.** Arreglado en el origen:
+  `cerrarOfertasVencidas.obtenerEstado()` ahora expone `huboError: boolean`, nunca el texto del error
+  — no hay guardar-y-filtrar-después que se pueda olvidar, el dato sensible no sale del módulo.
+- **[Bajo] `editarEsquema` no validaba cruces de campos (remunerada↔montoMensual, modalidad↔comuna).**
+  Un `PATCH` parcial que por sí solo se veía válido podía dejar la oferta inconsistente y reventar
+  contra el `CHECK` de la base como un 500 crudo. Arreglado: `ofertas.service.editar()` valida el
+  objeto **resultante** (actual + parche fusionado), no el parche aislado, y responde 422 con el
+  campo señalado.
+- **[Bajo] `z.coerce.date()` convertía `null`/`true`/`0` en 1970-01-01 en vez de rechazarlos**, y el
+  filtro `?remunerada=false` devolvía las remuneradas (`Boolean("false") === true`). Ambos arreglados
+  en `schemas/ofertas.schemas.js` con tipos de entrada más estrictos.
+- `services/ofertas/ofertas.service.js obtenerDetalle()` se reescribió para resolver la pertenencia
+  dentro del `WHERE` de una sola consulta, en vez de traer la fila completa a memoria y decidir
+  después — hoy es inofensivo (`Oferta` no tiene datos personales) pero importa cuando Fase 4 agregue
+  un `include` de postulaciones con CVs.
+**Descartado por ahora, anotado para Fase 8:** el cron de `cerrarOfertasVencidas` se programa por
+proceso (`server.js`), sin lock distribuido — con más de una instancia de la API corriendo a la vez,
+todas ejecutarían la tarea a las 03:00 sobre el mismo conjunto. No es un problema con una sola
+instancia (el despliegue actual), y `cerrarPorVencimiento` es idempotente por fila gracias al
+compare-and-set de arriba, así que el peor caso hoy es trabajo duplicado, no datos incorrectos. Se
+anota como algo a resolver (`pg_advisory_lock` o similar) cuando Fase 8 defina cuántas instancias corren.
+**Fuera de alcance, anotado como deuda:** una capa de serialización (`Oferta` se devuelve completa en
+toda respuesta, incluidos campos de gestión interna) y el registro de un evento en la creación misma
+de una oferta (`crear()` no deja fila en `oferta_eventos`, la traza empieza en `borrador→en_revision`).
+Ninguno de los dos es una vulneración hoy; se dejan para cuando Fase 4 agregue datos personales
+colgando del modelo de ofertas.
+
+## 2026-08-29 · Fase 3 (Ofertas y ciclo de vida): decisiones y bugs
+**Contexto:** `specs/01-ciclo-de-vida-oferta/` se escribió en el planteamiento original, antes de que
+existiera el código real de Fase 1/2. Aparecieron ajustes y un par de bugs reales al implementar.
+**Decisión — `fecha_cierre` pasa a NULLable con CHECK condicional, no `NOT NULL` puro.**
+`docs/02-modelo-de-datos.md` decía `fecha_cierre timestamptz NOT NULL` sin excepción, pero el
+criterio de aceptación de la spec exige que pueda existir "un borrador sin fecha_cierre" que recién
+se valida al enviar a revisión — con `NOT NULL` puro ese borrador no se puede ni crear, el criterio
+sería imposible de probar. Se resolvió con `fecha_cierre` NULLable a nivel de columna más
+`CHECK (estado = 'borrador' OR fecha_cierre IS NOT NULL)`: la frase que más se repite en el
+planteamiento ("no existe oferta **publicada** sin vigencia", no "ninguna fila sin vigencia") sigue
+garantizada por la base, y el borrador puede omitirla. `docs/02-modelo-de-datos.md` queda desactualizado
+en ese detalle; se corrige cuando se revise el modelo completo.
+**Decisión — `EMPRESA_NO_VALIDADA` responde 422, no 403 como decía la spec original.**
+`services/empresas/reglas.js` (Fase 2) ya la lanza como `ReglaDeNegocio` (422), igual que
+`EMPRESA_CIERRES_PENDIENTES` — son la misma clase de bloqueo (precondición de negocio, no un problema
+de rol o pertenencia) y no tenía sentido que una respondiera 403 y la otra 422. Se ajustó la spec al
+código ya existente, no al revés.
+**Decisión — `require()` adentro de la función, no arriba del archivo, para conectar Fase 2 y Fase 3.**
+`empresas.service.suspender()` necesita cerrar las ofertas publicadas de la empresa
+(`ofertas.service.cerrarPorSuspension`), pero `ofertas.service.js` también requiere
+`empresas.service.js` (para `obtenerPropio`). Un `require` circular a nivel de módulo deja a uno de
+los dos con un `module.exports` vacío (CommonJS resuelve el ciclo con lo que el módulo alcanzó a
+exportar hasta ese punto). Se resolvió con un `require('../ofertas/ofertas.service')` **dentro** del
+cuerpo de `suspender()`: para cuando la función corre, ambos módulos ya terminaron de cargar.
+**Bug encontrado probando a mano: `req.query` es de solo lectura en Express 5.**
+`validar-query.middleware.js` hacía `req.query = resultado.data` (el mismo patrón que
+`validar.middleware.js` usa con `req.body`, que sí funciona). En Express 5, `req.query` es un getter
+sin setter: la reasignación no lanza error — simplemente no hace nada, en silencio. El síntoma:
+`GET /ofertas?pagina=1&limite=10` devolvía `"pagina":"1"` (string) en vez de `"pagina":1` (number)
+pese a que el esquema zod usa `z.coerce.number()`. Se verificó con un servidor Express mínimo aparte
+que ni la reasignación completa ni la mutación en el lugar (`req.query.a = 42`) funcionan; `req.params`
+sí es escribible (se probó igual). Arreglo: el resultado validado se guarda en `req.filtros`, una
+propiedad nueva, no en `req.query`.
+**Consecuencia:** cualquier middleware de validación futuro que toque `req.query` debe escribir en una
+propiedad propia (`req.filtros`, o similar), nunca reasignar `req.query` directamente — Express 5 lo
+deja pasar sin avisar.
+
 ## 2026-08-29 · Auditoría de seguridad de Fase 2, antes del push
 **Contexto:** primera vez que Proxi guarda datos personales reales (RUT cifrado, teléfono, carrera).
 `auditor-seguridad` revisó todo el código de perfiles y validación de empresas antes de comitear.

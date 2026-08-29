@@ -88,7 +88,7 @@ Un solo mecanismo para dos flujos: verificar correo y restablecer clave. Se dist
 | monto_mensual | integer NULL | obligatorio si `remunerada` es verdadero |
 | cupos | int NOT NULL DEFAULT 1 | CHECK > 0 |
 | fecha_publicacion | timestamptz NULL | se llena al publicar |
-| **fecha_cierre** | **timestamptz NOT NULL** | la columna que define el proyecto |
+| **fecha_cierre** | **timestamptz NULL** | CHECK `estado = 'borrador' OR fecha_cierre IS NOT NULL`: solo un borrador puede no tenerla. Ninguna oferta **publicada** existe sin ella — la columna que define el proyecto |
 | estado | text NOT NULL | ver máquina de estados |
 | motivo_cierre | text NULL | CHECK: `contratado` · `cancelada` · `sin_candidatos` · `vencida` |
 | resultado_declarado | boolean NOT NULL DEFAULT false | lo pone la empresa, no el sistema |

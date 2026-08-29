@@ -52,17 +52,21 @@ prueba de acceso cruzado a nivel de integración.
 ## Fase 3 · Ofertas y ciclo de vida ← el corazón del proyecto
 Ver la especificación completa en `specs/01-ciclo-de-vida-oferta/`.
 
-- [ ] Migración de `ofertas` con las restricciones CHECK del modelo de datos
-- [ ] Migración de `oferta_eventos`
-- [ ] `services/ofertas/estados.js` con la tabla de transiciones
-- [ ] CRUD de borradores, envío a revisión, aprobación y rechazo
-- [ ] Cierre con motivo obligatorio y `resultado_declarado`
-- [ ] Bloqueo por cierres pendientes de declarar
-- [ ] Tarea `cerrarOfertasVencidas`, idempotente
-- [ ] Listado público con filtros (área, modalidad, comuna) y paginación
-- [ ] Pruebas: cada transición válida, cada transición inválida, vencimiento automático
+- [x] Migración de `ofertas` con las restricciones CHECK del modelo de datos
+- [x] Migración de `oferta_eventos`
+- [x] `services/ofertas/estados.js` con la tabla de transiciones
+- [x] CRUD de borradores, envío a revisión, aprobación y rechazo
+- [x] Cierre con motivo obligatorio y `resultado_declarado`
+- [x] Bloqueo por cierres pendientes de declarar
+- [x] Tarea `cerrarOfertasVencidas`, idempotente, con última ejecución expuesta en `GET /salud`
+- [x] Listado público con filtros (área, modalidad, comuna, remunerada) y paginación
+- [x] Pruebas: cada transición válida, cada transición inválida, vencimiento automático, condición de
+      carrera entre transiciones simultáneas (198 pruebas, 0 fallas)
+- [x] Extra sobre lo planeado: suspender una empresa (Fase 2) cierra en cascada sus ofertas publicadas
+      y revierte a borrador las que estaban en revisión
 
 **Listo cuando:** es imposible dejar una oferta publicada sin vigencia o cerrarla sin motivo.
+**Cumplido el 2026-08-29** — garantizado por `CHECK` de base, no solo por código (ver bitácora).
 
 ## Fase 4 · Postulaciones
 - [ ] Migraciones de `postulaciones`, `postulacion_eventos`, `archivos`
@@ -126,6 +130,9 @@ Ver la especificación completa en `specs/01-ciclo-de-vida-oferta/`.
 - [ ] Variables de entorno en el proveedor, secretos rotados
 - [ ] Apagado ordenado del servidor (`SIGTERM` + `server.close()` con temporizador) antes de que el
       supervisor del proveedor mate el proceso — hoy corta peticiones en vuelo en cada despliegue
+- [ ] Lock distribuido para `tareas/cerrarOfertasVencidas.js` (`pg_advisory_lock` o similar) si se
+      corre más de una instancia de la API — hoy el cron se programa por proceso, sin coordinación
+      entre réplicas (auditoría de Fase 3; con una sola instancia no es un problema)
 - [ ] HTTPS obligatorio, redirección desde HTTP
 - [ ] Monitoreo del healthcheck con aviso ante caídas
 - [ ] Runbook de operación en `07-operacion-y-mantenimiento.md`

@@ -1,4 +1,4 @@
-const { Empresa } = require('../../models');
+const { sequelize, Empresa } = require('../../models');
 const { esRutValido, normalizarRut } = require('../../utils/rut');
 const { puedeTransicionar } = require('./estados');
 const { Conflicto, NoEncontrado, ErrorValidacion } = require('../../errors');
@@ -116,13 +116,27 @@ const rechazar = async (id, motivoRechazo) => {
 // Agregado tras la auditoría: sin esto, un fraude descubierto después de validar una empresa no
 // tenía remedio salvo editar la base a mano. Reactivar una suspensión queda fuera de alcance por
 // ahora (no hay flujo definido); se documenta como decisión explícita, no como olvido.
+//
+// La suspensión y el cierre en cascada de sus ofertas van en una sola transacción (auditoría de
+// Fase 3): sin esto, si cerrarPorSuspension fallaba a mitad de camino, la empresa quedaba
+// "suspendida" en la base con ofertas todavía publicadas — y sin forma de reintentar, porque
+// estados.js no permite volver a llamar suspender() sobre una empresa ya suspendida.
 const suspender = async (id, motivoSuspension) => {
   const empresa = await obtenerPorId(id);
   if (!puedeTransicionar(empresa.estadoValidacion, 'suspendida', 'coordinacion')) {
     throw new Conflicto(EMPRESA_TRANSICION_INVALIDA, `No se puede pasar de "${empresa.estadoValidacion}" a "suspendida".`);
   }
-  await empresa.update({ estadoValidacion: 'suspendida', motivoSuspension });
-  return empresa;
+
+  // require() adentro de la función, no arriba del archivo: ofertas.service.js también requiere
+  // este archivo (para obtenerPropio/verificarValidada), y un require circular a nivel de módulo
+  // deja a uno de los dos con un module.exports vacío. Adentro de la función ya cargó completo.
+  const ofertasService = require('../ofertas/ofertas.service');
+
+  return sequelize.transaction(async (t) => {
+    await empresa.update({ estadoValidacion: 'suspendida', motivoSuspension }, { transaction: t });
+    await ofertasService.cerrarPorSuspension(empresa.id, t);
+    return empresa;
+  });
 };
 
 module.exports = { crearPerfil, obtenerPropio, actualizarPropio, listarPendientes, validar, rechazar, suspender };

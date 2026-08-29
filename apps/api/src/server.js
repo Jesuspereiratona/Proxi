@@ -1,6 +1,7 @@
 const app = require('./app');
 const env = require('./config/env');
 const logger = require('./config/logger');
+const cerrarOfertasVencidas = require('./tareas/cerrarOfertasVencidas');
 
 process.on('unhandledRejection', (error) => {
   logger.fatal(error, 'unhandledRejection');
@@ -14,3 +15,5 @@ process.on('uncaughtException', (error) => {
 app.listen(env.puerto, () => {
   logger.info(`Proxi API escuchando en el puerto ${env.puerto}`);
 });
+
+cerrarOfertasVencidas.programar();

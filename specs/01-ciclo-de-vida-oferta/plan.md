@@ -1,5 +1,20 @@
 # Plan técnico · Ciclo de vida de una oferta
 
+## Ajustes al implementar (esta spec se escribió antes de que existiera el código de Fase 1/2)
+- El JWT solo lleva `{sub, rol}` (regla dura de Fase 1). No existe `req.usuario.empresaId`: cada ruta
+  de escritura resuelve primero `Empresa.findOne({ where: { usuarioId: req.usuario.id } })` y filtra
+  `ofertas` por ese `empresa.id`. Se centraliza en un helper del controller, no se repite a mano en
+  cada ruta.
+- El caso borde "empresa suspendida → sus ofertas se cierran con `cancelada`" se cablea contra
+  `services/empresas/empresas.service.js suspender()` (agregado en la auditoría de Fase 2): al
+  suspender, además de cambiar `estado_validacion`, se llama a `ofertas.service.cerrarPorSuspension(empresaId)`.
+- "Se avisa a los postulantes" al cerrar por suspensión queda fuera de alcance: no hay postulaciones
+  todavía (Fase 4). Se anota como pendiente.
+- `PLAZO_DECLARAR_CIERRE_DIAS` ya está en `.env.example` desde el planteamiento original pero nunca se
+  leyó: se agrega a `config/env.js` (opcional, con el mismo default de `.env.example`, no es un
+  secreto).
+- `node-cron` es dependencia nueva, para `tareas/cerrarOfertasVencidas.js`.
+
 ## Modelo de datos
 Migración `crear-ofertas`: tabla `ofertas` según `docs/02-modelo-de-datos.md`, con
 `fecha_cierre timestamptz NOT NULL` y los tres CHECK. Índice `(estado, fecha_cierre)` para la vitrina.
