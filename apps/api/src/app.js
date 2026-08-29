@@ -20,7 +20,10 @@ app.disable('x-powered-by');
 // IP del proxy para todo el mundo y una sola persona puede agotar el límite para todos.
 if (env.esProduccion) app.set('trust proxy', 1);
 app.use(helmet());
-app.use(cors({ origin: env.webUrl, credentials: true }));
+// exposedHeaders: por defecto CORS oculta Content-Disposition al JS del navegador aunque la
+// respuesta la traiga (docs/03-seguridad.md, descarga de CV) — sin esto, el cliente web no puede
+// leer el nombre real del archivo al descargarlo con fetch (Fase 6, panel de estudiante).
+app.use(cors({ origin: env.webUrl, credentials: true, exposedHeaders: ['Content-Disposition'] }));
 app.use(pinoHttp({ logger, genReqId: () => crypto.randomUUID() }));
 app.use(limitarTasa);
 app.use(express.json({ limit: '1mb' }));

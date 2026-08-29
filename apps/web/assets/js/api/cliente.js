@@ -19,6 +19,14 @@ const MENSAJES = {
   AUTH_TOKEN_EXPIRADO: 'Tu sesión expiró. Inicia sesión de nuevo.',
   AUTH_TOKEN_INVALIDO: 'Tu sesión no es válida. Inicia sesión de nuevo.',
   NO_AUTORIZADO: 'No tienes permiso para ver esto.',
+  POSTULACION_SIN_CV: 'Debes subir tu CV antes de postular.',
+  POSTULACION_YA_EXISTE: 'Ya postulaste a esta oferta.',
+  POSTULACION_NO_ENCONTRADA: 'Esa postulación no existe.',
+  POSTULACION_TRANSICION_INVALIDA: 'Esta postulación ya no admite ese cambio.',
+  ARCHIVO_INVALIDO: 'El archivo no es un PDF válido o supera los 5 MB.',
+  ARCHIVO_NO_ENCONTRADO: 'Ese archivo no existe.',
+  RUT_INVALIDO: 'El RUT no es válido.',
+  PERFIL_YA_EXISTE: 'Ya tienes un perfil creado.',
 };
 const MENSAJE_GENERICO = 'Ocurrió un problema. Intenta de nuevo en un momento.';
 
@@ -40,6 +48,21 @@ let accessToken = null;
 export const fijarToken = (token) => { accessToken = token; };
 export const limpiarToken = () => { accessToken = null; };
 
+// El payload del JWT es {sub, rol, exp} (Fase 1) — nada sensible. Decodificarlo acá es solo para
+// decidir qué mostrar (qué panel, qué botones): nunca autoriza nada de verdad, cada petición real
+// la revalida el servidor con la firma completa. Sirve para protegerPagina() al cargar una página
+// (después de refrescarSesion(), que no devuelve el usuario, solo el token).
+export const usuarioActual = () => {
+  if (!accessToken) return null;
+  try {
+    const payload = accessToken.split('.')[1];
+    const decodificado = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return { id: decodificado.sub, rol: decodificado.rol };
+  } catch {
+    return null;
+  }
+};
+
 const cuerpoDeError = async (respuesta) => {
   let codigo = 'ERROR_INTERNO';
   try {
@@ -52,13 +75,17 @@ const cuerpoDeError = async (respuesta) => {
 };
 
 // POST /auth/refrescar no lleva Authorization (no autenticado): se apoya solo en la cookie
-// httpOnly, por eso usa fetch directo y no pasa por peticion() — evita que un refresco fallido
-// dispare otro intento de refresco.
+// httpOnly, por eso usa fetch directo y no pasa por fetchConReintento() — evita que un refresco
+// fallido dispare otro intento de refresco.
 const refrescarUnaVez = async () => {
   try {
     const respuesta = await fetch(`${API_URL}/auth/refrescar`, { method: 'POST', credentials: 'include' });
     if (!respuesta.ok) {
-      limpiarToken();
+      // Solo 401/403 significan de verdad "no hay sesión" — limpiarToken() ahí. Un 429 (límite de
+      // tasa global compartido, oferta.html lo llama en cada visita pública) o un 500 transitorio
+      // no prueban que la sesión murió; borrar el token igual mandaba a un estudiante con sesión
+      // válida a re-escribir su clave por un error del servidor (auditoría del panel de estudiante).
+      if (respuesta.status === 401 || respuesta.status === 403) limpiarToken();
       return false;
     }
     const { accessToken: nuevo } = await respuesta.json();
@@ -69,7 +96,7 @@ const refrescarUnaVez = async () => {
     fijarToken(nuevo);
     return true;
   } catch {
-    limpiarToken();
+    // Fallo de red: ambiguo, no borra el token por la misma razón de arriba.
     return false;
   }
 };
@@ -104,20 +131,20 @@ const construirUrl = (ruta, parametros) => {
   return url;
 };
 
-// Único lugar que llama fetch (docs/01-arquitectura.md: "nadie llama fetch fuera de aquí").
-// `autenticado` agrega el header; `credenciales` manda la cookie httpOnly (login, refresco,
-// logout la necesitan; el resto de rutas públicas no manda cookies a propósito).
-const peticion = async (metodo, ruta, { cuerpo, autenticado = false, credenciales = false, reintentar = true, parametros } = {}) => {
-  const encabezados = {};
-  if (cuerpo !== undefined) encabezados['Content-Type'] = 'application/json';
-  if (autenticado && accessToken) encabezados.Authorization = `Bearer ${accessToken}`;
+// Único punto que llama fetch (docs/01-arquitectura.md: "nadie llama fetch fuera de aquí").
+// Devuelve la Response cruda: quien llama decide cómo leer el cuerpo (JSON, blob, nada) — así
+// tanto peticion() como enviarFormData()/descargarArchivo() comparten el mismo manejo de sesión
+// sin que ninguno le imponga al otro un formato de respuesta.
+const fetchConReintento = async (metodo, ruta, { encabezados = {}, cuerpo, autenticado = false, credenciales = false, reintentar = true, parametros } = {}) => {
+  const encabezadosFinales = { ...encabezados };
+  if (autenticado && accessToken) encabezadosFinales.Authorization = `Bearer ${accessToken}`;
 
   let respuesta;
   try {
     respuesta = await fetch(construirUrl(ruta, parametros), {
       method: metodo,
-      headers: encabezados,
-      body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
+      headers: encabezadosFinales,
+      body: cuerpo,
       credentials: credenciales ? 'include' : 'same-origin',
     });
   } catch {
@@ -129,9 +156,19 @@ const peticion = async (metodo, ruta, { cuerpo, autenticado = false, credenciale
   // intenta reponerlo una vez con la cookie antes de rendirse (reintentar:false corta el loop).
   if (respuesta.status === 401 && autenticado && reintentar) {
     const repuesto = await refrescarSesion();
-    if (repuesto) return peticion(metodo, ruta, { cuerpo, autenticado, credenciales, reintentar: false, parametros });
+    if (repuesto) return fetchConReintento(metodo, ruta, { encabezados, cuerpo, autenticado, credenciales, reintentar: false, parametros });
   }
+  return respuesta;
+};
 
+const peticion = async (metodo, ruta, { cuerpo, autenticado = false, credenciales = false, parametros } = {}) => {
+  const respuesta = await fetchConReintento(metodo, ruta, {
+    encabezados: cuerpo !== undefined ? { 'Content-Type': 'application/json' } : {},
+    cuerpo: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
+    autenticado,
+    credenciales,
+    parametros,
+  });
   if (!respuesta.ok) return cuerpoDeError(respuesta);
   return respuesta.status === 204 ? null : respuesta.json();
 };
@@ -139,3 +176,35 @@ const peticion = async (metodo, ruta, { cuerpo, autenticado = false, credenciale
 export const obtener = (ruta, parametros = {}) => peticion('GET', ruta, { parametros });
 export const obtenerAutenticado = (ruta) => peticion('GET', ruta, { autenticado: true });
 export const enviar = (metodo, ruta, cuerpo, opciones = {}) => peticion(metodo, ruta, { ...opciones, cuerpo });
+
+// FormData (subir el CV): el navegador arma el Content-Type con el boundary solo — fijarlo a mano
+// rompe el parseo multipart del servidor. Nunca pasa por JSON.stringify.
+export const enviarFormData = async (ruta, formData) => {
+  const respuesta = await fetchConReintento('POST', ruta, { cuerpo: formData, autenticado: true });
+  if (!respuesta.ok) return cuerpoDeError(respuesta);
+  return respuesta.json();
+};
+
+// Un <a href> no puede llevar Authorization: el archivo se pide con fetch, se arma un object URL
+// del blob recibido y se dispara la descarga con un <a> temporal — el CV nunca se sirve por un
+// enlace público (docs/03-seguridad.md). El nombre real viene de Content-Disposition si el
+// servidor lo expone (app.js exposedHeaders); si no, se usa el sugerido.
+export const descargarArchivo = async (id, nombreSugerido = 'archivo.pdf') => {
+  const respuesta = await fetchConReintento('GET', `/archivos/${encodeURIComponent(id)}/descarga`, { autenticado: true });
+  if (!respuesta.ok) return cuerpoDeError(respuesta);
+
+  const disposicion = respuesta.headers.get('Content-Disposition') || '';
+  const nombre = disposicion.match(/filename="([^"]+)"/)?.[1] || nombreSugerido;
+
+  const blob = await respuesta.blob();
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = nombre;
+  document.body.append(enlace);
+  enlace.click();
+  enlace.remove();
+  // Revocar de inmediato puede cortar la descarga en algunos navegadores antes de que termine de
+  // guardarla; un pequeño margen es la práctica estándar para este patrón.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};

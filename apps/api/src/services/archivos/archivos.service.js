@@ -10,6 +10,18 @@ const env = require('../../config/env');
 // cliente: ambos los controla quien sube el archivo (docs/03-seguridad.md).
 const FIRMA_PDF = Buffer.from('%PDF-');
 
+// nombreOriginal se muestra tal cual y ahora además nombra el archivo que el navegador de quien
+// lo descarga guarda en su disco (Content-Disposition, Fase 6). El número mágico solo valida los
+// primeros bytes del contenido — nada impide subir un PDF real llamado "cv.html": quien lo
+// descargue después (coordinación, una empresa) lo guardaría con esa extensión y, si lo abre
+// desde el gestor de descargas, se ejecutaría como HTML en origen file:// (auditoría del panel de
+// estudiante). Se fuerza la extensión a .pdf acá, en la subida, no en cada descarga.
+const nombreArchivoSeguro = (nombreOriginal) => {
+  const base = path.basename(nombreOriginal || 'cv').replace(/[^\w.\- ]/g, '_').slice(0, 200);
+  const sinExtension = base.replace(/\.[^.]*$/, '') || 'cv';
+  return `${sinExtension}.pdf`;
+};
+
 const subirCv = async (usuarioId, archivo) => {
   if (!archivo) throw new ErrorValidacion(ARCHIVO_INVALIDO, 'Falta el archivo del CV.');
   if (!archivo.buffer.subarray(0, FIRMA_PDF.length).equals(FIRMA_PDF)) {
@@ -29,10 +41,11 @@ const subirCv = async (usuarioId, archivo) => {
   // enviadas, que tienen que conservar exactamente el CV que la empresa recibió.
   const nuevoArchivo = await Archivo.create({
     propietarioUsuarioId: usuarioId,
-    // Se muestra tal cual, nunca se usa como ruta — pero se acota igual: sin tope, un nombre de
-    // archivo arbitrariamente largo queda guardado en una columna TEXT sin límite y vuelve tal
-    // cual en la respuesta (auditoría de Fase 4).
-    nombreOriginal: archivo.originalname.slice(0, 255),
+    // Se muestra tal cual, nunca se usa como ruta — pero se sanea igual: sin esto, un nombre de
+    // archivo arbitrariamente largo o con una extensión distinta de .pdf queda guardado en una
+    // columna TEXT sin límite y vuelve tal cual en la respuesta (auditorías de Fase 4 y del panel
+    // de estudiante).
+    nombreOriginal: nombreArchivoSeguro(archivo.originalname),
     nombreAlmacenado,
     mime: 'application/pdf',
     tamanoBytes: archivo.buffer.length,
@@ -61,7 +74,7 @@ const tienePermisoEmpresa = async (archivoId, usuarioActual) => {
   // postulación — no cualquier CV vigente del estudiante.
   const postulacion = await Postulacion.findOne({
     where: { cvArchivoId: archivoId },
-    include: [{ model: Oferta, where: { empresaId: empresa.id }, attributes: [] }],
+    include: [{ model: Oferta, as: 'Oferta', where: { empresaId: empresa.id }, attributes: [] }],
   });
   return Boolean(postulacion);
 };

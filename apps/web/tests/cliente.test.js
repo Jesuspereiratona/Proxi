@@ -1,6 +1,6 @@
 import { test, describe, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { obtener, obtenerAutenticado, enviar, fijarToken, limpiarToken, ErrorApi, mensajeParaCodigo } from '../assets/js/api/cliente.js';
+import { obtener, obtenerAutenticado, enviar, enviarFormData, descargarArchivo, fijarToken, limpiarToken, ErrorApi, mensajeParaCodigo } from '../assets/js/api/cliente.js';
 
 const fetchOriginal = globalThis.fetch;
 afterEach(() => {
@@ -160,5 +160,65 @@ describe('sesión: token en memoria, nunca en localStorage/sessionStorage', () =
     globalThis.fetch = async () => ({ ok: true, status: 204 });
     const resultado = await enviar('POST', '/auth/logout', undefined, { autenticado: true, credenciales: true });
     assert.equal(resultado, null);
+  });
+});
+
+describe('enviarFormData (subida de archivos)', () => {
+  test('manda el FormData tal cual, sin forzar Content-Type ni JSON.stringify', async () => {
+    fijarToken('token-de-prueba');
+    let cuerpoEnviado;
+    let encabezados;
+    globalThis.fetch = async (url, opciones) => {
+      cuerpoEnviado = opciones.body;
+      encabezados = opciones.headers;
+      return respuestaFalsa(201, { id: 1 });
+    };
+    const datos = new FormData();
+    datos.append('cv', 'contenido-de-prueba');
+    const resultado = await enviarFormData('/estudiantes/mi-cv', datos);
+
+    assert.deepEqual(resultado, { id: 1 });
+    assert.equal(encabezados['Content-Type'], undefined);
+    assert.equal(encabezados.Authorization, 'Bearer token-de-prueba');
+    assert.ok(cuerpoEnviado instanceof FormData);
+  });
+
+  test('traduce ARCHIVO_INVALIDO a un mensaje humano', async () => {
+    fijarToken('token-de-prueba');
+    globalThis.fetch = async () => respuestaFalsa(422, { error: { codigo: 'ARCHIVO_INVALIDO' } });
+    await assert.rejects(
+      () => enviarFormData('/estudiantes/mi-cv', new FormData()),
+      (error) => {
+        assert.equal(error.codigo, 'ARCHIVO_INVALIDO');
+        assert.equal(error.message, 'El archivo no es un PDF válido o supera los 5 MB.');
+        return true;
+      },
+    );
+  });
+});
+
+describe('descargarArchivo', () => {
+  test('escapa el id en la ruta', async () => {
+    fijarToken('token-de-prueba');
+    let urlUsada;
+    globalThis.fetch = async (url) => {
+      urlUsada = url;
+      return { ok: false, status: 404, json: async () => ({ error: { codigo: 'ARCHIVO_NO_ENCONTRADO' } }) };
+    };
+    await assert.rejects(() => descargarArchivo('../../auth/sesiones'));
+    assert.equal(urlUsada.pathname, '/api/v1/archivos/..%2F..%2Fauth%2Fsesiones/descarga');
+  });
+
+  test('un id que no existe se traduce a un mensaje humano, sin llegar al blob', async () => {
+    fijarToken('token-de-prueba');
+    globalThis.fetch = async () => respuestaFalsa(404, { error: { codigo: 'ARCHIVO_NO_ENCONTRADO' } });
+    await assert.rejects(
+      () => descargarArchivo('999'),
+      (error) => {
+        assert.equal(error.codigo, 'ARCHIVO_NO_ENCONTRADO');
+        assert.equal(error.message, 'Ese archivo no existe.');
+        return true;
+      },
+    );
   });
 });

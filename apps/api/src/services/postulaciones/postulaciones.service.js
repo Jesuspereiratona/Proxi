@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { sequelize, Postulacion, PostulacionEvento, Oferta, Estudiante } = require('../../models');
+const { sequelize, Postulacion, PostulacionEvento, Oferta, Estudiante, Empresa } = require('../../models');
 const { puedeTransicionar } = require('./estados');
 const reglas = require('./reglas');
 const ofertasReglas = require('../ofertas/reglas');
@@ -41,23 +41,45 @@ const transicionar = (postulacion, estadoNuevo, { actorUsuarioId = null, motivo 
   return transaction ? ejecutar(transaction) : sequelize.transaction(ejecutar);
 };
 
-const obtenerPorId = async (id) => {
-  const postulacion = await Postulacion.findByPk(id);
+// Orden de la línea de tiempo (Fase 6, panel de estudiante). Solo obtenerDetalle la pide —
+// retirar()/empresaTransita() usan estas mismas funciones para leer antes de escribir y no
+// necesitan los eventos, así que el include queda detrás de una opción, no siempre encendido.
+//
+// attributes explícito, sin motivo ni actorUsuarioId (auditoría del panel de estudiante): la
+// línea de tiempo que pide la spec es "qué pasó, cuándo, y si fue la empresa o el sistema" — eso
+// ya se deduce del propio estadoNuevo (linea-tiempo.js, en el cliente). motivo es una nota libre
+// que la empresa/el estudiante escriben pensando en coordinación o en sí mismos, no en la otra
+// parte; exponerla cambia de destinatario un campo sin que nadie lo haya decidido. actorUsuarioId
+// es el id interno del usuario de la empresa, no hace falta para nada que la interfaz muestre.
+const conEventos = (incluirEventos) =>
+  incluirEventos
+    ? {
+        include: [{ model: PostulacionEvento, attributes: ['estadoAnterior', 'estadoNuevo', 'createdAt'] }],
+        order: [[PostulacionEvento, 'createdAt', 'ASC']],
+      }
+    : {};
+
+const obtenerPorId = async (id, { incluirEventos = false } = {}) => {
+  const postulacion = await Postulacion.findByPk(id, conEventos(incluirEventos));
   if (!postulacion) throw new NoEncontrado(POSTULACION_NO_ENCONTRADA, 'Esa postulación no existe.');
   return postulacion;
 };
 
 // Pertenencia dentro de la consulta, no un findByPk seguido de un if (docs/03-seguridad.md).
-const obtenerPropiaDeEstudiante = async (estudianteId, id) => {
-  const postulacion = await Postulacion.findOne({ where: { id, estudianteId } });
+const obtenerPropiaDeEstudiante = async (estudianteId, id, { incluirEventos = false } = {}) => {
+  const postulacion = await Postulacion.findOne({ where: { id, estudianteId }, ...conEventos(incluirEventos) });
   if (!postulacion) throw new NoEncontrado(POSTULACION_NO_ENCONTRADA, 'Esa postulación no existe.');
   return postulacion;
 };
 
-const obtenerPropiaDeEmpresa = async (empresaId, id) => {
+const obtenerPropiaDeEmpresa = async (empresaId, id, { incluirEventos = false } = {}) => {
   const postulacion = await Postulacion.findOne({
     where: { id },
-    include: [{ model: Oferta, where: { empresaId }, attributes: [] }],
+    include: [
+      { model: Oferta, as: 'Oferta', where: { empresaId }, attributes: [] },
+      ...(incluirEventos ? [{ model: PostulacionEvento, attributes: ['estadoAnterior', 'estadoNuevo', 'createdAt'] }] : []),
+    ],
+    ...(incluirEventos ? { order: [[PostulacionEvento, 'createdAt', 'ASC']] } : {}),
   });
   if (!postulacion) throw new NoEncontrado(POSTULACION_NO_ENCONTRADA, 'Esa postulación no existe.');
   return postulacion;
@@ -105,9 +127,17 @@ const postular = async (usuarioId, { ofertaId, mensaje }) => {
   }
 };
 
+// Incluye la oferta (y su empresa): "mis postulaciones" (Fase 6) necesita mostrar a qué oferta
+// corresponde cada una, y una oferta ya cerrada deja de ser visible por el endpoint público
+// (ofertas.service.obtenerDetalle) — sin este include, el panel no tendría ninguna forma de
+// mostrar la postulación a una oferta que ya cerró.
 const listarDeEstudiante = async (usuarioId) => {
   const estudiante = await estudiantesService.obtenerPropio(usuarioId);
-  return Postulacion.findAll({ where: { estudianteId: estudiante.id }, order: [['createdAt', 'DESC']] });
+  return Postulacion.findAll({
+    where: { estudianteId: estudiante.id },
+    include: [{ model: Oferta, as: 'Oferta', attributes: ['id', 'titulo', 'empresaId'], include: [{ model: Empresa, attributes: ['razonSocial'] }] }],
+    order: [['createdAt', 'DESC']],
+  });
 };
 
 const listarDeOferta = async (usuarioId, ofertaId) => {
@@ -122,13 +152,13 @@ const listarDeOferta = async (usuarioId, ofertaId) => {
 };
 
 const obtenerDetalle = async (usuarioActual, id) => {
-  if (usuarioActual.rol === 'coordinacion') return obtenerPorId(id);
+  if (usuarioActual.rol === 'coordinacion') return obtenerPorId(id, { incluirEventos: true });
   if (usuarioActual.rol === 'estudiante') {
     const estudiante = await Estudiante.findOne({ where: { usuarioId: usuarioActual.id } });
     if (!estudiante) throw new NoEncontrado(POSTULACION_NO_ENCONTRADA, 'Esa postulación no existe.');
-    return obtenerPropiaDeEstudiante(estudiante.id, id);
+    return obtenerPropiaDeEstudiante(estudiante.id, id, { incluirEventos: true });
   }
-  return obtenerPropiaDeEmpresa((await empresasService.obtenerPropio(usuarioActual.id)).id, id);
+  return obtenerPropiaDeEmpresa((await empresasService.obtenerPropio(usuarioActual.id)).id, id, { incluirEventos: true });
 };
 
 const empresaTransita = async (usuarioId, id, estadoNuevo, motivo = null) => {

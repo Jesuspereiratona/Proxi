@@ -4,7 +4,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const request = require('supertest');
 const app = require('../src/app');
-const { sequelize, Usuario, Estudiante, Empresa, Postulacion, PostulacionEvento, AuditoriaAcceso } = require('../src/models');
+const { sequelize, Usuario, Estudiante, Empresa, Postulacion, PostulacionEvento, AuditoriaAcceso, Archivo } = require('../src/models');
 const tokensService = require('../src/services/auth/tokens');
 const passwords = require('../src/services/auth/passwords');
 const archivosService = require('../src/services/archivos/archivos.service');
@@ -138,6 +138,19 @@ describe('postular', () => {
     assert.equal(eventos[0].estadoNuevo, 'recibida');
   });
 
+  test('GET /postulaciones/mias incluye la oferta y la empresa (Fase 6, panel de estudiante)', async () => {
+    const estudiante = await crearEstudianteConCv();
+    const empresa = await crearEmpresaValidada();
+    const oferta = await crearOfertaPublicada(empresa);
+    await request(app).post('/api/v1/postulaciones').set('Authorization', `Bearer ${estudiante.accessToken}`).send({ ofertaId: oferta.id });
+
+    const mias = await request(app).get('/api/v1/postulaciones/mias').set('Authorization', `Bearer ${estudiante.accessToken}`);
+    assert.equal(mias.status, 200);
+    assert.equal(mias.body.length, 1);
+    assert.equal(mias.body[0].Oferta.titulo, oferta.titulo);
+    assert.equal(mias.body[0].Oferta.Empresa.razonSocial, 'Empresa de prueba');
+  });
+
   test('postular dos veces a la misma oferta responde 409 POSTULACION_YA_EXISTE', async () => {
     const estudiante = await crearEstudianteConCv();
     const empresa = await crearEmpresaValidada();
@@ -243,6 +256,46 @@ describe('proceso de selección (empresa)', () => {
 
     assert.equal(rechazo.status, 200);
     assert.equal(rechazo.body.estado, 'no_seleccionada');
+  });
+
+  test('el detalle de una postulación incluye la línea de tiempo de eventos en orden (Fase 6, panel de estudiante)', async () => {
+    const estudiante = await crearEstudianteConCv();
+    const empresa = await crearEmpresaValidada();
+    const oferta = await crearOfertaPublicada(empresa);
+    const postulacion = await request(app).post('/api/v1/postulaciones').set('Authorization', `Bearer ${estudiante.accessToken}`).send({ ofertaId: oferta.id });
+    const id = postulacion.body.id;
+    await request(app).post(`/api/v1/postulaciones/${id}/revision`).set('Authorization', `Bearer ${empresa.accessToken}`);
+    await request(app).post(`/api/v1/postulaciones/${id}/entrevista`).set('Authorization', `Bearer ${empresa.accessToken}`);
+
+    for (const token of [estudiante.accessToken, empresa.accessToken]) {
+      const detalle = await request(app).get(`/api/v1/postulaciones/${id}`).set('Authorization', `Bearer ${token}`);
+      assert.equal(detalle.status, 200);
+      assert.deepEqual(
+        detalle.body.PostulacionEventos.map((e) => e.estadoNuevo),
+        ['recibida', 'en_revision', 'entrevista'],
+      );
+      // Ni motivo ni actorUsuarioId: motivo es una nota pensada para quien la escribe, no para la
+      // otra parte de la postulación, y actorUsuarioId es un id interno sin uso en la interfaz
+      // (auditoría del panel de estudiante).
+      for (const evento of detalle.body.PostulacionEventos) {
+        assert.deepEqual(Object.keys(evento).sort(), ['createdAt', 'estadoAnterior', 'estadoNuevo']);
+      }
+    }
+  });
+
+  test('el motivo de un rechazo no se filtra al estudiante por la línea de tiempo', async () => {
+    const estudiante = await crearEstudianteConCv();
+    const empresa = await crearEmpresaValidada();
+    const oferta = await crearOfertaPublicada(empresa);
+    const postulacion = await request(app).post('/api/v1/postulaciones').set('Authorization', `Bearer ${estudiante.accessToken}`).send({ ofertaId: oferta.id });
+    await request(app)
+      .post(`/api/v1/postulaciones/${postulacion.body.id}/rechazo`)
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send({ motivo: 'Nota interna: no contratar, mala actitud en la entrevista' });
+
+    const detalle = await request(app).get(`/api/v1/postulaciones/${postulacion.body.id}`).set('Authorization', `Bearer ${estudiante.accessToken}`);
+    const cuerpoCrudo = JSON.stringify(detalle.body);
+    assert.ok(!cuerpoCrudo.includes('mala actitud'), 'el motivo del rechazo no debe llegar al estudiante');
   });
 
   test('una empresa B no puede mover una postulación de una oferta de la empresa A: 404', async () => {
@@ -412,8 +465,13 @@ describe('subida de CV', () => {
       .attach('cv', PDF_VALIDO, { filename: 'cv.pdf', contentType: 'application/pdf' });
 
     assert.equal(respuesta.status, 201);
-    assert.equal(respuesta.body.tipo, 'cv');
-    archivosSubidosEnDisco.push(respuesta.body.nombreAlmacenado);
+    // Lista blanca en la respuesta (auditoría del panel de estudiante): nombreAlmacenado es el
+    // UUID interno en disco, el cliente no lo necesita.
+    assert.deepEqual(Object.keys(respuesta.body).sort(), ['id', 'nombreOriginal', 'tamanoBytes']);
+    assert.equal(respuesta.body.nombreOriginal, 'cv.pdf');
+
+    const archivo = await Archivo.findByPk(respuesta.body.id);
+    archivosSubidosEnDisco.push(archivo.nombreAlmacenado);
   });
 
   test('un archivo que no es un PDF real se rechaza aunque diga serlo', async () => {

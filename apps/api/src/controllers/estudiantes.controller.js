@@ -33,7 +33,9 @@ const obtenerRut = asyncHandler(async (req, res) => {
 
 const subirCv = asyncHandler(async (req, res) => {
   const archivo = await archivosService.subirCv(req.usuario.id, req.file);
-  res.status(201).json(archivo);
+  // Lista blanca: nombreAlmacenado es el UUID interno en disco, no algo que el cliente necesite
+  // (auditoría del panel de estudiante) — "controllers/ arma la respuesta", docs/01-arquitectura.md.
+  res.status(201).json({ id: archivo.id, nombreOriginal: archivo.nombreOriginal, tamanoBytes: archivo.tamanoBytes });
 });
 
 module.exports = { crearPerfil, obtenerPropio, actualizarPropio, obtenerRut, subirCv };

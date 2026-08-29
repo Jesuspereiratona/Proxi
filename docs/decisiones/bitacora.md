@@ -17,6 +17,85 @@ Formato:
 
 ---
 
+## 2026-08-29 · Panel de estudiante — decisiones, bugs y auditoría de seguridad, antes del push
+**Contexto:** primer panel autenticado de Fase 6 — primera vez que `apps/web` sube un archivo con
+sesión (el CV) y descarga un binario protegido, no solo consume JSON público. Ver
+`specs/05-panel-estudiante/`.
+**Decisiones:**
+- **La línea de tiempo de una postulación muestra `estadoAnterior`/`estadoNuevo`/`createdAt` y nada
+  más.** `linea-tiempo.js` deduce "lo movió la empresa o el sistema" del propio `estadoNuevo` (la
+  máquina de estados de `postulaciones/estados.js` ya lo determina sin ambigüedad), así que no hace
+  falta exponer `actorUsuarioId` para eso. Se decidió antes de que la auditoría lo encontrara como
+  fuga real (ver más abajo) — la intención ya era no mandarlo, la implementación inicial se quedó
+  corta en un solo lugar.
+- **`descargarArchivo()` pide el binario con `fetch` autenticado y arma un `<a download>` temporal
+  con un object URL**, no un `<a href>` directo al endpoint: un enlace público no puede llevar el
+  header `Authorization`, y el CV nunca se sirve por una ruta sin sesión (`docs/03-seguridad.md`).
+  Necesitó exponer `Content-Disposition` en el `cors()` de `app.js` (oculto por defecto en
+  respuestas cross-origin) para que el nombre real del archivo llegue al cliente.
+- **`usuarioActual()` decodifica el JWT en memoria sin verificar la firma.** Sirve solo para decidir
+  qué mostrar (qué panel, qué botón) — cada petición real la revalida el servidor con la firma
+  completa, así que decodificar sin verificar acá no es una superficie nueva de ataque, es una
+  lectura de un dato que el propio dueño del token ya puede leer en texto plano.
+**Bugs encontrados al construir:**
+- **Alias de Sequelize: `Postulacion.belongsTo(Oferta)` sin `as` explícito generaba el alias
+  `"Ofertum"`, no `"Oferta".`** La librería `inflection` que usa Sequelize para singularizar
+  interpreta la "a" final de "Ofertas" como marca de plural en latín. No era un problema mientras
+  nadie hacía `include` de esa asociación (Fases 3-4); se volvió visible recién ahora que "mis
+  postulaciones" necesita traer la oferta. Arreglado con `as: 'Oferta'` explícito en
+  `models/index.js` (mismo problema y mismo arreglo en `OfertaEvento.belongsTo(Oferta)`) — y, una
+  vez que una asociación tiene *cualquier* alias explícito, Sequelize exige que **todo** `include`
+  de esa asociación lo repita, aunque no haya ambigüedad, así que los tres `include:[{model:Oferta}]`
+  ya existentes (dos en `postulaciones.service.js`, uno en `archivos.service.js`) necesitaron el
+  mismo `as: 'Oferta'` para no romper con un 500.
+- **Dos bugs visuales reales en Bootstrap, encontrados al mirar las capturas de Chrome headless, no
+  adivinados:** los botones se veían con el azul por defecto de Bootstrap en vez del naranja de
+  marca — las clases precompiladas del CDN (`.btn-primary`) traen sus propios `--bs-btn-*` con
+  valores hexadecimales fijos desde Sass, no leen la variable `--bs-primary` del root (solo las
+  clases *utilitarias* como `.text-primary` lo hacen); y una insignia/botón dentro de una `.card` se
+  estiraba al ancho completo de la tarjeta — `.card` es `flex-column` en Bootstrap 5, así que
+  cualquier hijo directo hereda `align-items:stretch`, confirmado midiendo
+  `getComputedStyle(el).width` de verdad, no asumiendo. El segundo bug ya estaba en producción desde
+  la vitrina pública (`tarjeta-oferta.js`) sin que nadie lo hubiera notado; se corrigió ahí también,
+  envolviendo el contenido en `.card-body` en ambos componentes.
+**Auditado con `auditor-seguridad` antes del push — sin hallazgos Alto/Grave, cuatro Media/Baja,
+todos corregidos:**
+- **[Media] La línea de tiempo exponía `motivo` y `actorUsuarioId` a la otra parte de la
+  postulación**, pese a que la decisión de diseño ya era no mostrarlos. El `attributes` que los
+  excluye se había puesto en el helper `conEventos()` que usan `obtenerPorId`/
+  `obtenerPropiaDeEstudiante`, pero `obtenerPropiaDeEmpresa` arma su propio `include` a mano (por el
+  `where` de pertenencia sobre `Oferta`) y ese segundo `include` de `PostulacionEvento` se quedó sin
+  la lista blanca. `motivo` es una nota libre que la empresa escribe pensando en su propio proceso
+  ("no contratar, mala actitud"), nunca en que el estudiante rechazado la va a leer textual — un
+  riesgo real de reputación y no solo de forma. Arreglado repitiendo el mismo `attributes` en el
+  `include` de `obtenerPropiaDeEmpresa`; la prueba de "el detalle incluye la línea de tiempo" ahora
+  itera el token del estudiante **y** el de la empresa, que es como se encontró que solo la primera
+  rama estaba cubierta.
+- **[Media] El nombre original del CV no se saneaba.** El número mágico `%PDF-` valida el
+  *contenido*, pero nada impedía subir un PDF real llamado `cv.html`; con `Content-Disposition` ya
+  exponiendo ese nombre a una descarga real (decisión de esta misma fase), alguien que lo descargue
+  y lo abra desde el gestor de descargas en vez de un lector de PDF lo ejecutaría como HTML en
+  origen `file://`. Arreglado forzando la extensión a `.pdf` en `archivos.service.js` al momento de
+  subir (`nombreArchivoSeguro`), no en cada descarga.
+- **[Baja] `subirCv` devolvía `nombreAlmacenado`** (el UUID interno en disco) en la respuesta al
+  cliente, sin que la interfaz lo usara para nada. Arreglado con una lista blanca explícita en el
+  controller: `{id, nombreOriginal, tamanoBytes}`.
+- **[Baja] `refrescarUnaVez` borraba el token de sesión ante cualquier respuesta no exitosa de
+  `/auth/refrescar`**, incluido un `429` (límite de tasa compartido, que `oferta.html` puede
+  disparar en una visita pública) o un `500` transitorio — ninguno de los dos prueba que la sesión
+  murió. Arreglado: solo `401`/`403` limpian el token; un fallo ambiguo o de red lo deja como está.
+**Bug propio, encontrado al re-correr las pruebas después de aplicar los cuatro arreglos de
+arriba:** el mismo olvido de la lista blanca en `obtenerPropiaDeEmpresa` (primer hallazgo Media)
+hizo fallar la prueba ya escrita para el otro camino, y la prueba de subida de CV seguía afirmando
+sobre `tipo`/`nombreAlmacenado` en el cuerpo de la respuesta — campos que el tercer arreglo (Baja)
+acababa de sacar a propósito. Ambas se corrigieron para afirmar sobre el comportamiento nuevo, más
+seguro, no para volver al anterior.
+**Verificado real, no solo con mocks:** flujo completo contra la API real con Chrome headless
+(login → crear perfil → subir un PDF real → postular → listar "mis postulaciones" con oferta y
+empresa → ver la línea de tiempo → retirar → confirmar que una segunda postulación a la misma
+oferta se bloquea) — así se encontraron los dos bugs visuales de Bootstrap. 402 pruebas en
+`apps/api`, 29 en `apps/web`, 0 fallas.
+
 ## 2026-08-29 · Sesión web (login) — decisión y auditoría de seguridad, antes del push
 **Contexto:** primera vez que `apps/web` maneja credenciales, cookies y un token de acceso — hasta
 ahora todo era público y sin sesión. Es la base que necesitan los tres paneles de Fase 6

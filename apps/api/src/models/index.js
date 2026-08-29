@@ -32,7 +32,12 @@ Empresa.hasMany(Oferta, { foreignKey: 'empresaId' });
 Oferta.belongsTo(Empresa, { foreignKey: 'empresaId' });
 
 Oferta.hasMany(OfertaEvento, { foreignKey: 'ofertaId' });
-OfertaEvento.belongsTo(Oferta, { foreignKey: 'ofertaId' });
+// as:'Oferta' explícito: el alias por defecto de Sequelize para belongsTo(Oferta) singulariza mal
+// ("Ofertum" en vez de "Oferta" — la librería de inflección trata la "a" final como un plural
+// latino, mismo tipo de bug que rutUltimos4/ofertasPublicadas12m pero en un alias, no una columna).
+// No rompe los include existentes: solo hace falta declarar `as` en el include cuando hay más de
+// una asociación al mismo modelo, y acá siempre hay una sola.
+OfertaEvento.belongsTo(Oferta, { foreignKey: 'ofertaId', as: 'Oferta' });
 
 Usuario.hasMany(Archivo, { foreignKey: 'propietarioUsuarioId' });
 Archivo.belongsTo(Usuario, { foreignKey: 'propietarioUsuarioId' });
@@ -41,7 +46,7 @@ Estudiante.hasMany(Postulacion, { foreignKey: 'estudianteId' });
 Postulacion.belongsTo(Estudiante, { foreignKey: 'estudianteId' });
 
 Oferta.hasMany(Postulacion, { foreignKey: 'ofertaId' });
-Postulacion.belongsTo(Oferta, { foreignKey: 'ofertaId' });
+Postulacion.belongsTo(Oferta, { foreignKey: 'ofertaId', as: 'Oferta' }); // ver nota de alias arriba
 
 Archivo.hasMany(Postulacion, { foreignKey: 'cvArchivoId' });
 Postulacion.belongsTo(Archivo, { foreignKey: 'cvArchivoId' });

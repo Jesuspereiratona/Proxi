@@ -135,12 +135,14 @@ Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
 - [x] Login (`login.html`) y sesión: token de acceso solo en memoria (nunca `localStorage`), se
       repone en cada carga de página con la cookie `httpOnly` de Fase 1 — base para los tres
       paneles, ninguno puede empezar sin esto
-- [ ] Panel estudiante: perfil, CV, mis postulaciones con línea de tiempo de estados
+- [x] Panel estudiante: perfil, CV, mis postulaciones con línea de tiempo de estados. Ver
+      `specs/05-panel-estudiante/`
 - [ ] Panel empresa: mis ofertas, publicar, revisar postulantes, cerrar con motivo
 - [ ] Panel coordinación: validar empresas, moderar ofertas, ver indicadores
-- [ ] Accesibilidad básica en el resto de la fase (pendiente de los paneles); en la vitrina pública
-      ya está verificada con capturas reales de Chrome headless: labels, `aria-live`, foco visible
-      por defecto de Bootstrap sin overrides, orden de tabulación natural del DOM
+- [ ] Accesibilidad básica en el resto de la fase (pendiente de los paneles empresa/coordinación); en
+      la vitrina pública y el panel de estudiante ya está verificada con capturas reales de Chrome
+      headless: labels, `aria-live`, foco visible por defecto de Bootstrap sin overrides, orden de
+      tabulación natural del DOM
 - [x] Extra sobre lo planeado: `GET /api/v1/empresas/:id` (perfil público de empresa), que
       ninguna fase anterior había expuesto
 - [x] Extra sobre lo planeado: auditoría de seguridad de la primera entrega encontró y corrigió un
@@ -148,6 +150,9 @@ Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
       que el proyecto expuso un `href` construido con datos de un tercero
 - [x] Extra sobre lo planeado: auditoría de seguridad de la sesión encontró y corrigió una carrera
       real entre refrescos de token que habría revocado sesiones de usuarios enteras (ver bitácora)
+- [x] Extra sobre lo planeado: auditoría de seguridad del panel de estudiante encontró y corrigió una
+      fuga de datos personales (nota de rechazo y actor interno visibles a la parte equivocada de una
+      postulación) y un nombre de archivo sin sanear en la subida de CV (ver bitácora)
 
 ## Fase 7 · Datos personales
 - [ ] `GET /mi-cuenta/datos` (portabilidad en JSON)
