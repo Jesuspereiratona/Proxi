@@ -86,6 +86,9 @@ Ninguna de las que ya trae el proyecto cubre JWT, hashing, cookies o correo. Se 
 - `cookie-parser` — Express no lee cookies por sí solo; hace falta para leer el refresco en `req.cookies`.
 - `nodemailer` — transporte de correo real y, en desarrollo, el cliente de la cuenta de prueba de
   Ethereal (incluida en el mismo paquete, sin dependencia aparte).
+- `zod` — validación de esquema en el borde, tal como pide `docs/03-seguridad.md` ("esquema
+  declarado, `express-validator` o `zod`"). Se usa desde un `middlewares/validar.middleware.js` nuevo
+  y los esquemas viven en `schemas/auth.schemas.js`.
 
 ## Errores nuevos
 `AUTH_CORREO_YA_REGISTRADO` (409) · `AUTH_TOKEN_INVALIDO` (401). Los demás

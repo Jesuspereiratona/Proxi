@@ -6,7 +6,20 @@ const env = require('./env');
 // mismos nombres de campo se listan a nivel raíz y bajo `req.body`, que son las dos formas en que un
 // dato personal entra al logger (`log.info({ correo })` y el cuerpo de la petición). Esta lista es la
 // segunda barrera, no la primera: la primera es no pasar nunca un objeto con datos personales al logger.
-const NOMBRES_SENSIBLES = ['password', 'passwordHash', 'token', 'accessToken', 'refreshToken', 'rut', 'email', 'correo', 'cv'];
+// "clave"/"claveNueva" son los nombres reales que usan los esquemas de auth.schemas.js, no "password".
+const NOMBRES_SENSIBLES = [
+  'password',
+  'passwordHash',
+  'clave',
+  'claveNueva',
+  'token',
+  'accessToken',
+  'refreshToken',
+  'rut',
+  'email',
+  'correo',
+  'cv',
+];
 const CAMPOS_CENSURADOS = [
   'req.headers.authorization',
   'req.headers.cookie',

@@ -17,6 +17,40 @@ Formato:
 
 ---
 
+## 2026-08-29 · Fase 1 (Identidad): decisiones de la implementación
+**Contexto:** `specs/02-identidad/` quedó aprobada con varias decisiones ya anotadas ahí (tabla
+`tokens_verificacion`, columna `intentos_fallidos_desde`, Ethereal para correo). Durante la
+implementación aparecieron otras, más chicas, que no estaban en el plan.
+**Decisiones:**
+- **Bloqueo de cuenta = 403, no 401.** Cinco fallos de login lanzan `NoAutorizado` (403), no
+  `NoAutenticado` (401): la identidad puede ser correcta, lo que falta es permiso temporal. Es la
+  única situación de Fase 1 donde se revela (a propósito) que una cuenta existe y está bloqueada.
+- **Comparación de tiempo constante contra correos inexistentes.** `login()` corre
+  `bcrypt.compare` contra un hash dummy fijo aunque el correo no exista, para que el tiempo de
+  respuesta no delate qué correos están registrados.
+- **`sequelize-cli` con un solo config para los tres entornos.** `config/config-cli.js` reexporta
+  `config/env.js` bajo `development`/`test`/`production`: como `env.js` ya resolvió las variables
+  reales del proceso, sequelize-cli no necesita (ni debe) tener su propia copia de la lógica de
+  entorno.
+- **`node --require ./scripts/entorno-prueba.js` fuerza `NODE_ENV=test` en `npm test` local.** Sin
+  esto, correr pruebas localmente usa el `NODE_ENV=development` del `.env` y dispara Ethereal de
+  verdad en cada corrida (lento, depende de red). CI ya lo hacía bien porque fija `NODE_ENV` como
+  variable real del job; esto solo cierra la brecha local. Sin dependencias nuevas.
+**Bugs encontrados probando a mano antes de escribir las pruebas automatizadas** (ver
+`specs/02-identidad/`):
+- El limitador de tasa de `/auth/login` y `/auth/recuperar-clave` era la **misma instancia** de
+  `express-rate-limit`, así que compartían contador: agotar los 5 intentos en uno bloqueaba el otro
+  para el mismo correo. Ahora `limitar-tasa-auth.middleware.js` exporta una fábrica y cada ruta
+  monta la suya.
+- `restablecerClave` no reseteaba `intentos_fallidos`: alguien a un fallo del bloqueo que
+  recuperaba su clave por correo seguía con el contador viejo. Ahora se resetea en la misma
+  transacción.
+- El campo real de contraseña en los esquemas es `clave`/`claveNueva`, no `password`; no estaba en
+  `CAMPOS_CENSURADOS` de `config/logger.js`. Se agregó y se verificó con una prueba manual que
+  compara la salida del logger antes y después.
+**Consecuencia:** las próximas fases que agreguen un límite de tasa específico por ruta deben usar el
+mismo patrón de fábrica, no una instancia compartida entre rutas con distinto propósito.
+
 ## 2026-08-28 · Bug: la CI fallaba dos veces después del primer push
 **Contexto:** al verificar el primer run de CI, dos problemas aparecieron uno detrás del otro.
 **Decisión 1:** `WEB_URL` se agregó al bloque `env` de `ci.yml`. Había pasado a `REQUERIDAS` en

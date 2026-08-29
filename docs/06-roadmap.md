@@ -24,17 +24,21 @@ Sin esto, todo lo demás se construye sobre arena.
 **Listo cuando:** `npm test` pasa en CI y `/api/v1/salud` responde 200. **Cumplido el 2026-08-28.**
 
 ## Fase 1 · Identidad
-- [ ] Migraciones de `usuarios`, `sesiones`, `consentimientos`
-- [ ] Registro con verificación por correo y consentimiento explícito
-- [ ] Login con bcrypt, límite de 5 intentos por 15 min, bloqueo temporal
-- [ ] JWT de acceso + refresco rotativo en cookie httpOnly
-- [ ] Middlewares `autenticar` y `autorizar(...roles)`
-- [ ] Recuperación de contraseña con token de un solo uso
-- [ ] Ampliar `CAMPOS_CENSURADOS` de `config/logger.js` a las formas reales que tomen los payloads de
-      login/registro antes de loguear nada de esas rutas (hoy solo cubre raíz y `req.body`, un nivel)
-- [ ] Pruebas: credenciales inválidas, token expirado, rol equivocado, enumeración de usuarios
+- [x] Migraciones de `usuarios`, `sesiones`, `consentimientos` (+ `tokens_verificacion`, ver `02-modelo-de-datos.md`)
+- [x] Registro con verificación por correo y consentimiento explícito (correo real vía Ethereal en desarrollo)
+- [x] Login con bcrypt, límite de 5 intentos por 15 min, bloqueo temporal
+- [x] JWT de acceso + refresco rotativo en cookie httpOnly, con detección de reuso
+- [x] Middlewares `autenticar` y `autorizar(...roles)`
+- [x] Recuperación de contraseña con token de un solo uso
+- [x] Ampliar `CAMPOS_CENSURADOS` de `config/logger.js`: agregados `clave`/`claveNueva` (los nombres
+      reales de los esquemas de auth, no `password`) a nivel raíz y `req.body`
+- [x] Pruebas: 42 pasan (credenciales inválidas, cuenta bloqueada, token expirado/reusado/inválido,
+      rol equivocado, enumeración de usuarios, reuso de refresco)
 
-**Listo cuando:** los tres roles pueden entrar y las rutas rechazan a quien no corresponde.
+**Listo cuando:** los tres roles pueden entrar y las rutas rechazan a quien no corresponde. **Cumplido
+el 2026-08-29** — no hay todavía una ruta de negocio protegida para probar `autorizar` end-to-end
+contra HTTP real; se probó con pruebas unitarias del middleware. La primera ruta de Fase 2 hereda esa
+prueba de acceso cruzado a nivel de integración.
 
 ## Fase 2 · Perfiles y validación de empresas
 - [ ] Migraciones de `estudiantes` y `empresas`

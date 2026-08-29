@@ -11,7 +11,7 @@ usuarios 1─1 estudiantes ──1─* postulaciones *─1── ofertas *─1�
    │                              │                    │
    │                              └─* postulacion_eventos│
    │                                                   └─* oferta_eventos
-   └─* sesiones   └─* consentimientos   └─* auditoria_accesos
+   └─* sesiones   └─* consentimientos   └─* auditoria_accesos   └─* tokens_verificacion
 estudiantes 1─* archivos (cv)
 ```
 
@@ -30,8 +30,22 @@ Identidad y acceso. Nada de datos de perfil aquí.
 | email_verificado_at | timestamptz NULL | |
 | ultimo_acceso_at | timestamptz NULL | alimenta la política de retención |
 | intentos_fallidos | int DEFAULT 0 | bloqueo temporal tras N intentos |
+| intentos_fallidos_desde | timestamptz NULL | inicio de la racha de fallos actual; sin ella no hay desde cuándo contar los 15 minutos del bloqueo sin reusar `ultimo_acceso_at` |
 
 Índices: `email` (único), `rol`.
+
+### tokens_verificacion
+Un solo mecanismo para dos flujos: verificar correo y restablecer clave. Se distinguen por `tipo`.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| usuario_id | bigint FK NOT NULL | |
+| token_hash | text NOT NULL | se guarda el hash, nunca el token |
+| tipo | text NOT NULL | CHECK: `verificacion_correo` · `restablecer_clave` |
+| expira_at | timestamptz NOT NULL | 24h para verificación, 1h para restablecer |
+| usado_at | timestamptz NULL | un solo uso: si no es NULL, el token ya sirvió |
+
+Índices: `usuario_id`, `token_hash`.
 
 ### estudiantes
 | Columna | Tipo | Notas |

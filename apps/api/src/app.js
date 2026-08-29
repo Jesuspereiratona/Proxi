@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const pinoHttp = require('pino-http');
 
 const env = require('./config/env');
@@ -23,6 +24,7 @@ app.use(cors({ origin: env.webUrl, credentials: true }));
 app.use(pinoHttp({ logger, genReqId: () => crypto.randomUUID() }));
 app.use(limitarTasa);
 app.use(express.json({ limit: '1mb' }));
+app.use(cookieParser());
 
 app.use('/api/v1', rutas);
 

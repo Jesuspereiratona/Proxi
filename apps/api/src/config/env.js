@@ -53,6 +53,14 @@ const env = {
   },
   // Nunca por debajo de 12 (docs/03-seguridad.md), aunque la variable traiga un valor menor.
   bcryptRounds: Math.max(12, Number(process.env.BCRYPT_ROUNDS) || 12),
+  // Sin SMTP_HOST, correo.service.js usa Ethereal (desarrollo) o solo registra el mensaje (test).
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: Number(process.env.SMTP_PORT) || 587,
+    usuario: process.env.SMTP_USER || '',
+    password: process.env.SMTP_PASSWORD || '',
+  },
+  mailFrom: process.env.MAIL_FROM || 'Proxi <no-responder@proxi.cl>',
 };
 
 module.exports = env;

@@ -73,23 +73,23 @@ específico (`autorizar(...roles)`). Sin el rol correcto, 403. Sin sesión, 401.
 | Un estudiante autenticado entra a una ruta `autorizar('coordinacion')` | 403 |
 
 ## Criterios de aceptación
-- [ ] Dado un correo nuevo, contraseña válida, rol `estudiante` y consentimiento aceptado, cuando se
+- [x] Dado un correo nuevo, contraseña válida, rol `estudiante` y consentimiento aceptado, cuando se
       registra, entonces responde 201 y la cuenta queda `pendiente_verificacion`
-- [ ] Dado un registro sin marcar el consentimiento, cuando se envía, entonces responde 422 `CONSENTIMIENTO_REQUERIDO`
-- [ ] Dado un correo ya registrado, cuando se intenta registrar de nuevo, entonces responde 409 `AUTH_CORREO_YA_REGISTRADO`
-- [ ] Dada una cuenta `pendiente_verificacion`, cuando se usa su token de verificación, entonces queda `activo` con `email_verificado_at` lleno
-- [ ] Dado ese mismo token de verificación, cuando se reutiliza, entonces responde 422 `AUTH_TOKEN_INVALIDO`
-- [ ] Dadas credenciales correctas y cuenta `activo`, cuando hace login, entonces responde con un access token y una cookie de refresco `httpOnly`
-- [ ] Dada una cuenta `pendiente_verificacion` con credenciales correctas, cuando hace login, entonces responde 403 `AUTH_EMAIL_NO_VERIFICADO`
-- [ ] Dado un correo inexistente, cuando se intenta login, entonces responde 401 `AUTH_CREDENCIALES_INVALIDAS`
-- [ ] Dados 5 intentos fallidos en 15 minutos, cuando se intenta un sexto con la clave correcta, entonces responde 403 `AUTH_CUENTA_BLOQUEADA`
-- [ ] Dado un refresco válido, cuando se usa en `/auth/refrescar`, entonces se emite uno nuevo y el usado queda revocado en `sesiones`
-- [ ] Dado un refresco ya usado, cuando se reutiliza, entonces todas las sesiones de esa cuenta quedan revocadas y responde 401
-- [ ] Dada una ruta protegida, cuando no llega token de acceso o llegó vencido, entonces responde 401
-- [ ] Dada una ruta `autorizar('coordinacion')`, cuando entra un estudiante autenticado, entonces responde 403
-- [ ] Dado `/auth/logout` con sesión activa, cuando se llama, entonces la fila de `sesiones` queda revocada y la cookie se limpia
-- [ ] Dado `/auth/recuperar-clave` con un correo que no existe, cuando se llama, entonces responde 200 con el mismo cuerpo que si existiera
-- [ ] Dado un token de restablecimiento válido, cuando se usa, entonces la clave cambia y una segunda vez responde 422 `AUTH_TOKEN_INVALIDO`
+- [x] Dado un registro sin marcar el consentimiento, cuando se envía, entonces responde 422 `CONSENTIMIENTO_REQUERIDO`
+- [x] Dado un correo ya registrado, cuando se intenta registrar de nuevo, entonces responde 409 `AUTH_CORREO_YA_REGISTRADO`
+- [x] Dada una cuenta `pendiente_verificacion`, cuando se usa su token de verificación, entonces queda `activo` con `email_verificado_at` lleno
+- [x] Dado ese mismo token de verificación, cuando se reutiliza, entonces responde 422 `AUTH_TOKEN_INVALIDO`
+- [x] Dadas credenciales correctas y cuenta `activo`, cuando hace login, entonces responde con un access token y una cookie de refresco `httpOnly`
+- [x] Dada una cuenta `pendiente_verificacion` con credenciales correctas, cuando hace login, entonces responde 403 `AUTH_EMAIL_NO_VERIFICADO`
+- [x] Dado un correo inexistente, cuando se intenta login, entonces responde 401 `AUTH_CREDENCIALES_INVALIDAS`
+- [x] Dados 5 intentos fallidos en 15 minutos, cuando se intenta un sexto con la clave correcta, entonces responde 403 `AUTH_CUENTA_BLOQUEADA`
+- [x] Dado un refresco válido, cuando se usa en `/auth/refrescar`, entonces se emite uno nuevo y el usado queda revocado en `sesiones`
+- [x] Dado un refresco ya usado, cuando se reutiliza, entonces todas las sesiones de esa cuenta quedan revocadas y responde 401
+- [x] Dada una ruta protegida, cuando no llega token de acceso o llegó vencido, entonces responde 401
+- [x] Dada una ruta `autorizar('coordinacion')`, cuando entra un estudiante autenticado, entonces responde 403
+- [x] Dado `/auth/logout` con sesión activa, cuando se llama, entonces la fila de `sesiones` queda revocada y la cookie se limpia
+- [x] Dado `/auth/recuperar-clave` con un correo que no existe, cuando se llama, entonces responde 200 con el mismo cuerpo que si existiera
+- [x] Dado un token de restablecimiento válido, cuando se usa, entonces la clave cambia y una segunda vez responde 422 `AUTH_TOKEN_INVALIDO`
 
 ## Fuera de alcance
 Perfiles de estudiante y empresa (`estudiantes`, `empresas` — Fase 2), cuenta SMTP real de producción
