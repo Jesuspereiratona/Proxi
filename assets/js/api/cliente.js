@@ -36,6 +36,9 @@ const MENSAJES = {
   OFERTA_FECHA_CIERRE_INVALIDA: 'La fecha de cierre debe ser futura.',
   OFERTA_TRANSICION_INVALIDA: 'Esta oferta ya no admite ese cambio.',
   OFERTA_CAMPO_NO_EDITABLE: 'Ese campo ya no se puede editar en esta oferta.',
+  // Registro (Fase 6, pieza pendiente).
+  AUTH_CORREO_YA_REGISTRADO: 'Ese correo ya tiene una cuenta.',
+  CONSENTIMIENTO_REQUERIDO: 'Debes aceptar la política de privacidad para registrarte.',
 };
 const MENSAJE_GENERICO = 'Ocurrió un problema. Intenta de nuevo en un momento.';
 
@@ -77,6 +80,14 @@ export const usuarioActual = () => {
   }
 };
 
+// `document` no existe en las pruebas (node --test, sin DOM) — mismo motivo que tieneWebLocks más
+// abajo: typeof, no encadenamiento opcional, porque el identificador no existe en absoluto.
+const leerCookie = (nombre) => {
+  if (typeof document === 'undefined') return '';
+  const fila = document.cookie.split('; ').find((c) => c.startsWith(`${nombre}=`));
+  return fila ? decodeURIComponent(fila.slice(nombre.length + 1)) : '';
+};
+
 const cuerpoDeError = async (respuesta) => {
   let codigo = 'ERROR_INTERNO';
   let detalles;
@@ -95,7 +106,12 @@ const cuerpoDeError = async (respuesta) => {
 // fallido dispare otro intento de refresco.
 const refrescarUnaVez = async () => {
   try {
-    const respuesta = await fetch(`${API_URL}/auth/refrescar`, { method: 'POST', credentials: 'include' });
+    const csrf = leerCookie('csrf');
+    const respuesta = await fetch(`${API_URL}/auth/refrescar`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+    });
     if (!respuesta.ok) {
       // Solo 401/403 significan de verdad "no hay sesión" — limpiarToken() ahí. Un 429 (límite de
       // tasa global compartido, oferta.html lo llama en cada visita pública) o un 500 transitorio
@@ -154,6 +170,13 @@ const construirUrl = (ruta, parametros) => {
 const fetchConReintento = async (metodo, ruta, { encabezados = {}, cuerpo, autenticado = false, credenciales = false, reintentar = true, parametros } = {}) => {
   const encabezadosFinales = { ...encabezados };
   if (autenticado && accessToken) encabezadosFinales.Authorization = `Bearer ${accessToken}`;
+  // Doble-submit CSRF (apps/api/.../verificar-csrf.middleware.js): solo /auth/refrescar y
+  // /auth/logout la exigen, pero mandarla siempre que hay cookies de por medio es más simple que
+  // acoplar este cliente genérico a rutas específicas — el servidor la ignora en el resto.
+  if (credenciales) {
+    const csrf = leerCookie('csrf');
+    if (csrf) encabezadosFinales['X-CSRF-Token'] = csrf;
+  }
 
   let respuesta;
   try {
