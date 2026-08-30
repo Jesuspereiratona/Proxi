@@ -8,12 +8,15 @@ const claveEsquema = z.string().min(LARGO_MINIMO, `La contraseña debe tener al 
 // patrón y quedar indistinguible de una cuenta anonimizada en una revisión manual (auditoría de
 // Fase 7). No es una superficie de ataque real (anonimizado_at, no el correo, decide qué está
 // suprimido), pero confunde sin necesidad.
+// versionPolitica NO se recibe del cliente (auditoría de seguridad): la fila de consentimientos es
+// la evidencia con la que la facultad demuestra base legal ante la Agencia (Ley 21.719) — si su
+// contenido lo decide quien manda el POST, un valor inventado o gigante (la columna es TEXT sin
+// tope) la deja sin valor probatorio. La decide el servidor, ver auth.service.js VERSION_POLITICA.
 const registroEsquema = z.object({
   email: z.string().email().refine((valor) => !valor.toLowerCase().endsWith('.invalid'), 'Ese dominio de correo no está permitido.'),
   clave: claveEsquema,
   rol: z.enum(['estudiante', 'empresa']),
   aceptaPolitica: z.boolean(),
-  versionPolitica: z.string().min(1),
 });
 
 const loginEsquema = z.object({

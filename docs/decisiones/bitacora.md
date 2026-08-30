@@ -1177,3 +1177,57 @@ genérica ("dato de red escrito a disco") y no distingue esto de un backdoor rea
 **Consecuencia:** ninguna — no había nada que arreglar. Si en el futuro `nombreArchivoSeguro` deja de
 sanear el nombre, o el nombre en disco deja de ser aleatorio, esta alerta pasa a ser real y hay que
 revisar esta entrada.
+
+## 2026-08-30 · `auditor-seguridad` sobre el CSRF nuevo y el registro web: un grave autoinfligido y cuatro menores
+**Contexto:** re-análisis completo pedido después de la corrida de CodeQL de arriba, con foco en el
+CSRF recién agregado (nunca auditado) y en `registro.html`/`verificar-correo.js` (la auditoría
+anterior sobre esa pieza se había cancelado sin resultados). Corrió en paralelo con `pentester-api`
+contra la instancia local real.
+
+**[Grave] La cookie `csrf` heredaba `path: '/api/v1/auth'` de la cookie de sesión.** Ningún
+navegador expone `document.cookie` a una página fuera de ese path, y ninguna página de `apps/web`
+vive ahí — `leerCookie('csrf')` devolvía siempre `''`, el header nunca se mandaba, y
+`/auth/refrescar` y `/auth/logout` quedaban en 403 permanente para cualquier sesión real. Peor:
+`sesion.js` `logout()` traga ese error (`.catch(() => {})`) y solo borra el token en memoria — la
+fila de `sesiones` nunca se revocaba, contradiciendo `docs/03-seguridad.md` §2. El commit que agregó
+el CSRF (`75a2045`) rompía la sesión web completa sin que ninguna prueba lo detectara: las pruebas
+existentes leen la cookie del `Set-Cookie` crudo y la reenvían sin respetar `Path`, que es
+exactamente la diferencia con un navegador real.
+**Arreglo:** `path: '/'` en la cookie `csrf` (no protege un secreto, solo tiene que ser legible en
+el origen). Verificado en vivo contra el servidor real corriendo (no solo con las pruebas): login →
+`Set-Cookie: csrf=...; Path=/` → `/refrescar` sin el header da 403, con el header correcto da 200 →
+`/logout` con el header da 204. Prueba nueva que fija `Path=/` en el `Set-Cookie` para que esto no
+se repita en silencio.
+
+**[Media] `/auth/registro` sin límite de tasa propio.** Permitía enumerar correos institucionales
+(`409` = existe, `201` = no) a la velocidad del límite global (300/15min por IP), y cada intento
+manda un correo real a un tercero. Reusar `crearLimitarTasaAuth()` no servía: su clave es
+IP+correo, y quien enumera cambia el correo en cada intento. **Arreglo:** nuevo
+`limitar-tasa-registro.middleware.js`, clave solo por IP, 10/hora.
+
+**[Media-baja] `versionPolitica` viajaba como texto libre del cliente** y quedaba tal cual en
+`consentimientos` — la fila que sirve de evidencia de base legal ante la Agencia (Ley 21.719) podía
+llevar cualquier valor, incluida una cadena de casi 1 MB (columna `TEXT` sin tope). **Arreglo:** se
+saca del esquema de entrada (`auth.schemas.js`); el servidor usa una constante propia
+(`VERSION_POLITICA` en `auth.service.js`, duplicada del valor en `politica-privacidad.html` y
+`registro.js`, mismo patrón que `LARGO_MINIMO_CLAVE`).
+
+**[Baja, funcional] El enlace del correo de verificación apuntaba a `/verificar-correo` sin
+`.html`** — 404 real contra `servidor-dev.js`, que sirve por path exacto. Bug de la Fase 1, recién
+visible porque la página finalmente existe. **Arreglo:** una línea en `auth.service.js`.
+
+**[Baja] Sin `Referrer-Policy` en `verificar-correo.html`**, con el token de un solo uso en la
+query. Con la política por defecto de los navegadores actuales no hay fuga hoy, pero nada en el
+código lo garantiza. **Arreglo:** `<meta name="referrer" content="no-referrer">` + limpiar la URL
+con `history.replaceState` después de leer el token (importa en un computador compartido).
+
+**[Menor] `timingSafeEqual` comparaba longitud en caracteres (UTF-16), no en bytes (UTF-8)** —
+un `X-CSRF-Token` con caracteres fuera de ASCII podía disparar `RangeError` y un 500 en vez de un
+403. **Arreglo:** comparar digests SHA-256 de largo fijo en vez de los valores crudos.
+
+**Motivo general:** el propio agregado de CSRF de esta tarde introdujo el hallazgo más grave de la
+lista — la razón exacta por la que la regla del proyecto es correr `auditor-seguridad` antes de
+cerrar, no confiar en que "pasaron las pruebas".
+**Consecuencia:** los seis hallazgos están arreglados y probados (437 pruebas de API, 41 de web,
+todas verdes) antes de este commit. `pentester-api` corrió en paralelo contra la instancia local;
+sus resultados se documentan aparte cuando terminen.

@@ -163,6 +163,17 @@ Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
       que coordinación aprobaba ofertas y validaba empresas sin ver el contenido que estaba
       moderando, un motivo de solo espacios que pasaba la validación en tres endpoints, y transiciones
       de empresa sin compare-and-set (ver bitácora)
+- [x] Extra sobre lo planeado: registro público (`registro.html`, `verificar-correo.html`) — pantalla
+      que faltaba desde que se abrió la fase; el backend (`POST /auth/registro`,
+      `POST /auth/verificar-correo`) ya existía desde la Fase 1 sin tener desde dónde llamarse. Ver
+      `specs/09-registro-web/`. La auditoría de seguridad encontró y corrigió, en el mismo paso, un
+      hallazgo Grave introducido por la protección CSRF agregada en paralelo (la cookie `csrf`
+      heredaba el path de la cookie de sesión y no era legible por ninguna página real, dejando
+      `/auth/refrescar` y `/auth/logout` en 403 permanente), y cuatro hallazgos menores del propio
+      registro: sin límite de tasa (permitía enumerar correos institucionales), la versión de la
+      política de privacidad la fijaba el cliente en vez del servidor, el enlace del correo de
+      verificación apuntaba a una URL que daba 404, y faltaba `Referrer-Policy` en la página que
+      recibe el token por la URL (ver bitácora)
 
 **Listo cuando:** los tres roles pueden usar Proxi de punta a punta sin `curl`, y cada pantalla que
 toca autenticación, permisos o datos personales pasó por `auditor-seguridad` antes de subir.

@@ -15,11 +15,14 @@ const verificarCsrf = (req, res, next) => {
 
   const cookieCsrf = req.cookies?.[NOMBRE_COOKIE_CSRF] || '';
   const encabezado = req.get(ENCABEZADO_CSRF) || '';
-  // timingSafeEqual exige buffers del mismo largo, por eso la comparación de longitud va antes y
-  // corta ahí — nunca le llega un largo distinto.
+  // timingSafeEqual exige dos buffers del MISMO LARGO EN BYTES: comparar .length (caracteres
+  // UTF-16) no lo garantiza si algún valor trae caracteres fuera de ASCII, y revienta con
+  // ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH (auditoría de seguridad). Hashear ambos lados a un digest
+  // de largo fijo antes de comparar evita el error de raíz, sin reintroducir el canal de tiempo por
+  // longitud que timingSafeEqual existe para evitar.
+  const digerir = (valor) => crypto.createHash('sha256').update(valor).digest();
   const coincide = cookieCsrf.length > 0
-    && cookieCsrf.length === encabezado.length
-    && crypto.timingSafeEqual(Buffer.from(cookieCsrf), Buffer.from(encabezado));
+    && crypto.timingSafeEqual(digerir(cookieCsrf), digerir(encabezado));
 
   if (!coincide) {
     return next(new NoAutorizado(AUTH_CSRF_INVALIDO, 'Falta o no coincide el token CSRF.'));

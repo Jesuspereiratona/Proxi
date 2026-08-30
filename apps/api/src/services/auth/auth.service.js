@@ -23,7 +23,14 @@ const HASH_DUMMY = '$2a$12$d0WPe/wryfw7e9mPOtx5MOSmpdoGEliUMYK1FeDjee8omvH8kBg6e
 const TTL_VERIFICACION_MS = aMilisegundos('24h'); // no configurable: no lo pidió nadie
 const TTL_RESTABLECER_MS = 60 * 60 * 1000; // 1h, fija por docs/03-seguridad.md
 
-const registrar = async ({ email, clave, rol, aceptaPolitica, versionPolitica }) => {
+// Misma versión que apps/web/politica-privacidad.html (marca al pie de esa página) y que
+// apps/web/assets/js/paginas/registro.js VERSION_POLITICA — sin un paquete compartido para un solo
+// valor, se duplica con la fuente anotada, igual que LARGO_MINIMO_CLAVE del lado del cliente. El
+// cliente ya no manda este valor (auditoría de seguridad): la fila de consentimientos es evidencia
+// legal (Ley 21.719) y su versión la decide el servidor, no quien arma el POST.
+const VERSION_POLITICA = '2026-08-30-borrador';
+
+const registrar = async ({ email, clave, rol, aceptaPolitica }) => {
   if (!aceptaPolitica) {
     throw new ReglaDeNegocio(CONSENTIMIENTO_REQUERIDO, 'Debes aceptar la política de datos para registrarte.');
   }
@@ -38,7 +45,7 @@ const registrar = async ({ email, clave, rol, aceptaPolitica, versionPolitica })
     const usuario = await Usuario.create({ email, passwordHash, rol, estado: 'pendiente_verificacion' }, { transaction: t });
 
     await Consentimiento.create(
-      { usuarioId: usuario.id, versionPolitica, otorgadoAt: new Date() },
+      { usuarioId: usuario.id, versionPolitica: VERSION_POLITICA, otorgadoAt: new Date() },
       { transaction: t },
     );
 
@@ -56,7 +63,10 @@ const registrar = async ({ email, clave, rol, aceptaPolitica, versionPolitica })
     await correo.enviarCorreo({
       para: email,
       asunto: 'Confirma tu cuenta en Proxi',
-      texto: `Confirma tu correo entrando a ${env.webUrl}/verificar-correo?token=${plano}`,
+      // .html: apps/web/scripts/servidor-dev.js sirve por path exacto, no agrega la extensión
+      // (auditoría de seguridad — sin esto el enlace del correo daba 404 y no había forma de
+      // verificar la cuenta salvo activarla a mano desde la base).
+      texto: `Confirma tu correo entrando a ${env.webUrl}/verificar-correo.html?token=${plano}`,
     });
 
     return { id: usuario.id, email: usuario.email, rol: usuario.rol, estado: usuario.estado };

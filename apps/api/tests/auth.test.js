@@ -2,7 +2,7 @@ const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const app = require('../src/app');
-const { sequelize, Usuario, Sesion, TokenVerificacion } = require('../src/models');
+const { sequelize, Usuario, Sesion, TokenVerificacion, Consentimiento } = require('../src/models');
 const tokensService = require('../src/services/auth/tokens');
 const passwords = require('../src/services/auth/passwords');
 
@@ -71,6 +71,17 @@ describe('POST /auth/registro', () => {
     const respuesta = await request(app).post('/api/v1/auth/registro').send(payload);
     assert.equal(respuesta.status, 409);
     assert.equal(respuesta.body.error.codigo, 'AUTH_CORREO_YA_REGISTRADO');
+  });
+
+  test('versionPolitica que mande el cliente se ignora: queda la del servidor (evidencia de consentimiento, Ley 21.719)', async () => {
+    const email = correoUnico('verpol');
+    const respuesta = await request(app)
+      .post('/api/v1/auth/registro')
+      .send({ email, clave: CLAVE, rol: 'estudiante', aceptaPolitica: true, versionPolitica: 'valor-inventado-del-cliente' });
+
+    assert.equal(respuesta.status, 201);
+    const consentimiento = await Consentimiento.findOne({ where: { usuarioId: respuesta.body.id } });
+    assert.notEqual(consentimiento.versionPolitica, 'valor-inventado-del-cliente');
   });
 
   test('rol=coordinacion se rechaza: el registro público no lo permite', async () => {
@@ -223,7 +234,7 @@ describe('POST /auth/logout', () => {
 });
 
 describe('protección CSRF en /refrescar y /logout', () => {
-  test('login emite la cookie csrf legible por JS (no HttpOnly), junto a la de sesión', async () => {
+  test('login emite la cookie csrf legible por JS (no HttpOnly) con Path=/, junto a la de sesión', async () => {
     const email = correoUnico('csrfcookie');
     await registrarActivo(email);
     const loginResp = await request(app).post('/api/v1/auth/login').send({ email, clave: CLAVE });
@@ -232,6 +243,11 @@ describe('protección CSRF en /refrescar y /logout', () => {
     assert.ok(cookieCsrf);
     assert.doesNotMatch(cookieCsrf, /HttpOnly/);
     assert.match(cookieCsrf, /SameSite=Strict/);
+    // Path=/ y no /api/v1/auth: ninguna página de apps/web vive bajo ese path, así que con el path
+    // de la cookie de sesión el navegador nunca la habría expuesto a document.cookie y
+    // refrescar/logout quedaban en 403 permanente (auditoría de seguridad, hallazgo grave).
+    assert.match(cookieCsrf, /Path=\//);
+    assert.doesNotMatch(cookieCsrf, /Path=\/api/);
   });
 
   test('refrescar con la cookie de sesión pero sin X-CSRF-Token responde 403 AUTH_CSRF_INVALIDO', async () => {
@@ -253,6 +269,19 @@ describe('protección CSRF en /refrescar y /logout', () => {
       .post('/api/v1/auth/refrescar')
       .set('Cookie', loginResp.headers['set-cookie'])
       .set('X-CSRF-Token', 'un-valor-inventado-que-no-coincide');
+    assert.equal(respuesta.status, 403);
+    assert.equal(respuesta.body.error.codigo, 'AUTH_CSRF_INVALIDO');
+  });
+
+  test('un X-CSRF-Token con caracteres fuera de ASCII responde 403, no 500 (timingSafeEqual exige mismo largo en bytes)', async () => {
+    const email = correoUnico('csrf4');
+    await registrarActivo(email);
+    const loginResp = await request(app).post('/api/v1/auth/login').send({ email, clave: CLAVE });
+
+    const respuesta = await request(app)
+      .post('/api/v1/auth/refrescar')
+      .set('Cookie', loginResp.headers['set-cookie'])
+      .set('X-CSRF-Token', 'é'.repeat(32)); // mismo largo en caracteres que un token de 32 bytes hex, no en bytes UTF-8
     assert.equal(respuesta.status, 403);
     assert.equal(respuesta.body.error.codigo, 'AUTH_CSRF_INVALIDO');
   });
