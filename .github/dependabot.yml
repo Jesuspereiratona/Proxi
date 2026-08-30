@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Un solo PR para los parches menores: revisar 12 PRs por semana termina en aprobar sin leer
+      parches:
+        update-types: [patch, minor]
+    labels: [dependencias]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

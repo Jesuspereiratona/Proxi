@@ -1122,3 +1122,21 @@ deuda queda anotada donde se va a leer, no en la memoria de nadie.
 **Consecuencia:** el riesgo es llegar a la Fase 6 con prisa y improvisar la interfaz. El punto crítico
 a no improvisar es la representación visual de los estados: si `publicada`, `cierra pronto` y `cerrada`
 no se distinguen de un vistazo, el diferenciador del producto no llega al usuario.
+
+## 2026-08-30 · Capas automáticas de seguridad: CodeQL, gitleaks y Dependabot
+**Contexto:** la seguridad del proyecto dependía de invocar a mano la skill `revision-seguridad` o el
+agente `auditor-seguridad`. Todo lo que depende de acordarse, tarde o temprano se olvida.
+**Decisión:** workflow `Seguridad` con dos trabajos que corren en cada push y cada lunes: CodeQL
+(análisis estático, `security-extended`) y gitleaks sobre el historial completo. Más Dependabot
+semanal con los parches agrupados en un solo PR. Se agregó el agente `pentester-api` (pruebas
+dinámicas contra la instancia local) y la skill `manejo-de-secretos`.
+**Motivo:** las capas existentes son estáticas y a pedido. CodeQL ve patrones que un revisor humano
+pasa por alto; gitleaks revisa el **historial**, no solo el estado actual — un `.env` borrado sigue
+estando en los commits viejos, y eso ya pasó en otros proyectos del bootcamp. `pentester-api` cubre el
+hueco que ninguna lectura de código cubre: un control que está escrito y no funciona.
+Los parches de Dependabot van agrupados a propósito: doce PR por semana terminan aprobados sin leer.
+**`npm audit` no quedó como tercer trabajo de este workflow**: `ci.yml` ya lo corre en cada push desde
+antes, y Dependabot vigila lo mismo de forma continua — un tercer chequeo idéntico solo gasta minutos
+de CI (encontrado al revisar este mismo workflow antes de comitearlo).
+**Consecuencia:** el push tarda un poco más y CodeQL puede reportar falsos positivos que hay que
+descartar con criterio, no silenciar por costumbre. Un hallazgo descartado se anota aquí con su razón.

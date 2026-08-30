@@ -107,6 +107,29 @@ Nunca en el repositorio. `.env` está en `.gitignore`; `.env.example` documenta 
 vacíos. Los secretos de producción viven en el proveedor de hosting. Si un secreto se filtra alguna
 vez, se rota **y** se registra en la bitácora.
 
+## Las capas de defensa, y qué atrapa cada una
+
+Ninguna capa sirve sola. La gracia es que fallen en momentos distintos: lo que se le escapa a una,
+la siguiente lo ve.
+
+| Capa | Cuándo actúa | Qué atrapa | Qué NO atrapa |
+|---|---|---|---|
+| Este documento | Al diseñar | Decisiones inseguras antes de escribirlas | Errores de implementación |
+| Skill `nuevo-endpoint` | Al escribir | Ruta sin validación, sin permisos, sin prueba de acceso cruzado | Fallas entre piezas |
+| Pruebas automatizadas | En cada push | Regresiones: un agujero que ya cerramos y se reabrió | Agujeros que nunca probamos |
+| **CodeQL** | En cada push, automático | Patrones inseguros conocidos: inyección, datos que fluyen de la petición a una consulta | Fallas de lógica de negocio |
+| **gitleaks** | En cada push, sobre el historial completo | Secretos escritos en el código, hoy o hace tres meses | Secretos que nunca entraron a git |
+| **Dependabot** | Semanal | Dependencias con vulnerabilidades publicadas | Vulnerabilidades sin publicar |
+| Agente `auditor-seguridad` | A pedido, antes de fusionar | Lo que exige entender la intención del código | Lo que solo se ve ejecutando |
+| Agente `pentester-api` | A pedido, al cerrar una fase | Controles que existen en el código pero no funcionan en ejecución | Lo que no se le ocurrió probar |
+
+Las cuatro automáticas no dependen de que nadie se acuerde. Las dos de agente sí, y por eso están en
+la lista de abajo.
+
+**Lo que ninguna capa cubre:** un diseño equivocado. Si decidimos que coordinación puede ver todos los
+CV sin dejar registro, ninguna herramienta lo va a marcar — hace exactamente lo que le pedimos. Por eso
+las decisiones de permisos se escriben en la spec antes de implementarse.
+
 ## Lista de verificación antes de fusionar una rama
 - [ ] Toda entrada del usuario pasa por un esquema de validación
 - [ ] Toda ruta con `:id` verifica pertenencia dentro de la consulta
@@ -115,3 +138,6 @@ vez, se rota **y** se registra en la bitácora.
 - [ ] Ningún secreto quedó escrito en el código
 - [ ] Los errores no exponen stack ni detalles internos en producción
 - [ ] `npm audit` sin vulnerabilidades altas o críticas
+- [ ] CodeQL y gitleaks en verde en el workflow `Seguridad`
+- [ ] Al cerrar una fase: `auditor-seguridad` (código) y `pentester-api` (ejecución) pasados, y los
+      ataques que funcionaron convertidos en pruebas automatizadas
