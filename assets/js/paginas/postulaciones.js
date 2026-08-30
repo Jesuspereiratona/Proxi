@@ -1,6 +1,6 @@
 import { protegerPagina } from '../componentes/proteger-pagina.js';
 import { listarMias, obtenerDetalle, retirar } from '../api/postulaciones.js';
-import { textoEstado, formatoLineaTiempo } from '../componentes/linea-tiempo.js';
+import { textoEstado, claseEstadoPostulacion, formatoLineaTiempo } from '../componentes/linea-tiempo.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { logout } from '../api/sesion.js';
 
@@ -56,9 +56,14 @@ function iniciar() {
     empresa.className = 'small fw-medium mb-1';
     empresa.textContent = postulacion.Oferta?.Empresa?.razonSocial ?? '';
 
+    // Insignia con color, no "Estado: texto" plano (docs/08-guia-visual.md): los estados son el
+    // producto, tienen que distinguirse de un vistazo, no solo leerse.
     const estado = document.createElement('p');
     estado.className = 'mb-2';
-    estado.textContent = `Estado: ${textoEstado(postulacion.estado)}`;
+    const insigniaEstado = document.createElement('span');
+    insigniaEstado.className = `estado-postulacion ${claseEstadoPostulacion(postulacion.estado)}`;
+    insigniaEstado.textContent = textoEstado(postulacion.estado);
+    estado.append(insigniaEstado);
 
     const contenedorTimeline = document.createElement('div');
     contenedorTimeline.className = 'mt-2';
@@ -86,7 +91,8 @@ function iniciar() {
         botonRetirar.disabled = true;
         try {
           await retirar(postulacion.id);
-          estado.textContent = `Estado: ${textoEstado('retirada')}`;
+          insigniaEstado.className = `estado-postulacion ${claseEstadoPostulacion('retirada')}`;
+          insigniaEstado.textContent = textoEstado('retirada');
           botonRetirar.remove();
         } catch (error) {
           mostrarMensaje(error instanceof ErrorApi ? error.message : mensajeParaCodigo());
