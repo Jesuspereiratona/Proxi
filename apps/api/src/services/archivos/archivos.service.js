@@ -79,7 +79,7 @@ const tienePermisoEmpresa = async (archivoId, usuarioActual) => {
   return Boolean(postulacion);
 };
 
-const descargar = async (archivoId, usuarioActual, ip) => {
+const descargar = async (archivoId, usuarioActual, ip, userAgent) => {
   let archivo;
   if (usuarioActual.rol === 'coordinacion' || usuarioActual.rol === 'estudiante') {
     archivo = await puedeVer(archivoId, usuarioActual);
@@ -107,7 +107,7 @@ const descargar = async (archivoId, usuarioActual, ip) => {
     throw new NoEncontrado(ARCHIVO_NO_ENCONTRADO, 'Ese archivo no existe.');
   }
 
-  await AuditoriaAcceso.create({ usuarioId: usuarioActual.id, accion: 'descargar_cv', entidad: 'archivo', entidadId: archivo.id, ip });
+  await AuditoriaAcceso.create({ usuarioId: usuarioActual.id, accion: 'descargar_cv', entidad: 'archivo', entidadId: archivo.id, ip, userAgent });
 
   return { ruta, nombreOriginal: archivo.nombreOriginal };
 };

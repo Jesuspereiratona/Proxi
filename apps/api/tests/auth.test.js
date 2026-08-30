@@ -5,6 +5,7 @@ const app = require('../src/app');
 const { sequelize, Usuario, Sesion, TokenVerificacion, Consentimiento } = require('../src/models');
 const tokensService = require('../src/services/auth/tokens');
 const passwords = require('../src/services/auth/passwords');
+const authService = require('../src/services/auth/auth.service');
 
 // Dominio propio de este archivo: node --test corre los archivos en paralelo contra la misma base,
 // así que un dominio compartido con otro archivo hace que el after() de uno borre a mitad de prueba
@@ -209,6 +210,32 @@ describe('rotación y reuso del refresco', () => {
     const sesiones = await Sesion.findAll({ where: { usuarioId: usuario.id } });
     assert.ok(sesiones.length > 0);
     assert.ok(sesiones.every((s) => s.revocadaAt !== null));
+  });
+});
+
+describe('revocarTodasLasSesiones (script de rotura de vidrio, docs/09-procedimiento-de-brecha.md)', () => {
+  test('revoca todas las sesiones activas, sin tocar una ya revocada', async () => {
+    const a = await registrarActivo(correoUnico('global-a'));
+    await request(app).post('/api/v1/auth/login').send({ email: a.email, clave: CLAVE });
+
+    // node --test corre los archivos en paralelo contra la misma base (ver comentario arriba de este
+    // archivo): esta función no lleva ningún filtro, así que llamarla de verdad revocaría también
+    // las sesiones que otro archivo esté usando en ese instante. Una transacción que nunca se
+    // confirma aísla el efecto a esta prueba sola — nunca queda visible para otra conexión.
+    const t = await sequelize.transaction();
+    try {
+      const cantidad = await authService.revocarTodasLasSesiones(t);
+      assert.ok(cantidad >= 1);
+
+      const sesion = await Sesion.findOne({ where: { usuarioId: a.id }, transaction: t });
+      assert.ok(sesion.revocadaAt);
+
+      // Una segunda corrida no debe fallar ni "revertir" nada por tocar filas ya revocadas.
+      const segundaCantidad = await authService.revocarTodasLasSesiones(t);
+      assert.equal(segundaCantidad, 0);
+    } finally {
+      await t.rollback();
+    }
   });
 });
 

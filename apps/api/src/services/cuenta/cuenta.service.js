@@ -38,7 +38,7 @@ const LIMITE_ELIMINACIONES_POR_CORRIDA = 50;
 // audita el acceso porque ahí es un tercero mirando el RUT de otra persona. Igual queda su propio
 // rastro en auditoria_accesos: un token robado que exporte todo de una sola vez debe dejar huella,
 // igual que descargar un CV (auditoría de Fase 7).
-const obtenerDatos = async (usuarioId, ip) => {
+const obtenerDatos = async (usuarioId, ip, userAgent) => {
   const usuario = await Usuario.findByPk(usuarioId);
   if (!usuario) throw new NoEncontrado(PERFIL_NO_ENCONTRADO, 'Esa cuenta no existe.');
 
@@ -90,7 +90,7 @@ const obtenerDatos = async (usuarioId, ip) => {
     order: [['otorgadoAt', 'ASC']],
   });
 
-  await AuditoriaAcceso.create({ usuarioId, accion: 'exportar_datos', entidad: 'usuario', entidadId: usuarioId, ip });
+  await AuditoriaAcceso.create({ usuarioId, accion: 'exportar_datos', entidad: 'usuario', entidadId: usuarioId, ip, userAgent });
 
   return {
     cuenta: {
@@ -125,7 +125,7 @@ const confirmarClave = async (usuarioId, clave) => {
 // final, después del commit — si algo dentro de la transacción falla, el archivo real todavía no se
 // tocó. El orden anterior (borrar del disco y recién después abrir la transacción) dejaba un CV
 // destruido con la cuenta intacta ante cualquier fallo a mitad de camino (auditoría de Fase 7).
-const eliminarCuenta = async (usuarioId, ip) => {
+const eliminarCuenta = async (usuarioId, ip, userAgent) => {
   const usuario = await Usuario.findByPk(usuarioId);
   if (!usuario) throw new NoEncontrado(PERFIL_NO_ENCONTRADO, 'Esa cuenta no existe.');
   // Idempotente: una cuenta ya suprimida no vuelve a pasar por bcrypt ni a generar un marcador
@@ -177,7 +177,7 @@ const eliminarCuenta = async (usuarioId, ip) => {
 
     await Sesion.update({ revocadaAt: new Date() }, { where: { usuarioId, revocadaAt: null }, transaction: t });
 
-    await AuditoriaAcceso.create({ usuarioId, accion: 'eliminar_cuenta', entidad: 'usuario', entidadId: usuarioId, ip }, { transaction: t });
+    await AuditoriaAcceso.create({ usuarioId, accion: 'eliminar_cuenta', entidad: 'usuario', entidadId: usuarioId, ip, userAgent }, { transaction: t });
   });
 
   // Recién acá, con la transacción ya confirmada: el disco no participa de un rollback, así que la

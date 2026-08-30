@@ -2,7 +2,7 @@ const asyncHandler = require('../utils/async-handler');
 const cuentaService = require('../services/cuenta/cuenta.service');
 
 const obtenerDatos = asyncHandler(async (req, res) => {
-  const datos = await cuentaService.obtenerDatos(req.usuario.id, req.ip);
+  const datos = await cuentaService.obtenerDatos(req.usuario.id, req.ip, req.get('user-agent'));
   // Nunca en caché intermedia ni del navegador: lleva el RUT descifrado (auditoría de Fase 7).
   res.set('Cache-Control', 'no-store');
   res.json(datos);
@@ -10,7 +10,7 @@ const obtenerDatos = asyncHandler(async (req, res) => {
 
 const eliminar = asyncHandler(async (req, res) => {
   await cuentaService.confirmarClave(req.usuario.id, req.body.clave);
-  await cuentaService.eliminarCuenta(req.usuario.id, req.ip);
+  await cuentaService.eliminarCuenta(req.usuario.id, req.ip, req.get('user-agent'));
   res.status(204).send();
 });
 

@@ -11,6 +11,7 @@ const AuditoriaAcceso = sequelize.define(
     entidad: { type: DataTypes.TEXT, allowNull: false },
     entidadId: { type: DataTypes.BIGINT, allowNull: false },
     ip: { type: DataTypes.TEXT, allowNull: true },
+    userAgent: { type: DataTypes.TEXT, allowNull: true },
   },
   { tableName: 'auditoria_accesos', underscored: true, updatedAt: false },
 );

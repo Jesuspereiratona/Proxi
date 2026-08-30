@@ -180,6 +180,17 @@ const logout = async ({ refreshToken }) => {
   await Sesion.update({ revocadaAt: new Date() }, { where: { refreshTokenHash: hash, revocadaAt: null } });
 };
 
+// Rotura de vidrio ante un secreto comprometido (docs/09-procedimiento-de-brecha.md, hueco 2): a
+// diferencia de logout/restablecerClave, que revocan por usuario, esto corta TODAS las sesiones de
+// golpe. Solo mata el refresco — un accessToken ya emitido sigue siendo válido hasta sus 15 minutos
+// de TTL (JWT sin estado, no hay lista de revocación); ese margen acotado es justamente el motivo de
+// que el TTL sea corto. Se llama solo desde scripts/revocar-todas-las-sesiones.js, nunca por HTTP: un
+// endpoint autenticado por JWT sería vulnerable exactamente al escenario que esto existe para atajar.
+const revocarTodasLasSesiones = async (transaction) => {
+  const [cantidad] = await Sesion.update({ revocadaAt: new Date() }, { where: { revocadaAt: null }, transaction });
+  return cantidad;
+};
+
 const pedirRecuperacion = async ({ email }) => {
   const usuario = await Usuario.findOne({ where: { email } });
   if (!usuario) return; // misma respuesta exista o no la cuenta: la decide el controller
@@ -225,4 +236,4 @@ const restablecerClave = async ({ token, claveNueva }) => {
   });
 };
 
-module.exports = { registrar, verificarCorreo, login, refrescar, logout, pedirRecuperacion, restablecerClave };
+module.exports = { registrar, verificarCorreo, login, refrescar, logout, revocarTodasLasSesiones, pedirRecuperacion, restablecerClave };

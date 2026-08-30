@@ -27,6 +27,7 @@ const obtenerRut = asyncHandler(async (req, res) => {
     entidad: 'estudiante',
     entidadId: req.params.id,
     ip: req.ip,
+    userAgent: req.get('user-agent'),
   });
   res.json({ rut });
 });

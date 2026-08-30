@@ -524,15 +524,22 @@ describe('descarga de CV', () => {
   test('el estudiante descarga su propio CV y queda en auditoria_accesos', async () => {
     const estudiante = await crearEstudianteConCv();
 
+    // El User-Agent va explícito: supertest no manda ninguno por defecto, a diferencia de cualquier
+    // navegador real. Sin esta línea la prueba de abajo comprobaría NULL contra NULL y pasaría igual
+    // aunque el controller dejara de capturarlo.
     const descarga = await request(app)
       .get(`/api/v1/archivos/${estudiante.archivoId}/descarga`)
-      .set('Authorization', `Bearer ${estudiante.accessToken}`);
+      .set('Authorization', `Bearer ${estudiante.accessToken}`)
+      .set('User-Agent', 'Navegador-De-Prueba/1.0');
 
     assert.equal(descarga.status, 200);
     assert.ok(descarga.headers['content-disposition'].includes('cv.pdf'));
 
     const auditoria = await AuditoriaAcceso.findAll({ where: { usuarioId: estudiante.usuario.id, accion: 'descargar_cv', entidadId: estudiante.archivoId } });
     assert.equal(auditoria.length, 1);
+    // user_agent (docs/09-procedimiento-de-brecha.md, hueco 7): no basta con que la columna exista,
+    // tiene que llegar el valor real hasta la fila.
+    assert.equal(auditoria[0].userAgent, 'Navegador-De-Prueba/1.0');
   });
 
   test('una empresa con una postulación real descarga el CV de ese postulante', async () => {

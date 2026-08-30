@@ -190,32 +190,66 @@ Ver la especificación de la parte de código en `specs/08-datos-personales/`.
       inutiliza el correo, revoca sesiones)
 - [x] Tarea de retención: aviso y eliminación tras inactividad (`RETENCION_CV_MESES`,
       `RETENCION_AVISO_DIAS`)
-- [ ] Política de privacidad versionada y visible
-- [ ] Términos de uso de la plataforma
-- [ ] DPA (acuerdo de procesamiento de datos) con el proveedor de hosting
-
-> **Plantillas disponibles como punto de partida** (fuera del repo, en `proyectos/Skills/Legal y
-> Cumplimiento.zip`): `politica-privacidad`, `lista-cumplimiento-gdpr`, `acuerdo-procesamiento-datos`
-> y `terminos-servicio`. Son genéricas y están escritas para marco GDPR/EE.UU., no para la Ley 21.719
-> chilena: sirven como esqueleto, **nunca como texto final**. Si la plataforma opera con datos reales
-> de estudiantes, estos documentos los revisa alguien con formación legal de la facultad.
-- [ ] Procedimiento de brecha escrito y probado en seco
+- [x] Procedimiento de brecha escrito y probado en seco — `docs/09-procedimiento-de-brecha.md`,
+      simulacro del 30-08-2026 con 4 escenarios; encontró 7 huecos, repartidos abajo y en Fase 8
+- [x] Hueco 2 del simulacro: revocación global de sesiones — `npm run revocar-sesiones -w apps/api`.
+      A propósito no es un endpoint HTTP: uno autenticado por JWT sería vulnerable justo al escenario
+      (secreto comprometido) que este script existe para responder
+- [x] Hueco 4 del simulacro: correo de contacto de privacidad en la política y en el pie de las 13
+      páginas. Dirección provisoria (`privacidad@proxi.cl`), marcada como tal hasta que la FEN asigne
+      una casilla real
+- [x] Hueco 7 del simulacro: columna `user_agent` en `auditoria_accesos` (migración reversible)
+- [x] Borrador de política de privacidad publicado y versionado (`apps/web/politica-privacidad.html`,
+      versión `2026-08-30-borrador`) — le da al registro un documento real al que apuntar; **no** es
+      el texto final, ver bloqueados
+- [x] Registro de actividades de tratamiento (`docs/legal/registro-actividades-tratamiento.md`) — la
+      "responsabilidad proactiva" que exige la Ley 21.719: cada dato, su finalidad, base de licitud,
+      plazo y destinatarios, levantado desde el código y no desde una plantilla
+- [x] Borradores completos de política de privacidad y términos de uso en `docs/legal/`, más
+      `00-que-debe-revisar-un-abogado.md`: diez decisiones concretas para la revisión legal, en vez
+      de un "léete esto y dinos si está bien"
 - [x] Extra sobre lo planeado: auditoría de seguridad encontró y corrigió dos hallazgos Graves (la
       tarea de retención podía eliminar una cuenta activa sin un aviso vigente para ese ciclo de
       inactividad) y uno Alto (el texto libre que el estudiante escribió — mensaje de postulación,
       motivo de un retiro — seguía visible para la empresa después de la supresión). Ver bitácora —
       es la auditoría más extensa del proyecto hasta ahora.
 
+### Bloqueado — espera a un tercero, no a nosotros
+No es lo mismo que "pendiente": nuestra parte está hecha y lo que falta no depende de este proyecto.
+Mezclarlos en una sola lista esconde qué se puede avanzar hoy y qué no.
+
+- [ ] **Política de privacidad, texto final** — bloqueado por revisión legal de la FEN. Nuestra parte
+      está lista: borrador completo en `docs/legal/politica-privacidad.md` (`2026-08-30-borrador-3`)
+      y versión reducida ya publicada y enlazada desde el registro y el pie.
+- [ ] **Términos de uso, texto final** — bloqueado por lo mismo. Borrador completo en
+      `docs/legal/terminos-de-uso.md` (`2026-08-30-borrador-2`), sin publicar todavía.
+- [ ] **Las diez decisiones de `docs/legal/00-que-debe-revisar-un-abogado.md`.** Tres de ellas
+      (consentimiento libre, estudiantes menores de edad, transferencia internacional) **bloquean
+      código, no solo texto**: según la respuesta cambia el flujo de registro, hay que pedir la edad,
+      o cambia el proveedor de hosting. No se pueden dejar para el final.
+
+> **Plantillas disponibles como punto de partida** (fuera del repo, en `proyectos/Skills/Legal y
+> Cumplimiento.zip`): `politica-privacidad`, `lista-cumplimiento-gdpr`, `acuerdo-procesamiento-datos`
+> y `terminos-servicio`. Son genéricas y están escritas para marco GDPR/EE.UU., no para la Ley 21.719
+> chilena: sirven como esqueleto, **nunca como texto final**. Si la plataforma opera con datos reales
+> de estudiantes, estos documentos los revisa alguien con formación legal de la facultad.
+
+El **DPA** ya no está en esta fase: se movió a Fase 8, donde vive la decisión de hosting de la que
+depende. No se puede firmar un acuerdo de procesamiento con un proveedor que todavía no se eligió.
+
 **Listo cuando (la parte de código):** un estudiante puede pedir y borrar sus propios datos sin
 `curl`, el borrado es de verdad irreversible y no dañado por un fallo a mitad de camino, y nadie
-queda eliminado sin haber recibido antes un aviso vigente. **Cumplido el 2026-08-29** para la parte
-de código; los tres documentos legales y el procedimiento de brecha siguen pendientes, ninguno es
-código y todos requieren revisión de alguien con formación legal antes de publicarse con datos
-reales.
+queda eliminado sin haber recibido antes un aviso vigente. **Cumplido el 2026-08-29.**
+**Fase cerrada por nuestra parte el 2026-08-30**: el procedimiento de brecha está escrito y probado
+en seco, sus tres huecos accionables están tapados, y los documentos legales están redactados hasta
+donde puede llegar un desarrollador. Lo que queda espera a la facultad — con la salvedad de que tres
+de las diez decisiones legales bloquean código, así que la Fase 8 no debería cerrarse sin ellas.
 
 ## Fase 8 · Despliegue
 - [ ] Base gestionada con respaldos automáticos y restauración **probada**
 - [ ] Variables de entorno en el proveedor, secretos rotados
+- [ ] DPA (acuerdo de procesamiento de datos) con el proveedor de hosting — venía de Fase 7; se movió
+      acá porque depende de qué proveedor se elija, decisión que se toma en esta fase
 - [ ] Apagado ordenado del servidor (`SIGTERM` + `server.close()` con temporizador) antes de que el
       supervisor del proveedor mate el proceso — hoy corta peticiones en vuelo en cada despliegue
 - [ ] Lock distribuido para `tareas/cerrarOfertasVencidas.js` (`pg_advisory_lock` o similar) si se
@@ -223,6 +257,10 @@ reales.
       entre réplicas (auditoría de Fase 3; con una sola instancia no es un problema)
 - [ ] HTTPS obligatorio, redirección desde HTTP
 - [ ] Monitoreo del healthcheck con aviso ante caídas
+- [ ] Hueco 1 del simulacro: vigilancia de `auditoria_accesos` — línea base y aviso por volumen anómalo
+- [ ] Hueco 3 del simulacro: poder notificar por correo a N personas afectadas (hoy solo transaccional)
+- [ ] Hueco 5 del simulacro: la llave de cifrado se respalda **separada** de la base
+- [ ] Hueco 6 del simulacro: definir retención de logs (si la brecha se detecta tarde, tiene que haber con qué investigar)
 - [ ] Runbook de operación en `07-operacion-y-mantenimiento.md`
 
 ---

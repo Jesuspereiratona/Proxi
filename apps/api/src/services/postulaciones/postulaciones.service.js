@@ -148,7 +148,7 @@ const listarDeEstudiante = async (usuarioId) => {
 // alcanzan para que la empresa decida sobre un postulante — ni el RUT (cifrado, ya solo lo pide
 // coordinación por su propio endpoint, Fase 2) ni el teléfono viajan por acá sin que nadie lo haya
 // pedido (minimización de datos personales, CLAUDE.md).
-const listarDeOferta = async (usuarioId, ofertaId, ip) => {
+const listarDeOferta = async (usuarioId, ofertaId, ip, userAgent) => {
   const empresa = await empresasService.obtenerPropio(usuarioId);
   // Una empresa suspendida (p. ej. por fraude) no debe seguir viendo quién le postuló: la
   // suspensión ya le cierra las ofertas en cascada (Fase 3), pero eso no bloqueaba esta ruta
@@ -164,7 +164,7 @@ const listarDeOferta = async (usuarioId, ofertaId, ip) => {
   // Una fila por listado, no una por postulante: docs/03-seguridad.md exige registrar cada vez que
   // alguien ve datos de un estudiante, no solo cuando descarga un CV — este endpoint es nuevo en
   // exponer nombre/carrera (auditoría del panel de empresa, antes solo devolvía ids y estado).
-  await AuditoriaAcceso.create({ usuarioId, accion: 'ver_postulantes', entidad: 'oferta', entidadId: oferta.id, ip });
+  await AuditoriaAcceso.create({ usuarioId, accion: 'ver_postulantes', entidad: 'oferta', entidadId: oferta.id, ip, userAgent });
   return postulaciones;
 };
 

@@ -1301,3 +1301,90 @@ del proyecto la próxima vez que se toque un esquema, no solo estos tres.
 **Consecuencia:** seis pruebas nuevas (`ofertas.test.js`, `perfiles.test.js`, y un archivo nuevo
 `manejador-errores.test.js` para JSON inválido y cuerpo demasiado grande). 443 pruebas de API + 41
 de web, todas verdes.
+
+## 2026-08-30 · Simulacro de brecha en seco: 4 escenarios, 7 huecos
+**Contexto:** la Fase 7 pedía "procedimiento de brecha escrito y probado en seco". Escribirlo sin
+probarlo habría sido una redacción bonita.
+**Decisión:** `docs/09-procedimiento-de-brecha.md` con roles, escala de gravedad por sensibilidad ×
+alcance, el reloj de 72 h, los cinco pasos y las plantillas de notificación. El simulacro corrió
+cuatro escenarios (CV filtrado, secreto expuesto, acceso indebido interno, respaldo comprometido)
+preguntando en cada uno **"¿podemos?"** contra el código real, no "¿qué haríamos?".
+**Motivo:** la pregunta útil no es si el procedimiento está escrito, sino si el sistema permite
+ejecutarlo. Encontró 7 huecos; los 3 baratos van a Fase 7 y los 4 de infraestructura a Fase 8.
+**Consecuencia:** el hueco más grave es el más barato — no hay ningún correo de contacto publicado,
+así que la política de privacidad promete derechos que nadie puede ejercer. El más incómodo es el
+acceso indebido desde dentro: el atacante tiene credenciales legítimas y ninguna capa lo detiene,
+porque todas hacen exactamente lo que se les pidió. Próximo simulacro: agosto de 2027.
+
+## 2026-08-30 · Fase 7 cerrada por nuestra parte: los tres huecos accionables del simulacro
+**Contexto:** el simulacro de brecha del mismo día dejó siete huecos. Tres dependían solo de
+nosotros; los otros cuatro son de Fase 8 (monitoreo, notificación masiva, respaldos, retención de
+logs) y ya tienen casilla ahí.
+
+**Hueco 2 · Revocación global de sesiones.** Existía revocación por usuario (logout, cambio de
+clave, reuso de refresco), pero nada para cortar todas las sesiones de golpe ante un
+`JWT_ACCESS_SECRET` comprometido — el escenario 2 del simulacro.
+**Decisión:** `authService.revocarTodasLasSesiones()` + `npm run revocar-sesiones -w apps/api`.
+**Deliberadamente NO es un endpoint HTTP**: uno autenticado por JWT sería vulnerable exactamente al
+secreto que este mecanismo existe para responder, y uno sin autenticar sería un botón de denegación
+de servicio para cualquiera. Un script que exige acceso al servidor es la barrera correcta.
+**Límite conocido, escrito también en `docs/09`:** solo mata el refresco. Un `accessToken` ya
+emitido vive hasta sus 15 minutos de TTL — el JWT no tiene estado. Ante un secreto comprometido hay
+que **rotar el secreto además de correr el script**; eso sí invalida en el acto. El TTL corto existe
+justamente para acotar esa ventana.
+
+**Hueco 4 · Contacto de privacidad.** El más grave según el propio simulacro, y el más barato:
+`privacidad@proxi.cl` en el pie de las 13 páginas y en la política. Es un placeholder marcado como
+tal en la propia interfaz ("dirección provisoria, pendiente casilla real de la FEN"), no una
+dirección inventada que se hace pasar por real — una casilla de contacto que rebota es peor que
+ninguna, y decirlo en la interfaz es más honesto que esconderlo en un comentario del código.
+Se repitió el `<footer>` en las 13 páginas en vez de inyectarlo por JS: son cuatro líneas de HTML
+estático, y un componente JS para eso significaría que el contacto de privacidad desaparece si
+falla un script — justo el dato que nunca debería depender de que el JS cargue.
+
+**Hueco 7 · `user_agent` en `auditoria_accesos`.** Estaba en el modelo de datos original y se
+implementó sin ella en la Fase 4. Migración reversible, columna nullable, sin backfill: **el dato
+nunca existió para las filas viejas, así que NULL significa "no se capturó", no "cliente
+desconocido"** — anotado en `docs/09` porque leer mal ese NULL en medio de un incidente lleva a una
+conclusión falsa. Un `DEFAULT 'desconocido'` habría inventado evidencia en una tabla que la Ley
+21.719 usa como prueba.
+`revisor-migraciones` la validó corriendo el ciclo up → down → up contra una base limpia, con filas
+preexistentes que sobrevivieron intactas. De paso levantó cuatro observaciones ajenas a esta
+migración, anotadas para más adelante: la FK de `auditoria_accesos` tiene `ON DELETE CASCADE` (un
+`DELETE` manual de un usuario borraría su rastro de auditoría — debería ser `RESTRICT`); CI nunca
+ejercita el `down` de ninguna migración; y `auditoria_accesos` no tiene plazo de retención definido
+aunque ahora guarda un dato personal más.
+
+**Una prueba que fallaba por la razón correcta:** la aserción nueva de `user_agent` falló al
+principio porque **supertest no manda `User-Agent` por defecto**, a diferencia de cualquier
+navegador real. El código estaba bien; la prueba comparaba NULL contra NULL y habría pasado igual
+aunque el controller dejara de capturar el dato. Se corrigió mandando el header explícito y
+afirmando el valor exacto.
+
+**Decisión de roadmap: separar "pendiente" de "bloqueado".** Las casillas de Fase 7 que quedan
+(política de privacidad final, términos de uso) no esperan trabajo nuestro: esperan revisión legal
+de la FEN. El DPA se movió a Fase 8 porque depende de qué proveedor de hosting se elija, decisión
+que se toma allá — no se firma un acuerdo de procesamiento con un proveedor que todavía no existe.
+**Motivo:** una lista donde todo se ve igual esconde qué se puede avanzar hoy. Tres casillas sin
+marcar leídas como "trabajo pendiente" dan una sensación de deuda que no corresponde, y peor, hacen
+perder de vista que la fase sí está cerrada por nuestra parte.
+**Consecuencia:** Fase 7 cerrada el 2026-08-30 por nuestra parte. 444 pruebas de API + 41 de web,
+todas verdes. Lo único que la separa del cierre total son documentos que este proyecto no puede
+desbloquear solo.
+
+**Dos cosas encontradas al cerrar, que quedan anotadas:**
+
+1. **Hay dos textos de política de privacidad con versiones distintas, y el que la gente acepta es el
+   más corto.** `apps/web/politica-privacidad.html` es `2026-08-30-borrador` (lo que ve y acepta
+   quien se registra, y lo que el servidor graba en `consentimientos`), mientras que
+   `docs/legal/politica-privacidad.md` es `2026-08-30-borrador-3`, más completo y **sin publicar**.
+   No se unificó a propósito: cuál de los dos textos es "la" política es una decisión, no una
+   corrección de tipeo — y la tabla `consentimientos` guarda exactamente qué versión aceptó cada
+   persona, así que cambiar el número sin cambiar el texto publicado dejaría un registro que miente
+   sobre a qué consintió la gente. Al aprobarse el texto final hay que actualizar los tres lugares a
+   la vez: el HTML, `VERSION_POLITICA` en `auth.service.js`, y el propio markdown.
+2. **Tres de las diez decisiones legales bloquean código, no texto** (consentimiento libre,
+   estudiantes menores de edad, transferencia internacional si el hosting queda fuera de Chile).
+   Anotadas en el roadmap dentro de Fase 7 · Bloqueado, con la advertencia de que la Fase 8 no
+   debería cerrarse sin ellas: descubrir en el despliegue que el flujo de registro tiene que cambiar
+   es mucho más caro que saberlo ahora.

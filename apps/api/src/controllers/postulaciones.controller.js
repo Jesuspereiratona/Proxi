@@ -12,7 +12,7 @@ const listarMias = asyncHandler(async (req, res) => {
 });
 
 const listarDeOferta = asyncHandler(async (req, res) => {
-  const postulaciones = await postulacionesService.listarDeOferta(req.usuario.id, req.params.id, req.ip);
+  const postulaciones = await postulacionesService.listarDeOferta(req.usuario.id, req.params.id, req.ip, req.get('user-agent'));
   res.json(postulaciones);
 });
 

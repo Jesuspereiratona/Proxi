@@ -9,7 +9,8 @@
     "start": "node src/server.js",
     "test": "node --require ./scripts/entorno-prueba.js --test",
     "db:migrate": "sequelize-cli db:migrate",
-    "db:seed": "sequelize-cli db:seed:all"
+    "db:seed": "sequelize-cli db:seed:all",
+    "revocar-sesiones": "node scripts/revocar-todas-las-sesiones.js"
   },
   "dependencies": {
     "@proxi/errores": "*",
