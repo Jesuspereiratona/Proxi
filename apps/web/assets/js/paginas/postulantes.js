@@ -1,7 +1,7 @@
 import { protegerPagina } from '../componentes/proteger-pagina.js';
 import { obtenerDetallePropio } from '../api/ofertas.js';
 import { listarDeOferta, obtenerDetalle, marcarEnRevision, marcarEntrevista, seleccionar, rechazar } from '../api/postulaciones.js';
-import { textoEstado, formatoLineaTiempo } from '../componentes/linea-tiempo.js';
+import { textoEstado, claseEstadoPostulacion, formatoLineaTiempo } from '../componentes/linea-tiempo.js';
 import { descargarArchivo, ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { logout } from '../api/sesion.js';
 
@@ -66,9 +66,13 @@ function iniciar() {
     carrera.className = 'small fw-medium mb-1';
     carrera.textContent = estudiante?.carrera ?? '';
 
+    // Insignia con color, no "Estado: texto" plano (docs/08-guia-visual.md).
     const estadoEl = document.createElement('p');
     estadoEl.className = 'mb-2';
-    estadoEl.textContent = `Estado: ${textoEstado(postulacion.estado)}`;
+    const insigniaEstado = document.createElement('span');
+    insigniaEstado.className = `estado-postulacion ${claseEstadoPostulacion(postulacion.estado)}`;
+    insigniaEstado.textContent = textoEstado(postulacion.estado);
+    estadoEl.append(insigniaEstado);
 
     const acciones = document.createElement('div');
     acciones.className = 'd-flex flex-wrap gap-2 mb-2';

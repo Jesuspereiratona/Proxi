@@ -69,6 +69,31 @@ h1, h2, .titular {
 .card-oferta {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
   border: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+/* Vida sin ruido: la tarjeta se levanta un poco al pasar el mouse. prefers-reduced-motion la
+   respeta desactivando la transición, no el estado final. */
+.card-oferta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-oferta {
+    transition: none;
+  }
+  .card-oferta:hover {
+    transform: none;
+  }
+}
+
+.btn {
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+.btn:hover:not(:disabled) {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 /* Insignia de estado de vigencia de una oferta: el color y el texto van siempre juntos, nunca solo
@@ -93,4 +118,70 @@ h1, h2, .titular {
 .estado-oferta.vencida {
   background: var(--uah-gris-claro);
   color: var(--uah-gris-2);
+}
+
+/* Insignia de estado de una postulación (docs/08-guia-visual.md, sección "Postulación") — la misma
+   idea de "color y texto siempre juntos" de arriba, especificada desde Fase 6 pero nunca aplicada:
+   los tres paneles mostraban el estado en texto plano, sin ninguna de estas cinco variantes. */
+.estado-postulacion {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.3em 0.8em;
+  border-radius: var(--bs-border-radius-pill);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+.estado-postulacion.en-curso {
+  background: var(--uah-blanco-3);
+  color: var(--uah-marengo-1);
+  border: 1px solid var(--uah-gris-claro);
+}
+.estado-postulacion.seleccionada {
+  background: var(--uah-verde);
+  color: var(--uah-marengo-1); /* nunca blanco: ~1.3:1 de contraste, ver guía visual */
+}
+.estado-postulacion.no-seleccionada {
+  background: var(--bs-danger);
+  color: #fff;
+}
+.estado-postulacion.sin-respuesta {
+  background: var(--uah-gris-claro);
+  color: var(--uah-gris-2);
+}
+.estado-postulacion.retirada {
+  background: var(--uah-gris-claro);
+  color: var(--uah-gris-1);
+  text-decoration: line-through;
+}
+
+/* Insignia de estado de validación de una empresa (docs/08-guia-visual.md, sección "Empresa") —
+   solo la ve coordinación. Misma lógica de contraste que las de arriba. */
+.estado-empresa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.3em 0.8em;
+  border-radius: var(--bs-border-radius-pill);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+.estado-empresa.pendiente {
+  background: var(--uah-blanco-3);
+  color: var(--uah-marengo-1);
+  border: 1px solid var(--uah-gris-claro);
+}
+.estado-empresa.validada {
+  background: var(--uah-verde);
+  color: var(--uah-marengo-1);
+}
+.estado-empresa.rechazada {
+  background: var(--bs-danger);
+  color: #fff;
+}
+.estado-empresa.suspendida {
+  /* Una suspensión es más grave que un rechazo simple: se marca más oscura, no el mismo rojo
+     (docs/08-guia-visual.md) — es la única insignia de este archivo con fondo oscuro y texto claro. */
+  background: var(--uah-gris-2);
+  color: #fff;
 }

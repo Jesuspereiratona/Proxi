@@ -4,7 +4,14 @@ import { listarPendientesRevision, aprobar, rechazarOferta } from '../api/oferta
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { logout } from '../api/sesion.js';
 
-const TEXTO_ESTADO_EMPRESA = { pendiente: 'Pendiente', validada: 'Validada', rechazada: 'Rechazada', suspendida: 'Suspendida' };
+// Texto y clase de insignia van juntos a propósito (docs/08-guia-visual.md, sección "Empresa"): la
+// misma idea de "el color nunca es la única señal" que ya usan las insignias de oferta/postulación.
+const ESTADO_EMPRESA = {
+  pendiente: { texto: 'Pendiente', clase: 'pendiente' },
+  validada: { texto: 'Validada', clase: 'validada' },
+  rechazada: { texto: 'Rechazada', clase: 'rechazada' },
+  suspendida: { texto: 'Suspendida', clase: 'suspendida' },
+};
 
 const usuario = await protegerPagina('coordinacion');
 if (usuario) iniciar();
@@ -57,12 +64,20 @@ function iniciar() {
       .filter(Boolean)
       .join(' · ');
 
+    const estadoInfo = ESTADO_EMPRESA[empresa.estadoValidacion] ?? { texto: empresa.estadoValidacion, clase: 'pendiente' };
     const estado = document.createElement('p');
     estado.className = 'mb-2';
-    let textoEstado = TEXTO_ESTADO_EMPRESA[empresa.estadoValidacion] ?? empresa.estadoValidacion;
-    if (empresa.estadoValidacion === 'rechazada' && empresa.motivoRechazo) textoEstado += ` — ${empresa.motivoRechazo}`;
-    if (empresa.estadoValidacion === 'suspendida' && empresa.motivoSuspension) textoEstado += ` — ${empresa.motivoSuspension}`;
-    estado.textContent = `Estado: ${textoEstado}`;
+    const insigniaEstado = document.createElement('span');
+    insigniaEstado.className = `estado-empresa ${estadoInfo.clase}`;
+    insigniaEstado.textContent = estadoInfo.texto;
+    estado.append(insigniaEstado);
+    const motivo = empresa.estadoValidacion === 'rechazada' ? empresa.motivoRechazo : empresa.estadoValidacion === 'suspendida' ? empresa.motivoSuspension : null;
+    if (motivo) {
+      const motivoEl = document.createElement('span');
+      motivoEl.className = 'text-body-secondary small ms-2';
+      motivoEl.textContent = motivo;
+      estado.append(motivoEl);
+    }
 
     const acciones = document.createElement('div');
     acciones.className = 'd-flex flex-wrap gap-2';

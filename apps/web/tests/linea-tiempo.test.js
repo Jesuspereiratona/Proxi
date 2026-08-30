@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { textoEstado, quienMovio, formatoLineaTiempo } from '../assets/js/componentes/linea-tiempo.js';
+import { textoEstado, claseEstadoPostulacion, quienMovio, formatoLineaTiempo } from '../assets/js/componentes/linea-tiempo.js';
 
 describe('textoEstado', () => {
   test('traduce cada estado real a texto humano', () => {
@@ -10,6 +10,25 @@ describe('textoEstado', () => {
 
   test('un estado desconocido se muestra tal cual, no revienta', () => {
     assert.equal(textoEstado('algo_nuevo'), 'algo_nuevo');
+  });
+});
+
+describe('claseEstadoPostulacion', () => {
+  test('los tres estados previos a una decisión comparten la insignia neutra "en-curso"', () => {
+    for (const estado of ['recibida', 'en_revision', 'entrevista']) {
+      assert.equal(claseEstadoPostulacion(estado), 'en-curso');
+    }
+  });
+
+  test('los estados terminales tienen cada uno su propia insignia', () => {
+    assert.equal(claseEstadoPostulacion('seleccionada'), 'seleccionada');
+    assert.equal(claseEstadoPostulacion('no_seleccionada'), 'no-seleccionada');
+    assert.equal(claseEstadoPostulacion('sin_respuesta'), 'sin-respuesta');
+    assert.equal(claseEstadoPostulacion('retirada'), 'retirada');
+  });
+
+  test('un estado desconocido no revienta, usa la insignia neutra', () => {
+    assert.equal(claseEstadoPostulacion('algo_nuevo'), 'en-curso');
   });
 });
 

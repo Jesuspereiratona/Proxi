@@ -12,6 +12,21 @@ const TEXTO_ESTADO = {
 
 export const textoEstado = (estado) => TEXTO_ESTADO[estado] ?? estado;
 
+// Clase CSS de la insignia de estado (docs/08-guia-visual.md, sección "Postulación") — tres de los
+// siete estados comparten la misma insignia neutra ("en curso"): para quien mira la tarjeta, antes
+// de la entrevista no hay una distinción visual que valga la pena, todas son "todavía sin resolver".
+const CLASE_POR_ESTADO = {
+  recibida: 'en-curso',
+  en_revision: 'en-curso',
+  entrevista: 'en-curso',
+  seleccionada: 'seleccionada',
+  no_seleccionada: 'no-seleccionada',
+  sin_respuesta: 'sin-respuesta',
+  retirada: 'retirada',
+};
+
+export const claseEstadoPostulacion = (estado) => CLASE_POR_ESTADO[estado] ?? 'en-curso';
+
 // Quién mueve cada estado se deduce del propio estado, no de actorUsuarioId: los cuatro estados
 // intermedios solo son alcanzables por la empresa (services/postulaciones/estados.js, Fase 4),
 // "recibida" y "retirada" siempre son del estudiante, y "sin_respuesta" siempre del sistema — el

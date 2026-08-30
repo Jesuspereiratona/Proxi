@@ -17,6 +17,39 @@ Formato:
 
 ---
 
+## 2026-08-29 · Se terminó el sistema de insignias de estado que la guía visual ya había diseñado
+**Contexto:** pedido explícito de "darle más vida" a la interfaz sin perder simplicidad ni el
+nombre Proxi. Antes de inventar nada, se investigaron plataformas reales (Handshake, Symplicity —
+el software que usan la mayoría de universidades para prácticas —, Laborum, Trabajando.com) para
+comparar funcionalidades; el hallazgo de diseño más grande no vino de esa comparación, sino de
+releer `docs/08-guia-visual.md`: documenta un color y una insignia por cada estado de postulación
+(`recibida`/`en_revision`/`entrevista` → neutro, `seleccionada` → verde, `no_seleccionada` → rojo,
+`sin_respuesta` → gris, `retirada` → gris tachado) y por cada estado de empresa
+(`pendiente`/`validada`/`rechazada`/`suspendida`), con el contraste WCAG ya calculado a mano desde
+Fase 6 — pero **nunca se implementó**. Los tres paneles (`postulaciones.html`, `postulantes.html`,
+`panel-coordinacion.html`) mostraban el estado como `"Estado: texto"` en texto plano, contradiciendo
+el principio que la propia Fase 6 se puso como meta: "los estados son el producto".
+**Decisión:** dos clases CSS nuevas en `uah-theme.css` (`.estado-postulacion`, `.estado-empresa`),
+con las variantes exactas que ya especificaba la guía — ningún color nuevo, ningún contraste sin
+verificar. Dos funciones puras nuevas: `claseEstadoPostulacion()` en `linea-tiempo.js` (con
+pruebas) y un mapa local en `panel-coordinacion.js` (uso único, no amerita su propio archivo). De
+paso, transición suave (`transform`/`box-shadow`) en tarjetas al pasar el mouse y en botones al
+hacer clic, con `prefers-reduced-motion` respetado — la parte de "más vida" que sí era nueva, no
+documentada antes.
+**Motivo:** terminar un sistema ya diseñado y auditado (accesibilidad incluida) es menor riesgo y
+mayor impacto que agregar superficie nueva — el "más vida" que se pidió resulta ser, en gran parte,
+que la interfaz cumpla lo que su propia especificación ya prometía.
+**Investigación de funcionalidades (para después, no se tocó código todavía):** confirmado con
+fuentes reales que Handshake y Symplicity tienen favoritos/guardar ofertas y alertas por correo de
+ofertas nuevas que calzan con el perfil — ausentes en Proxi y candidatas razonables para un
+incremento futuro. Auto-postulación (Laborum) se descartó a propósito: choca con el principio de
+Proxi de que cada postulación importa y tiene una respuesta real. Sin cambios de alcance todavía,
+solo quedó anotado.
+**Consecuencia:** 431 pruebas en `apps/api` sin cambios (nada de backend), 37 en `apps/web` (3
+nuevas para `claseEstadoPostulacion`), 0 fallas. Sin auditoría de seguridad — no toca auth, permisos,
+transiciones de estado ni datos personales, es solo cómo se muestra un estado que la API ya
+devuelve.
+
 ## 2026-08-29 · Portabilidad, borrado y retención — decisiones y auditoría de seguridad, antes del push (Fase 7, parte de código)
 **Contexto:** primera vez que el proyecto borra/anonimiza datos de forma **irreversible** por
 pedido del propio usuario, y primera tarea programada que manda correos automáticos sin que nadie
