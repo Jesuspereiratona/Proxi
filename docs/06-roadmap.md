@@ -140,11 +140,12 @@ Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
 - [x] Panel empresa: mis ofertas, publicar, revisar postulantes, cerrar con motivo. Sin backend
       nuevo — todo ya existía desde las Fases 2 a 4, salvo el rastro de auditoría al ver postulantes
       y el include con nombre/carrera del postulante (whitelist explícita). Ver `specs/06-panel-empresa/`
-- [ ] Panel coordinación: validar empresas, moderar ofertas, ver indicadores
-- [ ] Accesibilidad básica en el resto de la fase (pendiente del panel de coordinación); en la
-      vitrina pública y los paneles de estudiante y empresa ya está verificada con capturas reales
-      de Chrome headless: labels, `aria-live`, foco visible por defecto de Bootstrap sin overrides,
-      orden de tabulación natural del DOM
+- [x] Panel coordinación: validar empresas, moderar ofertas, ver indicadores. Última pantalla de
+      Fase 6 — los tres roles ya pueden usar Proxi de punta a punta sin `curl`. Ver
+      `specs/07-panel-coordinacion/`
+- [x] Accesibilidad básica: verificada con capturas reales de Chrome headless en las cinco pantallas
+      de la fase — labels, `aria-live`, foco visible por defecto de Bootstrap sin overrides, orden de
+      tabulación natural del DOM
 - [x] Extra sobre lo planeado: `GET /api/v1/empresas/:id` (perfil público de empresa), que
       ninguna fase anterior había expuesto
 - [x] Extra sobre lo planeado: auditoría de seguridad de la primera entrega encontró y corrigió un
@@ -158,6 +159,16 @@ Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
 - [x] Extra sobre lo planeado: auditoría de seguridad del panel de empresa encontró y corrigió una
       falta de rastro de auditoría al ver datos de postulantes y un formulario que perdía en
       silencio el cambio de vaciar un campo opcional (ver bitácora)
+- [x] Extra sobre lo planeado: auditoría de seguridad del panel de coordinación encontró y corrigió
+      que coordinación aprobaba ofertas y validaba empresas sin ver el contenido que estaba
+      moderando, un motivo de solo espacios que pasaba la validación en tres endpoints, y transiciones
+      de empresa sin compare-and-set (ver bitácora)
+
+**Listo cuando:** los tres roles pueden usar Proxi de punta a punta sin `curl`, y cada pantalla que
+toca autenticación, permisos o datos personales pasó por `auditor-seguridad` antes de subir.
+**Cumplido el 2026-08-29** — cinco auditorías de seguridad a lo largo de la fase (vitrina, sesión,
+panel de estudiante, panel de empresa, panel de coordinación), sin un solo hallazgo Alto o Grave que
+llegara a producción sin corregir.
 
 ## Fase 7 · Datos personales
 - [ ] `GET /mi-cuenta/datos` (portabilidad en JSON)

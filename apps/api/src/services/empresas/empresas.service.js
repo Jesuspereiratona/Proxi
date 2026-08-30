@@ -98,6 +98,11 @@ const actualizarPropio = async (usuarioId, datos) => {
 
 const listarPendientes = () => Empresa.findAll({ where: { estadoValidacion: 'pendiente' } });
 
+// Sin filtro y sin lista blanca de columnas: solo la llama coordinación (panel de coordinación,
+// Fase 6 parte 5), mismo criterio que listarIndicadores. Hace falta para poder suspender: sin esto
+// no hay forma de encontrar una empresa ya validada, listarPendientes() solo trae 'pendiente'.
+const listarTodas = () => Empresa.findAll({ order: [['estadoValidacion', 'ASC'], ['createdAt', 'DESC']] });
+
 const obtenerPorId = async (id) => {
   const empresa = await Empresa.findByPk(id);
   if (!empresa) throw new NoEncontrado(PERFIL_NO_ENCONTRADO, 'Esa empresa no existe.');
@@ -117,18 +122,28 @@ const obtenerPerfilPublico = async (id) => {
   return empresa;
 };
 
+// Compare-and-set, mismo patrón que ofertas.service.js transicionar(): el estado anterior va en el
+// WHERE, no un findByPk + if. Sin esto, dos coordinadores actuando a la vez sobre la misma empresa
+// pendiente (uno "Validar", otro "Rechazar") pasaban los dos el chequeo de arriba y el segundo
+// pisaba al primero sin aviso — antes solo alcanzable por curl, el panel de coordinación es lo
+// primero que pone a dos personas haciendo clic en paralelo (auditoría del panel de coordinación).
+const transicionarEstado = async (empresa, estadoNuevo, cambios, transaction) => {
+  const [filas] = await Empresa.update(
+    { estadoValidacion: estadoNuevo, ...cambios },
+    { where: { id: empresa.id, estadoValidacion: empresa.estadoValidacion }, transaction },
+  );
+  if (filas === 0) {
+    throw new Conflicto(EMPRESA_TRANSICION_INVALIDA, 'La empresa cambió de estado mientras se procesaba la solicitud.');
+  }
+  return Object.assign(empresa, { estadoValidacion: estadoNuevo, ...cambios });
+};
+
 const validar = async (id, coordinadorUsuarioId) => {
   const empresa = await obtenerPorId(id);
   if (!puedeTransicionar(empresa.estadoValidacion, 'validada', 'coordinacion')) {
     throw new Conflicto(EMPRESA_TRANSICION_INVALIDA, `No se puede pasar de "${empresa.estadoValidacion}" a "validada".`);
   }
-  await empresa.update({
-    estadoValidacion: 'validada',
-    validadaPorUsuarioId: coordinadorUsuarioId,
-    validadaAt: new Date(),
-    motivoRechazo: null,
-  });
-  return empresa;
+  return transicionarEstado(empresa, 'validada', { validadaPorUsuarioId: coordinadorUsuarioId, validadaAt: new Date(), motivoRechazo: null });
 };
 
 const rechazar = async (id, motivoRechazo) => {
@@ -136,8 +151,7 @@ const rechazar = async (id, motivoRechazo) => {
   if (!puedeTransicionar(empresa.estadoValidacion, 'rechazada', 'coordinacion')) {
     throw new Conflicto(EMPRESA_TRANSICION_INVALIDA, `No se puede pasar de "${empresa.estadoValidacion}" a "rechazada".`);
   }
-  await empresa.update({ estadoValidacion: 'rechazada', motivoRechazo });
-  return empresa;
+  return transicionarEstado(empresa, 'rechazada', { motivoRechazo });
 };
 
 // Agregado tras la auditoría: sin esto, un fraude descubierto después de validar una empresa no
@@ -160,7 +174,7 @@ const suspender = async (id, motivoSuspension) => {
   const ofertasService = require('../ofertas/ofertas.service');
 
   return sequelize.transaction(async (t) => {
-    await empresa.update({ estadoValidacion: 'suspendida', motivoSuspension }, { transaction: t });
+    await transicionarEstado(empresa, 'suspendida', { motivoSuspension }, t);
     await ofertasService.cerrarPorSuspension(empresa.id, t);
     return empresa;
   });
@@ -171,6 +185,7 @@ module.exports = {
   obtenerPropio,
   actualizarPropio,
   listarPendientes,
+  listarTodas,
   obtenerPerfilPublico,
   validar,
   rechazar,

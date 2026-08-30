@@ -275,7 +275,14 @@ const listarDeEmpresa = async (usuarioId) => {
   return Oferta.findAll({ where: { empresaId: empresa.id }, order: [['createdAt', 'DESC']] });
 };
 
-const listarPendientesRevision = () => Oferta.findAll({ where: { estado: 'en_revision' }, order: [['updatedAt', 'ASC']] });
+// Empresa.razonSocial, si no coordinación no tendría forma de saber de quién es cada oferta al
+// decidir si aprobarla (panel de coordinación, Fase 6 parte 5).
+const listarPendientesRevision = () =>
+  Oferta.findAll({
+    where: { estado: 'en_revision' },
+    include: [{ model: Empresa, attributes: ['razonSocial'] }],
+    order: [['updatedAt', 'ASC']],
+  });
 
 // Público puede ver una oferta publicada. Si no está publicada, solo su dueña o coordinación — y a
 // cualquier otro se le responde igual que si no existiera (no se confirma la existencia de borradores

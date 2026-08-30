@@ -16,3 +16,8 @@ export const crear = (datos) => enviar('POST', '/ofertas', datos, { autenticado:
 export const editar = (id, datos) => enviar('PATCH', `/ofertas/${encodeURIComponent(id)}`, datos, { autenticado: true });
 export const enviarARevision = (id) => enviar('POST', `/ofertas/${encodeURIComponent(id)}/revision`, undefined, { autenticado: true });
 export const cerrar = (id, motivoCierre) => enviar('POST', `/ofertas/${encodeURIComponent(id)}/cierre`, { motivoCierre }, { autenticado: true });
+
+// Panel de coordinación (Fase 6 parte 5): moderar ofertas en cola de revisión.
+export const listarPendientesRevision = () => obtenerAutenticado('/ofertas/pendientes-revision');
+export const aprobar = (id) => enviar('POST', `/ofertas/${encodeURIComponent(id)}/aprobacion`, undefined, { autenticado: true });
+export const rechazarOferta = (id, motivo) => enviar('POST', `/ofertas/${encodeURIComponent(id)}/rechazo`, { motivo }, { autenticado: true });

@@ -1,9 +1,7 @@
 import { login } from '../api/sesion.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 
-// Coordinación no tiene panel propio todavía (Fase 6 sigue después de empresa) — vuelve a la
-// vitrina, igual que antes.
-const PAGINA_POR_ROL = { estudiante: 'panel-estudiante.html', empresa: 'mis-ofertas.html' };
+const PAGINA_POR_ROL = { estudiante: 'panel-estudiante.html', empresa: 'mis-ofertas.html', coordinacion: 'panel-coordinacion.html' };
 
 const formulario = document.getElementById('formulario-login');
 const mensajeError = document.getElementById('mensaje-error');

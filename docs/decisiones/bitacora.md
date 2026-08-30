@@ -17,6 +17,68 @@ Formato:
 
 ---
 
+## 2026-08-29 · Panel de coordinación — decisiones y auditoría de seguridad, antes del push (cierra Fase 6)
+**Contexto:** última pantalla de Fase 6 — con esta, los tres roles pueden usar Proxi de punta a
+punta sin `curl`. Coordinación es el rol con más poder del sistema (valida/rechaza/suspende
+empresas, aprueba/rechaza ofertas, ve indicadores sin el umbral que sí aplica la vista pública).
+Ver `specs/07-panel-coordinacion/`.
+**Decisiones:**
+- **Una sola pantalla, tres secciones**, no tres archivos como empresa/estudiante: a diferencia de
+  esos paneles, coordinación no crea ni edita nada, solo lista y decide — mucha menos superficie por
+  sección como para justificar separarlas.
+- **`GET /empresas` (nuevo, `listarTodas()`) devuelve la fila completa, sin whitelist** — a
+  propósito, no un descuido: `listarPendientes()` (Fase 2) ya hacía lo mismo, y `rutEmpresa`/
+  `sitioWeb`/`contactoNombre` son justo los campos que coordinación necesita para poder verificar
+  que una empresa existe de verdad antes de validarla. La whitelist de `obtenerPerfilPublico()` es
+  para el público, no aplica acá.
+- **Motivo obligatorio por `prompt()`**, mismo patrón que el rechazo (opcional) del panel de
+  empresa, pero acá el cliente sí corta si vuelve vacío o cancelado — la API también lo exige
+  (`rechazoEsquema`/`suspensionEsquema`), así que es consistencia, no una regla nueva.
+**Auditado con `auditor-seguridad` antes del push — sin hallazgos Alto/Grave, dos Media y dos
+observaciones corregidas:**
+- **[Media] Coordinación aprobaba ofertas y validaba empresas viendo solo el título/nombre — el
+  control humano de `docs/03-seguridad.md` §5 ("corta el spam y las ofertas fraudulentas") era un
+  trámite por el nombre.** Escenario real: una oferta con título inocuo puede tener una
+  `descripcion` que pide RUT y cédula por WhatsApp a un número externo; una empresa con razón social
+  creíble puede tener un RUT inventado y un contacto falso. Ninguno de los dos se nota mirando solo
+  el campo que la tarjeta mostraba. Arreglado agregando a cada tarjeta lo que ya traía la API sin
+  pedirlo de nuevo: para una oferta, descripción, requisitos, modalidad, comuna, jornada,
+  remuneración y fecha de cierre; para una empresa, RUT, giro, sitio web, comuna y contacto.
+- **[Baja, en dos endpoints de empresas y uno de ofertas] Un motivo de solo espacios pasaba la
+  validación** (`z.string().min(1)` sin `.trim()`, ejecuté los tres esquemas directamente para
+  confirmarlo). El cliente ya se defendía bien (`pedirMotivo()` recorta y corta si queda vacío), así
+  que no hay forma de llegar a esto desde el panel — pero por curl, una empresa podía quedar
+  `rechazada` o, peor, `suspendida` (estado terminal, sin transición de salida) con un motivo que se
+  pinta en blanco y nadie puede saber por qué. Arreglado con `.trim()` antes de `.min(1)` en los tres
+  esquemas (`rechazoEsquema`/`suspensionEsquema` de empresas, `rechazoEsquema` de ofertas).
+- **[Observación, corregida] Las transiciones de empresa (`validar`/`rechazar`/`suspender`) no
+  tenían compare-and-set — las de oferta sí, desde la auditoría de Fase 3.** Dos coordinadores
+  actuando a la vez sobre la misma empresa pendiente (uno "Validar", otro "Rechazar") pasaban los
+  dos el chequeo de `puedeTransicionar` y el segundo pisaba al primero sin ningún aviso; si ganaba
+  "Validar", el motivo de rechazo que alguien acababa de escribir se descartaba en silencio. Era
+  preexistente de Fase 2 y solo alcanzable por curl hasta ahora — este panel es lo primero que pone
+  a dos personas con la misma pantalla abierta haciendo clic en paralelo. Arreglado con el mismo
+  patrón que ya usa `ofertas.service.js transicionar()`: el estado anterior va en el `WHERE`, 0 filas
+  afectadas es un 409, no una pisada silenciosa. Prueba nueva con dos peticiones concurrentes reales
+  (`Promise.all`), mismo patrón que la de ofertas de Fase 3.
+- **[Observación, corregida] La tabla de indicadores no decía nada cuando estaba vacía** — se
+  quedaba con el `<tbody>` en blanco sin explicación, incumpliendo el caso borde de la propia spec.
+  Arreglado con una fila de texto cuando la lista viene vacía.
+**Hallazgo propio, no de seguridad:** la vista materializada de indicadores traía filas con
+`Empresa` nula — empresas de prueba que otros archivos de test habían borrado con su `after()`,
+porque `npm test` corre contra `proxi_dev`, la misma base que uso para probar a mano en el
+navegador, no una base de test aparte. Se refrescó la vista (`REFRESH MATERIALIZED VIEW
+CONCURRENTLY`) para la demo, y ya que la interfaz tenía que manejar el caso de todos modos —una
+empresa borrada de verdad será un escenario real en cuanto exista Fase 7— se le agregó un texto de
+reemplazo ("(empresa eliminada)") en vez de dejar la celda en blanco.
+**Verificado real, no solo con mocks:** flujo completo contra la API real con Chrome headless
+(empresa pendiente, empresa validada, oferta en revisión, las tres secciones con datos reales,
+validar/aprobar). 413 pruebas en `apps/api`, 34 en `apps/web`, 0 fallas.
+
+**Fase 6 cerrada.** Cinco auditorías de seguridad a lo largo de la fase (vitrina, sesión, panel de
+estudiante, panel de empresa, panel de coordinación) — ningún hallazgo Alto o Grave llegó a
+producción sin corregir. Sigue Fase 7 (datos personales).
+
 ## 2026-08-29 · Panel de empresa — decisiones, bugs y auditoría de seguridad, antes del push
 **Contexto:** cuarta pantalla de Fase 6, primera que **no agrega ni una línea nueva al backend**
 salvo un `include` — todo lo que necesita (perfil, CRUD de ofertas, revisar postulantes,

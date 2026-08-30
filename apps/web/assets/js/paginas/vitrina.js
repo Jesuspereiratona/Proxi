@@ -3,9 +3,12 @@ import { crearTarjetaOferta } from '../componentes/tarjeta-oferta.js';
 import { ErrorApi, mensajeParaCodigo, usuarioActual } from '../api/cliente.js';
 import { iniciarSesion, logout } from '../api/sesion.js';
 
-// A dónde manda "Mi panel" según el rol de la sesión — coordinación todavía no tiene uno (sigue
-// después de este), así que solo ve "Cerrar sesión".
-const PANEL_POR_ROL = { estudiante: { href: 'panel-estudiante.html', texto: 'Mi perfil' }, empresa: { href: 'mis-ofertas.html', texto: 'Mis ofertas' } };
+// A dónde manda "Mi panel" según el rol de la sesión.
+const PANEL_POR_ROL = {
+  estudiante: { href: 'panel-estudiante.html', texto: 'Mi perfil' },
+  empresa: { href: 'mis-ofertas.html', texto: 'Mis ofertas' },
+  coordinacion: { href: 'panel-coordinacion.html', texto: 'Panel de coordinación' },
+};
 
 const formulario = document.getElementById('filtros');
 const listado = document.getElementById('listado');

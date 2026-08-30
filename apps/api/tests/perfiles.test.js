@@ -218,6 +218,19 @@ describe('POST /empresas/perfil y validación', () => {
     assert.equal(respuesta.status, 422);
   });
 
+  test('rechazar con un motivo de solo espacios responde 422, igual que sin motivo (auditoría del panel de coordinación)', async () => {
+    const empresa = await crearUsuarioActivo('empresa');
+    const coordinacion = await crearUsuarioActivo('coordinacion');
+    const creada = await request(app).post('/api/v1/empresas/perfil').set('Authorization', `Bearer ${empresa.accessToken}`).send(datosEmpresa());
+
+    const respuesta = await request(app)
+      .post(`/api/v1/empresas/${creada.body.id}/rechazo`)
+      .set('Authorization', `Bearer ${coordinacion.accessToken}`)
+      .send({ motivoRechazo: '   ' });
+
+    assert.equal(respuesta.status, 422);
+  });
+
   test('rechazar con motivo deja la empresa rechazada, y editar el perfil la regresa a pendiente', async () => {
     const empresa = await crearUsuarioActivo('empresa');
     const coordinacion = await crearUsuarioActivo('coordinacion');
@@ -363,12 +376,40 @@ describe('POST /empresas/perfil y validación', () => {
       .send({});
     assert.equal(sinMotivo.status, 422);
 
+    const soloEspacios = await request(app)
+      .post(`/api/v1/empresas/${creada.body.id}/suspension`)
+      .set('Authorization', `Bearer ${coordinacion.accessToken}`)
+      .send({ motivoSuspension: '   ' });
+    assert.equal(soloEspacios.status, 422, 'un motivo de solo espacios no debe pasar (auditoría del panel de coordinación)');
+
     const conMotivo = await request(app)
       .post(`/api/v1/empresas/${creada.body.id}/suspension`)
       .set('Authorization', `Bearer ${coordinacion.accessToken}`)
       .send({ motivoSuspension: 'Datos de identidad no verificables' });
     assert.equal(conMotivo.status, 200);
     assert.equal(conMotivo.body.estadoValidacion, 'suspendida');
+  });
+
+  test('dos coordinadores validando y rechazando la misma empresa a la vez: uno gana, el otro 409 (auditoría del panel de coordinación)', async () => {
+    const empresa = await crearUsuarioActivo('empresa');
+    const coordinacion = await crearUsuarioActivo('coordinacion');
+    const creada = await request(app).post('/api/v1/empresas/perfil').set('Authorization', `Bearer ${empresa.accessToken}`).send(datosEmpresa());
+
+    const [validacion, rechazo] = await Promise.all([
+      request(app).post(`/api/v1/empresas/${creada.body.id}/validacion`).set('Authorization', `Bearer ${coordinacion.accessToken}`),
+      request(app)
+        .post(`/api/v1/empresas/${creada.body.id}/rechazo`)
+        .set('Authorization', `Bearer ${coordinacion.accessToken}`)
+        .send({ motivoRechazo: 'Datos insuficientes' }),
+    ]);
+
+    const estados = [validacion.status, rechazo.status].sort();
+    assert.deepEqual(estados, [200, 409]);
+
+    // El estado final es uno de los dos, nunca una mezcla (p. ej. "validada" con motivoRechazo puesto).
+    const final = await Empresa.findByPk(creada.body.id);
+    if (final.estadoValidacion === 'validada') assert.equal(final.motivoRechazo, null);
+    else assert.equal(final.estadoValidacion, 'rechazada');
   });
 
   test('un id de empresa con formato inválido responde 422, no 500', async () => {
@@ -435,6 +476,28 @@ describe('GET /empresas/:id (perfil público)', () => {
   test('un id que no existe responde 404', async () => {
     const respuesta = await request(app).get('/api/v1/empresas/9999999');
     assert.equal(respuesta.status, 404);
+  });
+});
+
+describe('GET /empresas (listado completo, coordinación) — Fase 6, panel de coordinación', () => {
+  test('coordinación ve empresas en cualquier estado, no solo pendientes', async () => {
+    const coordinacion = await crearUsuarioActivo('coordinacion');
+    const pendiente = await crearUsuarioActivo('empresa');
+    const creada = await request(app)
+      .post('/api/v1/empresas/perfil')
+      .set('Authorization', `Bearer ${pendiente.accessToken}`)
+      .send(datosEmpresa({ razonSocial: 'Empresa Pendiente Para Listado' }));
+
+    const respuesta = await request(app).get('/api/v1/empresas').set('Authorization', `Bearer ${coordinacion.accessToken}`);
+    assert.equal(respuesta.status, 200);
+    const fila = respuesta.body.find((e) => e.id === creada.body.id);
+    assert.equal(fila.estadoValidacion, 'pendiente');
+  });
+
+  test('una empresa no puede listar todas las empresas: 403', async () => {
+    const empresa = await crearUsuarioActivo('empresa');
+    const respuesta = await request(app).get('/api/v1/empresas').set('Authorization', `Bearer ${empresa.accessToken}`);
+    assert.equal(respuesta.status, 403);
   });
 });
 

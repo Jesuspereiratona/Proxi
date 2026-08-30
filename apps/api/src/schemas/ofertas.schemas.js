@@ -46,8 +46,10 @@ const crearEsquema = z.object(camposBase).superRefine(validarCruces);
 
 const editarEsquema = z.object(camposBase).partial();
 
+// .trim() antes de .min(1): un motivo de solo espacios pasaba la validación (auditoría del panel
+// de coordinación, mismo arreglo que empresas.schemas.js).
 const rechazoEsquema = z.object({
-  motivo: z.string().min(1, 'El motivo de rechazo es obligatorio.'),
+  motivo: z.string().trim().min(1, 'El motivo de rechazo es obligatorio.'),
 });
 
 // "vencida" no está acá a propósito: ese motivo lo pone el sistema (cerrarOfertasVencidas), nunca

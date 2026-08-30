@@ -22,6 +22,11 @@ const listarPendientes = asyncHandler(async (req, res) => {
   res.json(pendientes);
 });
 
+const listarTodas = asyncHandler(async (req, res) => {
+  const empresas = await empresasService.listarTodas();
+  res.json(empresas);
+});
+
 const validar = asyncHandler(async (req, res) => {
   const empresa = await empresasService.validar(req.params.id, req.usuario.id);
   res.json(empresa);
@@ -57,6 +62,7 @@ module.exports = {
   obtenerPropio,
   actualizarPropio,
   listarPendientes,
+  listarTodas,
   validar,
   rechazar,
   suspender,

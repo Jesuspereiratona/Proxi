@@ -24,12 +24,15 @@ const crearPerfilEsquema = z.object({
 
 const actualizarPerfilEsquema = crearPerfilEsquema.partial();
 
+// .trim() antes de .min(1): sin esto, "   " pasa la validación como si tuviera contenido — una
+// empresa quedaba rechazada o suspendida (estado terminal, sin transición de salida) con un motivo
+// que se pinta vacío en el panel y nadie puede saber por qué (auditoría del panel de coordinación).
 const rechazoEsquema = z.object({
-  motivoRechazo: z.string().min(1, 'El motivo de rechazo es obligatorio.'),
+  motivoRechazo: z.string().trim().min(1, 'El motivo de rechazo es obligatorio.'),
 });
 
 const suspensionEsquema = z.object({
-  motivoSuspension: z.string().min(1, 'El motivo de suspensión es obligatorio.'),
+  motivoSuspension: z.string().trim().min(1, 'El motivo de suspensión es obligatorio.'),
 });
 
 module.exports = { crearPerfilEsquema, actualizarPerfilEsquema, rechazoEsquema, suspensionEsquema };

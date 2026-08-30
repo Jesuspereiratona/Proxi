@@ -169,6 +169,45 @@ describe('aprobación y publicación', () => {
     const oferta = await Oferta.findByPk(creada.body.id);
     assert.equal(oferta.estado, 'borrador');
   });
+
+  test('pendientes-revision trae la razón social de la empresa (Fase 6, panel de coordinación)', async () => {
+    const empresa = await crearEmpresaValidada();
+    const creada = await request(app)
+      .post('/api/v1/ofertas')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send(datosOferta({ area: 'area-pendientes-revision-unica' }));
+    await request(app).post(`/api/v1/ofertas/${creada.body.id}/revision`).set('Authorization', `Bearer ${empresa.accessToken}`);
+
+    const pendientes = await request(app).get('/api/v1/ofertas/pendientes-revision').set('Authorization', `Bearer ${empresa.coordinacion.accessToken}`);
+    assert.equal(pendientes.status, 200);
+    const fila = pendientes.body.find((o) => o.id === creada.body.id);
+    assert.equal(fila.Empresa.razonSocial, 'Empresa de prueba');
+  });
+
+  test('coordinación rechaza una oferta en_revision con motivo obligatorio (Fase 6, panel de coordinación)', async () => {
+    const empresa = await crearEmpresaValidada();
+    const creada = await request(app).post('/api/v1/ofertas').set('Authorization', `Bearer ${empresa.accessToken}`).send(datosOferta());
+    await request(app).post(`/api/v1/ofertas/${creada.body.id}/revision`).set('Authorization', `Bearer ${empresa.accessToken}`);
+
+    const sinMotivo = await request(app)
+      .post(`/api/v1/ofertas/${creada.body.id}/rechazo`)
+      .set('Authorization', `Bearer ${empresa.coordinacion.accessToken}`)
+      .send({});
+    assert.equal(sinMotivo.status, 422);
+
+    const soloEspacios = await request(app)
+      .post(`/api/v1/ofertas/${creada.body.id}/rechazo`)
+      .set('Authorization', `Bearer ${empresa.coordinacion.accessToken}`)
+      .send({ motivo: '   ' });
+    assert.equal(soloEspacios.status, 422, 'un motivo de solo espacios no debe pasar (auditoría del panel de coordinación)');
+
+    const rechazada = await request(app)
+      .post(`/api/v1/ofertas/${creada.body.id}/rechazo`)
+      .set('Authorization', `Bearer ${empresa.coordinacion.accessToken}`)
+      .send({ motivo: 'Descripción insuficiente' });
+    assert.equal(rechazada.status, 200);
+    assert.equal(rechazada.body.estado, 'borrador');
+  });
 });
 
 describe('editar contenido de una oferta en revisión o publicada la manda de vuelta a borrador', () => {
@@ -494,14 +533,21 @@ describe('listado público', () => {
 
   test('el listado y el detalle incluyen la razón social de la empresa (Fase 6, vitrina)', async () => {
     const empresa = await crearEmpresaValidada();
-    const creada = await request(app).post('/api/v1/ofertas').set('Authorization', `Bearer ${empresa.accessToken}`).send(datosOferta());
+    // área única + filtro por esa área: node --test corre los archivos en paralelo contra la misma
+    // base, así que un listado sin filtro puede tener de sobra más de una página (límite 20) de
+    // ofertas creadas por otros tests concurrentes y dejar esta fuera (auditoría del panel de
+    // coordinación, encontrado al agregar más pruebas que crean ofertas "publicada").
+    const creada = await request(app)
+      .post('/api/v1/ofertas')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send(datosOferta({ area: 'area-razon-social-unica' }));
     await request(app).post(`/api/v1/ofertas/${creada.body.id}/revision`).set('Authorization', `Bearer ${empresa.accessToken}`);
     await request(app).post(`/api/v1/ofertas/${creada.body.id}/aprobacion`).set('Authorization', `Bearer ${empresa.coordinacion.accessToken}`);
 
     const detalle = await request(app).get(`/api/v1/ofertas/${creada.body.id}`);
     assert.equal(detalle.body.Empresa.razonSocial, 'Empresa de prueba');
 
-    const listado = await request(app).get('/api/v1/ofertas');
+    const listado = await request(app).get('/api/v1/ofertas').query({ area: 'area-razon-social-unica' });
     const fila = listado.body.ofertas.find((o) => o.id === creada.body.id);
     assert.equal(fila.Empresa.razonSocial, 'Empresa de prueba');
   });
