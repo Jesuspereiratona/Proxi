@@ -267,23 +267,24 @@ describe('proceso de selección (empresa)', () => {
     await request(app).post(`/api/v1/postulaciones/${id}/revision`).set('Authorization', `Bearer ${empresa.accessToken}`);
     await request(app).post(`/api/v1/postulaciones/${id}/entrevista`).set('Authorization', `Bearer ${empresa.accessToken}`);
 
-    for (const token of [estudiante.accessToken, empresa.accessToken]) {
+    // actorUsuarioId nunca viaja, ni al estudiante ni a la empresa (id interno sin uso en la
+    // interfaz). motivo tampoco al estudiante (auditoría del panel de estudiante) — pero sí a la
+    // propia empresa, es su propia nota (auditoría del panel de empresa, Fase 6 parte 4).
+    const clavesPorRol = { estudiante: ['createdAt', 'estadoAnterior', 'estadoNuevo'], empresa: ['createdAt', 'estadoAnterior', 'estadoNuevo', 'motivo'] };
+    for (const [rol, token] of [['estudiante', estudiante.accessToken], ['empresa', empresa.accessToken]]) {
       const detalle = await request(app).get(`/api/v1/postulaciones/${id}`).set('Authorization', `Bearer ${token}`);
       assert.equal(detalle.status, 200);
       assert.deepEqual(
         detalle.body.PostulacionEventos.map((e) => e.estadoNuevo),
         ['recibida', 'en_revision', 'entrevista'],
       );
-      // Ni motivo ni actorUsuarioId: motivo es una nota pensada para quien la escribe, no para la
-      // otra parte de la postulación, y actorUsuarioId es un id interno sin uso en la interfaz
-      // (auditoría del panel de estudiante).
       for (const evento of detalle.body.PostulacionEventos) {
-        assert.deepEqual(Object.keys(evento).sort(), ['createdAt', 'estadoAnterior', 'estadoNuevo']);
+        assert.deepEqual(Object.keys(evento).sort(), clavesPorRol[rol]);
       }
     }
   });
 
-  test('el motivo de un rechazo no se filtra al estudiante por la línea de tiempo', async () => {
+  test('el motivo de un rechazo no se filtra al estudiante por la línea de tiempo, pero sí lo ve la propia empresa (Fase 6, panel de empresa)', async () => {
     const estudiante = await crearEstudianteConCv();
     const empresa = await crearEmpresaValidada();
     const oferta = await crearOfertaPublicada(empresa);
@@ -293,9 +294,14 @@ describe('proceso de selección (empresa)', () => {
       .set('Authorization', `Bearer ${empresa.accessToken}`)
       .send({ motivo: 'Nota interna: no contratar, mala actitud en la entrevista' });
 
-    const detalle = await request(app).get(`/api/v1/postulaciones/${postulacion.body.id}`).set('Authorization', `Bearer ${estudiante.accessToken}`);
-    const cuerpoCrudo = JSON.stringify(detalle.body);
+    const detalleEstudiante = await request(app).get(`/api/v1/postulaciones/${postulacion.body.id}`).set('Authorization', `Bearer ${estudiante.accessToken}`);
+    const cuerpoCrudo = JSON.stringify(detalleEstudiante.body);
     assert.ok(!cuerpoCrudo.includes('mala actitud'), 'el motivo del rechazo no debe llegar al estudiante');
+
+    const detalleEmpresa = await request(app).get(`/api/v1/postulaciones/${postulacion.body.id}`).set('Authorization', `Bearer ${empresa.accessToken}`);
+    const eventoRechazo = detalleEmpresa.body.PostulacionEventos.find((e) => e.estadoNuevo === 'no_seleccionada');
+    assert.equal(eventoRechazo.motivo, 'Nota interna: no contratar, mala actitud en la entrevista');
+    assert.equal(eventoRechazo.actorUsuarioId, undefined, 'actorUsuarioId sigue afuera incluso para la propia empresa');
   });
 
   test('una empresa B no puede mover una postulación de una oferta de la empresa A: 404', async () => {
@@ -314,6 +320,32 @@ describe('proceso de selección (empresa)', () => {
       .get(`/api/v1/postulaciones/oferta/${oferta.id}`)
       .set('Authorization', `Bearer ${empresaB.accessToken}`);
     assert.equal(listado.status, 404);
+  });
+
+  test('la lista de postulantes de una oferta trae nombre y carrera, sin RUT ni teléfono (Fase 6, panel de empresa)', async () => {
+    const estudiante = await crearEstudianteConCv();
+    const empresa = await crearEmpresaValidada();
+    const oferta = await crearOfertaPublicada(empresa);
+    await request(app).post('/api/v1/postulaciones').set('Authorization', `Bearer ${estudiante.accessToken}`).send({ ofertaId: oferta.id });
+
+    const listado = await request(app).get(`/api/v1/postulaciones/oferta/${oferta.id}`).set('Authorization', `Bearer ${empresa.accessToken}`);
+    assert.equal(listado.status, 200);
+    assert.equal(listado.body.length, 1);
+    assert.deepEqual(listado.body[0].Estudiante, { nombres: 'Ana', apellidos: 'Prueba', carrera: 'Contador Auditor' });
+    const cuerpoCrudo = JSON.stringify(listado.body);
+    assert.ok(!cuerpoCrudo.includes('rut'), 'ningún RUT (cifrado o últimos 4) debe llegar a la lista de postulantes');
+  });
+
+  test('ver la lista de postulantes de una oferta deja rastro en auditoria_accesos (auditoría del panel de empresa)', async () => {
+    const estudiante = await crearEstudianteConCv();
+    const empresa = await crearEmpresaValidada();
+    const oferta = await crearOfertaPublicada(empresa);
+    await request(app).post('/api/v1/postulaciones').set('Authorization', `Bearer ${estudiante.accessToken}`).send({ ofertaId: oferta.id });
+
+    await request(app).get(`/api/v1/postulaciones/oferta/${oferta.id}`).set('Authorization', `Bearer ${empresa.accessToken}`);
+
+    const auditoria = await AuditoriaAcceso.findAll({ where: { usuarioId: empresa.usuario.id, accion: 'ver_postulantes', entidadId: oferta.id } });
+    assert.equal(auditoria.length, 1);
   });
 
   test('mover una postulación desde un estado terminal responde 409 POSTULACION_TRANSICION_INVALIDA', async () => {

@@ -28,6 +28,12 @@ describe('quienMovio', () => {
   test('sin_respuesta es siempre del sistema', () => {
     assert.equal(quienMovio('sin_respuesta'), 'El sistema');
   });
+
+  test('con rolPropio "empresa" (panel de empresa, Fase 6 parte 4), los lados se invierten', () => {
+    assert.equal(quienMovio('en_revision', 'empresa'), 'Tú');
+    assert.equal(quienMovio('recibida', 'empresa'), 'El estudiante');
+    assert.equal(quienMovio('sin_respuesta', 'empresa'), 'El sistema');
+  });
 });
 
 describe('formatoLineaTiempo', () => {
@@ -53,10 +59,27 @@ describe('formatoLineaTiempo', () => {
   // llegan por acá — la API los excluye a propósito (auditoría del panel de estudiante): motivo
   // está pensado para coordinación o para quien lo escribe, no para la otra parte, y el id interno
   // no le sirve a la interfaz para nada que quienMovio() no resuelva ya.
-  test('nunca expone motivo ni actorUsuarioId, aunque el evento los traiga', () => {
+  test('al estudiante nunca le expone motivo ni actorUsuarioId, aunque el evento los traiga', () => {
     const [evento] = formatoLineaTiempo([
       { estadoNuevo: 'no_seleccionada', motivo: 'No cumple el perfil', actorUsuarioId: '9', createdAt: '2026-08-01T10:00:00.000Z' },
     ]);
+    assert.deepEqual(Object.keys(evento).sort(), ['fecha', 'quien', 'texto']);
+  });
+
+  // A la empresa sí (auditoría del panel de empresa, Fase 6 parte 4): es su propia nota, mostrársela
+  // de vuelta no es una fuga — postulaciones.service.js obtenerPropiaDeEmpresa es el único camino
+  // que la incluye. actorUsuarioId sigue afuera siempre, ni la empresa lo necesita.
+  test('a la empresa sí le expone motivo (rolPropio "empresa"), nunca actorUsuarioId', () => {
+    const [evento] = formatoLineaTiempo(
+      [{ estadoNuevo: 'no_seleccionada', motivo: 'No cumple el perfil', actorUsuarioId: '9', createdAt: '2026-08-01T10:00:00.000Z' }],
+      'empresa',
+    );
+    assert.deepEqual(Object.keys(evento).sort(), ['fecha', 'motivo', 'quien', 'texto']);
+    assert.equal(evento.motivo, 'No cumple el perfil');
+  });
+
+  test('con rolPropio "empresa" pero sin motivo en el evento, no agrega la clave', () => {
+    const [evento] = formatoLineaTiempo([{ estadoNuevo: 'en_revision', createdAt: '2026-08-01T10:00:00.000Z' }], 'empresa');
     assert.deepEqual(Object.keys(evento).sort(), ['fecha', 'quien', 'texto']);
   });
 });

@@ -9,10 +9,13 @@ const camposBase = {
   requisitos: z.string().min(1),
   area: z.string().min(1),
   modalidad: z.enum(MODALIDADES),
-  comuna: z.string().min(1).optional(),
+  // nullable además de optional: PATCH (panel de empresa) manda null explícito para vaciar el campo
+  // al cambiar a modalidad remota o a no remunerada — omitirlo en vez de anularlo dejaba el valor
+  // viejo huérfano en la base con la oferta ya mostrando lo contrario (auditoría del panel de empresa).
+  comuna: z.string().min(1).nullable().optional(),
   jornada: z.enum(JORNADAS),
   remunerada: z.boolean(),
-  montoMensual: z.number().int().positive().optional(),
+  montoMensual: z.number().int().positive().nullable().optional(),
   cupos: z.number().int().positive().optional(),
   // Fecha de cierre es opcional: un borrador puede no tenerla todavía (se exige recién al enviar a
   // revisión, ver services/ofertas/ofertas.service.js).
@@ -29,7 +32,9 @@ const camposBase = {
 // Cruce de campos que la base también exige (CHECK), pero acá se valida antes para dar un mensaje
 // de campo claro en vez de un error de Postgres.
 const validarCruces = (datos, ctx) => {
-  if (datos.remunerada && datos.montoMensual === undefined) {
+  // == null (no === undefined): montoMensual ahora también acepta null explícito (nullable, arriba)
+  // y un null literal es tan "falta el monto" como un undefined — auditoría del panel de empresa.
+  if (datos.remunerada && datos.montoMensual == null) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['montoMensual'], message: 'Obligatorio si la oferta es remunerada.' });
   }
   if (datos.modalidad && datos.modalidad !== 'remota' && !datos.comuna) {

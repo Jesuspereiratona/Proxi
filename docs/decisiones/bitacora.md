@@ -17,6 +17,93 @@ Formato:
 
 ---
 
+## 2026-08-29 · Panel de empresa — decisiones, bugs y auditoría de seguridad, antes del push
+**Contexto:** cuarta pantalla de Fase 6, primera que **no agrega ni una línea nueva al backend**
+salvo un `include` — todo lo que necesita (perfil, CRUD de ofertas, revisar postulantes,
+transiciones) ya existía y estaba probado desde las Fases 2 a 4. Ver `specs/06-panel-empresa/`.
+**Decisiones:**
+- **`GET /postulaciones/oferta/:id` pasó de devolver solo ids y estado a incluir
+  `nombres`/`apellidos`/`carrera` del postulante**, con `attributes` explícito (ni RUT ni teléfono)
+  — sin esto, "ver postulantes" no tenía forma de mostrar *a quién* le llegó una postulación.
+  Necesitó un alias explícito nuevo, `Postulacion.belongsTo(Estudiante, {as:'Estudiante'})`, por la
+  misma cautela que dejó el bug de "Ofertum" en Fase 6 parte 3: no confiar en que `inflection`
+  singularice bien un sustantivo sin haberlo probado.
+- **El formulario de oferta manda un PATCH con un diff manual (`construirParche` en
+  `mis-ofertas.js`) contra lo que trajo la API, no el formulario entero.** `ofertas.service.js
+  editar()` reacciona a que un campo *venga* en el body, no a que su valor haya cambiado de verdad
+  — reenviar el formulario completo habría mandado cualquier oferta `publicada` de vuelta a
+  `borrador` cada vez que alguien abriera "Editar" y le diera a "Guardar" sin tocar nada.
+- **`linea-tiempo.js` (Fase 6 parte 3) ganó un segundo parámetro, `rolPropio`**, en vez de
+  duplicarse para el panel de empresa: `quienMovio`/`formatoLineaTiempo` ya sabían deducir "quién
+  movió cada estado" del propio `estadoNuevo`, solo faltaba saber desde qué lado se está mirando
+  para decidir quién es "Tú". Por defecto `'estudiante'` (compatible con el código ya en producción,
+  sin tocar sus pruebas).
+- **`ErrorApi`/`cuerpoDeError` ahora propagan `detalles`** (el arreglo `{campo,mensaje}` que
+  `validar.middleware.js` ya calculaba desde Fase 0 y que el cliente descartaba). El formulario de
+  oferta es el primero con suficientes reglas cruzadas (remunerada↔montoMensual, modalidad↔comuna,
+  fecha de cierre) como para que el mensaje genérico de `VALIDACION_ENTRADA` no alcance.
+**Bug encontrado al probar:** el selector de motivo de cierre se veía visible en la captura sin
+que nadie hubiera tocado "Cerrar" — `.d-flex` de Bootstrap 5 es una utilidad con `!important`, y le
+gana al `display:none` que el navegador aplica a `[hidden]`; con las dos clases puestas a la vez,
+`contenedor.hidden = true` no ocultaba nada. Se encontró mirando la captura real, no adivinando (el
+mismo tipo de descuido que el bug de `.card-body` de Fase 6 parte 3, pero en la dirección contraria:
+ahí un hijo se estiraba de más, acá un contenedor no se escondía). Arreglado postergando la clase
+`d-flex` hasta el momento de abrir el bloque, en vez de dejarla puesta junto con `hidden` desde el
+principio.
+**Auditado con `auditor-seguridad` antes del push — sin hallazgos Alto/Grave, cuatro Media/Baja
+corregidos:**
+- **[Media] Ver la lista de postulantes de una oferta no dejaba rastro en `auditoria_accesos`.**
+  Antes de esta pantalla, `GET /postulaciones/oferta/:id` devolvía filas sin identidad (ids y
+  estado); ahora devuelve nombre y carrera de cada postulante, y esa lectura no quedaba registrada
+  en ningún lado — `docs/03-seguridad.md` exige registrar cada vez que alguien ve datos de un
+  estudiante, no solo cuando descarga su CV. Arreglado con una fila de `AuditoriaAcceso` por
+  listado (no una por postulante), acción `ver_postulantes`, mismo patrón que `ver_rut` y
+  `descargar_cv`.
+- **[Baja-media] Un `<input type="hidden" name="id">` que nadie leía ni rellenaba viajaba vacío en
+  cada PATCH**, lo que además dejaba en los hechos inerte el guard de "sin cambios no manda nada"
+  (`Object.keys(parche).length === 0` nunca se cumplía porque `parche.id` siempre tenía algo).
+  Inofensivo hoy porque Zod descarta claves no declaradas, pero es exactamente el tipo de campo que
+  un cambio futuro de esquema (o un `Model.update(req.body)` sin lista blanca) volvería peligroso.
+  Arreglado borrando el input: nadie lo usaba.
+- **[Baja-media] Vaciar un campo opcional (`comuna` al pasar a modalidad remota, `montoMensual` al
+  dejar de ser remunerada) no se enviaba nunca — el cambio se perdía en silencio y la interfaz decía
+  "Guardado."** `construirParche` solo recorría `Object.keys(datos)`, y esos dos campos ya se habían
+  borrado de `datos` antes de llegar ahí si quedaban vacíos; nunca se detectaban como "cambiaron",
+  solo como "no están". Escenario real: una oferta remunerada en $400.000 donde la empresa desmarca
+  "Remunerada" y borra el monto — el PATCH mandaba solo `{remunerada:false}`, y `monto_mensual`
+  quedaba huérfano en la base con el valor viejo mientras la oferta se mostraba como no remunerada.
+  Arreglado en dos capas: `construirParche` ahora recorre una lista fija de campos del formulario
+  (no las claves de `datos`) y manda `null` explícito para los dos campos anulables cuando se
+  vacían; `comuna`/`montoMensual` ganaron `.nullable()` en `ofertas.schemas.js`, y el cruce
+  `datos.montoMensual === undefined` de `validarCruces` pasó a `== null` (un `null` explícito es
+  tan "falta el monto" como un `undefined`).
+- **[Baja] El texto de un `prompt()` de rechazo decía "solo lo ves tú" sobre el motivo, pero la
+  propia empresa tampoco lo veía nunca** — el `attributes` que excluye `motivo` de la línea de
+  tiempo (Fase 6 parte 3) aplicaba igual a las tres partes, empresa incluida, así que el campo había
+  quedado de solo escritura. Al mirar de cerca esto también era un incumplimiento real de la regla 4
+  de `specs/06-panel-empresa/spec.md` ("el motivo de rechazo... se le sigue mostrando [a la
+  empresa] sin restricción"), así que en vez de solo corregir el texto se implementó la regla de
+  verdad: `obtenerPropiaDeEmpresa` (a diferencia de `conEventos`, que sigue sin tocar) ahora incluye
+  `motivo` en sus eventos — es la propia nota de la empresa, mostrársela de vuelta no es una fuga.
+  `linea-tiempo.js formatoLineaTiempo` solo agrega la clave `motivo` cuando `rolPropio==='empresa'`
+  y el evento la trae, para no reintroducir sin querer el problema en el lado del estudiante (hay
+  prueba explícita de ambos casos). De paso se corrigió la spec: decía "motivo obligatorio al
+  rechazar" pero Fase 4 ya lo había hecho opcional a propósito (`motivoOpcionalEsquema`, compartido
+  con el retiro) — la spec tenía el error, no el código.
+- **[Observación menor] El select de motivo de cierre venía con "Contratado" preseleccionado**, así
+  que dos clics rápidos ("Cerrar" → "Confirmar") podían declarar una contratación que no ocurrió.
+  No infla ningún indicador público (la vista materializada cuenta `resultado_declarado`, no el
+  valor de `motivoCierre`), pero ensucia el dato del que vive el proyecto. Arreglado con un
+  placeholder deshabilitado y el botón "Confirmar" inhabilitado hasta elegir un motivo real.
+- **[Observación menor, preexistente, no corregida]** El CV de una postulación `retirada` o
+  `sin_respuesta` sigue siendo descargable por la empresa — viene de Fase 4 y no es un bug (el
+  retiro no borra que la postulación existió), pero es una decisión de retención que conviene tomar
+  explícitamente en Fase 7, no dejar por omisión. Anotado, no tocado en este push.
+**Verificado real, no solo con mocks:** flujo completo contra la API real con Chrome headless
+(perfil de empresa, crear oferta, enviar a revisión, aprobar por API porque coordinación todavía no
+tiene panel, publicar, ver postulantes con nombre y carrera reales) — así se encontró el bug del
+`d-flex`/`hidden`. 407 pruebas en `apps/api`, 34 en `apps/web`, 0 fallas.
+
 ## 2026-08-29 · Panel de estudiante — decisiones, bugs y auditoría de seguridad, antes del push
 **Contexto:** primer panel autenticado de Fase 6 — primera vez que `apps/web` sube un archivo con
 sesión (el CV) y descarga un binario protegido, no solo consume JSON público. Ver

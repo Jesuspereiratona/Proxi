@@ -43,7 +43,9 @@ Usuario.hasMany(Archivo, { foreignKey: 'propietarioUsuarioId' });
 Archivo.belongsTo(Usuario, { foreignKey: 'propietarioUsuarioId' });
 
 Estudiante.hasMany(Postulacion, { foreignKey: 'estudianteId' });
-Postulacion.belongsTo(Estudiante, { foreignKey: 'estudianteId' });
+// as explícito por el mismo motivo que Oferta más abajo: no confiar en que inflection singularice
+// bien un sustantivo terminado en "-e" sin haberlo probado (auditoría de Fase 6, bug real de "Ofertum").
+Postulacion.belongsTo(Estudiante, { foreignKey: 'estudianteId', as: 'Estudiante' });
 
 Oferta.hasMany(Postulacion, { foreignKey: 'ofertaId' });
 Postulacion.belongsTo(Oferta, { foreignKey: 'ofertaId', as: 'Oferta' }); // ver nota de alias arriba

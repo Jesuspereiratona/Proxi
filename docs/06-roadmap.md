@@ -137,12 +137,14 @@ Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
       paneles, ninguno puede empezar sin esto
 - [x] Panel estudiante: perfil, CV, mis postulaciones con línea de tiempo de estados. Ver
       `specs/05-panel-estudiante/`
-- [ ] Panel empresa: mis ofertas, publicar, revisar postulantes, cerrar con motivo
+- [x] Panel empresa: mis ofertas, publicar, revisar postulantes, cerrar con motivo. Sin backend
+      nuevo — todo ya existía desde las Fases 2 a 4, salvo el rastro de auditoría al ver postulantes
+      y el include con nombre/carrera del postulante (whitelist explícita). Ver `specs/06-panel-empresa/`
 - [ ] Panel coordinación: validar empresas, moderar ofertas, ver indicadores
-- [ ] Accesibilidad básica en el resto de la fase (pendiente de los paneles empresa/coordinación); en
-      la vitrina pública y el panel de estudiante ya está verificada con capturas reales de Chrome
-      headless: labels, `aria-live`, foco visible por defecto de Bootstrap sin overrides, orden de
-      tabulación natural del DOM
+- [ ] Accesibilidad básica en el resto de la fase (pendiente del panel de coordinación); en la
+      vitrina pública y los paneles de estudiante y empresa ya está verificada con capturas reales
+      de Chrome headless: labels, `aria-live`, foco visible por defecto de Bootstrap sin overrides,
+      orden de tabulación natural del DOM
 - [x] Extra sobre lo planeado: `GET /api/v1/empresas/:id` (perfil público de empresa), que
       ninguna fase anterior había expuesto
 - [x] Extra sobre lo planeado: auditoría de seguridad de la primera entrega encontró y corrigió un
@@ -153,6 +155,9 @@ Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
 - [x] Extra sobre lo planeado: auditoría de seguridad del panel de estudiante encontró y corrigió una
       fuga de datos personales (nota de rechazo y actor interno visibles a la parte equivocada de una
       postulación) y un nombre de archivo sin sanear en la subida de CV (ver bitácora)
+- [x] Extra sobre lo planeado: auditoría de seguridad del panel de empresa encontró y corrigió una
+      falta de rastro de auditoría al ver datos de postulantes y un formulario que perdía en
+      silencio el cambio de vaciar un campo opcional (ver bitácora)
 
 ## Fase 7 · Datos personales
 - [ ] `GET /mi-cuenta/datos` (portabilidad en JSON)

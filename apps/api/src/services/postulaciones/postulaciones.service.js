@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { sequelize, Postulacion, PostulacionEvento, Oferta, Estudiante, Empresa } = require('../../models');
+const { sequelize, Postulacion, PostulacionEvento, Oferta, Estudiante, Empresa, AuditoriaAcceso } = require('../../models');
 const { puedeTransicionar } = require('./estados');
 const reglas = require('./reglas');
 const ofertasReglas = require('../ofertas/reglas');
@@ -77,7 +77,11 @@ const obtenerPropiaDeEmpresa = async (empresaId, id, { incluirEventos = false } 
     where: { id },
     include: [
       { model: Oferta, as: 'Oferta', where: { empresaId }, attributes: [] },
-      ...(incluirEventos ? [{ model: PostulacionEvento, attributes: ['estadoAnterior', 'estadoNuevo', 'createdAt'] }] : []),
+      // motivo sí va acá, a diferencia de conEventos() de arriba: es la nota que la propia empresa
+      // escribió, mostrársela a ella misma no es una fuga (regla 4 de specs/06-panel-empresa/spec.md)
+      // — actorUsuarioId sigue afuera, no le sirve a la interfaz para nada que quienMovio() no
+      // resuelva ya (auditoría del panel de empresa).
+      ...(incluirEventos ? [{ model: PostulacionEvento, attributes: ['estadoAnterior', 'estadoNuevo', 'createdAt', 'motivo'] }] : []),
     ],
     ...(incluirEventos ? { order: [[PostulacionEvento, 'createdAt', 'ASC']] } : {}),
   });
@@ -140,7 +144,11 @@ const listarDeEstudiante = async (usuarioId) => {
   });
 };
 
-const listarDeOferta = async (usuarioId, ofertaId) => {
+// attributes explícito en Estudiante (Fase 6 parte 4, panel de empresa): nombres/apellidos/carrera
+// alcanzan para que la empresa decida sobre un postulante — ni el RUT (cifrado, ya solo lo pide
+// coordinación por su propio endpoint, Fase 2) ni el teléfono viajan por acá sin que nadie lo haya
+// pedido (minimización de datos personales, CLAUDE.md).
+const listarDeOferta = async (usuarioId, ofertaId, ip) => {
   const empresa = await empresasService.obtenerPropio(usuarioId);
   // Una empresa suspendida (p. ej. por fraude) no debe seguir viendo quién le postuló: la
   // suspensión ya le cierra las ofertas en cascada (Fase 3), pero eso no bloqueaba esta ruta
@@ -148,7 +156,16 @@ const listarDeOferta = async (usuarioId, ofertaId) => {
   empresasReglas.verificarValidada(empresa);
   const oferta = await Oferta.findOne({ where: { id: ofertaId, empresaId: empresa.id } });
   if (!oferta) throw new NoEncontrado(OFERTA_NO_ENCONTRADA, 'Esa oferta no existe.');
-  return Postulacion.findAll({ where: { ofertaId: oferta.id }, order: [['createdAt', 'ASC']] });
+  const postulaciones = await Postulacion.findAll({
+    where: { ofertaId: oferta.id },
+    include: [{ model: Estudiante, as: 'Estudiante', attributes: ['nombres', 'apellidos', 'carrera'] }],
+    order: [['createdAt', 'ASC']],
+  });
+  // Una fila por listado, no una por postulante: docs/03-seguridad.md exige registrar cada vez que
+  // alguien ve datos de un estudiante, no solo cuando descarga un CV — este endpoint es nuevo en
+  // exponer nombre/carrera (auditoría del panel de empresa, antes solo devolvía ids y estado).
+  await AuditoriaAcceso.create({ usuarioId, accion: 'ver_postulantes', entidad: 'oferta', entidadId: oferta.id, ip });
+  return postulaciones;
 };
 
 const obtenerDetalle = async (usuarioActual, id) => {

@@ -220,6 +220,58 @@ describe('editar contenido de una oferta en revisión o publicada la manda de vu
   });
 });
 
+describe('vaciar comuna/montoMensual con null explícito (auditoría del panel de empresa)', () => {
+  test('dejar de ser remunerada y mandar montoMensual:null lo limpia de verdad', async () => {
+    const empresa = await crearEmpresaValidada();
+    const creada = await request(app)
+      .post('/api/v1/ofertas')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send(datosOferta({ modalidad: 'presencial', comuna: 'Santiago', remunerada: true, montoMensual: 300000 }));
+
+    const edicion = await request(app)
+      .patch(`/api/v1/ofertas/${creada.body.id}`)
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send({ remunerada: false, montoMensual: null });
+
+    assert.equal(edicion.status, 200);
+    assert.equal(edicion.body.remunerada, false);
+    assert.equal(edicion.body.montoMensual, null);
+  });
+
+  test('pasar a modalidad remota y mandar comuna:null lo limpia de verdad', async () => {
+    const empresa = await crearEmpresaValidada();
+    const creada = await request(app)
+      .post('/api/v1/ofertas')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send(datosOferta({ modalidad: 'presencial', comuna: 'Santiago' }));
+
+    const edicion = await request(app)
+      .patch(`/api/v1/ofertas/${creada.body.id}`)
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send({ modalidad: 'remota', comuna: null });
+
+    assert.equal(edicion.status, 200);
+    assert.equal(edicion.body.modalidad, 'remota');
+    assert.equal(edicion.body.comuna, null);
+  });
+
+  test('mandar montoMensual:null sin dejar de ser remunerada se rechaza igual que si faltara', async () => {
+    const empresa = await crearEmpresaValidada();
+    const creada = await request(app)
+      .post('/api/v1/ofertas')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send(datosOferta({ remunerada: true, montoMensual: 300000 }));
+
+    const edicion = await request(app)
+      .patch(`/api/v1/ofertas/${creada.body.id}`)
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send({ montoMensual: null });
+
+    assert.equal(edicion.status, 422);
+    assert.equal(edicion.body.error.codigo, 'VALIDACION_ENTRADA');
+  });
+});
+
 describe('cierre', () => {
   test('cerrar sin motivo responde 422', async () => {
     const empresa = await crearEmpresaValidada();
