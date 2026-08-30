@@ -37,6 +37,26 @@ if (process.env.RUT_CIFRADO_KEY.length < 32) {
 const puerto = Number(process.env.PORT) || 3000;
 const esProduccion = process.env.NODE_ENV === 'production';
 
+// Ley 21.719 (docs/03-seguridad.md): CV y perfil se eliminan tras esta inactividad, con aviso
+// previo. RETENCION_CV_MESES ya estaba en .env/.env.example desde una fase anterior, sin que nada
+// la leyera todavía — el default de acá replica el valor que ya traían (12), no uno nuevo.
+const retencionCvMeses = Number(process.env.RETENCION_CV_MESES) || 12;
+const retencionAvisoDias = Number(process.env.RETENCION_AVISO_DIAS) || 30;
+
+// Sin esto, un valor negativo o mal puesto no fallaba al arrancar — solo se notaba la noche que la
+// tarea de retención lo usara para decidir a quién borrar. Con retencionCvMeses negativo, todo el
+// mundo calificaba para eliminarse en la primera corrida; con retencionAvisoDias mayor que el plazo
+// total, el aviso nunca llegaba a tiempo (auditoría de Fase 7).
+if (!Number.isInteger(retencionCvMeses) || retencionCvMeses <= 0) {
+  throw new Error('RETENCION_CV_MESES debe ser un entero positivo.');
+}
+if (!Number.isInteger(retencionAvisoDias) || retencionAvisoDias <= 0) {
+  throw new Error('RETENCION_AVISO_DIAS debe ser un entero positivo.');
+}
+if (retencionAvisoDias >= retencionCvMeses * 28) {
+  throw new Error('RETENCION_AVISO_DIAS debe ser menor que RETENCION_CV_MESES en días (usando 28 días/mes como piso).');
+}
+
 const env = {
   nodeEnv: process.env.NODE_ENV,
   esProduccion,
@@ -71,6 +91,8 @@ const env = {
   // Regla de negocio, no un secreto: default igual al de .env.example si no está seteada.
   plazoDeclararCierreDias: Number(process.env.PLAZO_DECLARAR_CIERRE_DIAS) || 7,
   slaRespuestaDias: Number(process.env.SLA_RESPUESTA_DIAS) || 15,
+  retencionCvMeses,
+  retencionAvisoDias,
   // Relativo a la raíz del monorepo, igual que la ruta del .env de arriba: fuera de apps/web y
   // fuera de cualquier carpeta que la API sirva como estática (hoy no sirve ninguna).
   uploadDir: path.resolve(__dirname, '../../../../', process.env.UPLOAD_DIR || 'almacenamiento/cv'),

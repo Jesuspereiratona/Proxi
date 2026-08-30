@@ -3,6 +3,7 @@ const env = require('../config/env');
 const cerrarOfertasVencidas = require('../tareas/cerrarOfertasVencidas');
 const marcarSinRespuesta = require('../tareas/marcarSinRespuesta');
 const recalcularIndicadores = require('../tareas/recalcularIndicadores');
+const procesarRetencionCv = require('../tareas/procesarRetencionCv');
 
 const INICIO = Date.now();
 const CACHE_MS = 5000; // /salud es pública y sin auth: sin esto, el límite de tasa (300/15min)
@@ -36,6 +37,7 @@ const verificarSalud = async () => {
       cerrarOfertasVencidas: estadoPublico(cerrarOfertasVencidas),
       marcarSinRespuesta: estadoPublico(marcarSinRespuesta),
       recalcularIndicadores: estadoPublico(recalcularIndicadores),
+      procesarRetencionCv: estadoPublico(procesarRetencionCv),
     },
   };
   cache = { momento: Date.now(), resultado };

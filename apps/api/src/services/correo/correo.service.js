@@ -30,8 +30,10 @@ const obtenerTransporte = () => {
 // En NODE_ENV=test no toca la red: ni SMTP real ni Ethereal. Las pruebas verifican que se generó
 // el token correcto, no que un correo de verdad haya salido.
 const enviarCorreo = async ({ para, asunto, texto }) => {
+  // Nunca el correo del destinatario en el log (CLAUDE.md, regla dura): el asunto y la vista previa
+  // ya bastan para depurar sin escribir un dato personal en un archivo que dura más que la sesión.
   if (env.nodeEnv === 'test') {
-    logger.info({ correo: para, asunto }, 'Correo simulado (NODE_ENV=test)');
+    logger.info({ asunto }, 'Correo simulado (NODE_ENV=test)');
     return;
   }
 
@@ -39,7 +41,7 @@ const enviarCorreo = async ({ para, asunto, texto }) => {
   const info = await transporte.sendMail({ from: env.mailFrom, to: para, subject: asunto, text: texto });
 
   if (!env.smtp.host) {
-    logger.info({ correo: para, asunto, vistaPrevia: nodemailer.getTestMessageUrl(info) }, 'Correo de desarrollo (Ethereal)');
+    logger.info({ asunto, vistaPrevia: nodemailer.getTestMessageUrl(info) }, 'Correo de desarrollo (Ethereal)');
   }
 };
 

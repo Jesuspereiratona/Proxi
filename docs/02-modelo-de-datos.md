@@ -31,6 +31,7 @@ Identidad y acceso. Nada de datos de perfil aquí.
 | ultimo_acceso_at | timestamptz NULL | alimenta la política de retención |
 | intentos_fallidos | int DEFAULT 0 | bloqueo temporal tras N intentos |
 | intentos_fallidos_desde | timestamptz NULL | inicio de la racha de fallos actual; sin ella no hay desde cuándo contar los 15 minutos del bloqueo sin reusar `ultimo_acceso_at` |
+| anonimizado_at | timestamptz NULL | Fase 7: cuándo se suprimió la cuenta (`DELETE /mi-cuenta` o la tarea de retención). Ningún endpoint la expone para editar |
 
 Índices: `email` (único), `rol`.
 
@@ -58,6 +59,7 @@ Un solo mecanismo para dos flujos: verificar correo y restablecer clave. Se dist
 | nivel | int | semestre o año cursado |
 | telefono | text NULL | |
 | cv_archivo_id | bigint FK NULL | CV vigente |
+| aviso_retencion_enviado_at | timestamptz NULL | Fase 7: cuándo se envió el aviso previo al borrado por inactividad. NULL = sin avisar |
 
 ### empresas
 | Columna | Tipo | Notas |

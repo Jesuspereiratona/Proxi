@@ -171,9 +171,14 @@ panel de estudiante, panel de empresa, panel de coordinación), sin un solo hall
 llegara a producción sin corregir.
 
 ## Fase 7 · Datos personales
-- [ ] `GET /mi-cuenta/datos` (portabilidad en JSON)
-- [ ] `DELETE /mi-cuenta` (borra CV, anonimiza postulaciones)
-- [ ] Tarea de retención: aviso y eliminación tras inactividad
+Ver la especificación de la parte de código en `specs/08-datos-personales/`.
+
+- [x] `GET /mi-cuenta/datos` (portabilidad en JSON) — solo estudiantes; empresa/coordinación quedan
+      fuera de este incremento (decisión explícita, ver spec)
+- [x] `DELETE /mi-cuenta` (borra CV del disco, anonimiza perfil y el texto libre de postulaciones,
+      inutiliza el correo, revoca sesiones)
+- [x] Tarea de retención: aviso y eliminación tras inactividad (`RETENCION_CV_MESES`,
+      `RETENCION_AVISO_DIAS`)
 - [ ] Política de privacidad versionada y visible
 - [ ] Términos de uso de la plataforma
 - [ ] DPA (acuerdo de procesamiento de datos) con el proveedor de hosting
@@ -184,6 +189,18 @@ llegara a producción sin corregir.
 > chilena: sirven como esqueleto, **nunca como texto final**. Si la plataforma opera con datos reales
 > de estudiantes, estos documentos los revisa alguien con formación legal de la facultad.
 - [ ] Procedimiento de brecha escrito y probado en seco
+- [x] Extra sobre lo planeado: auditoría de seguridad encontró y corrigió dos hallazgos Graves (la
+      tarea de retención podía eliminar una cuenta activa sin un aviso vigente para ese ciclo de
+      inactividad) y uno Alto (el texto libre que el estudiante escribió — mensaje de postulación,
+      motivo de un retiro — seguía visible para la empresa después de la supresión). Ver bitácora —
+      es la auditoría más extensa del proyecto hasta ahora.
+
+**Listo cuando (la parte de código):** un estudiante puede pedir y borrar sus propios datos sin
+`curl`, el borrado es de verdad irreversible y no dañado por un fallo a mitad de camino, y nadie
+queda eliminado sin haber recibido antes un aviso vigente. **Cumplido el 2026-08-29** para la parte
+de código; los tres documentos legales y el procedimiento de brecha siguen pendientes, ninguno es
+código y todos requieren revisión de alguien con formación legal antes de publicarse con datos
+reales.
 
 ## Fase 8 · Despliegue
 - [ ] Base gestionada con respaldos automáticos y restauración **probada**

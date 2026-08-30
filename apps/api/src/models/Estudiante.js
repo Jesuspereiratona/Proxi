@@ -18,6 +18,9 @@ const Estudiante = sequelize.define(
     nivel: { type: DataTypes.INTEGER, allowNull: true },
     telefono: { type: DataTypes.TEXT, allowNull: true },
     cvArchivoId: { type: DataTypes.BIGINT, allowNull: true },
+    // Fase 7 (retención): cuándo se le mandó el aviso previo al borrado por inactividad. null =
+    // todavía no se le avisó.
+    avisoRetencionEnviadoAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'estudiantes', underscored: true },
 );

@@ -13,6 +13,9 @@ const Usuario = sequelize.define(
     ultimoAccesoAt: { type: DataTypes.DATE, allowNull: true },
     intentosFallidos: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     intentosFallidosDesde: { type: DataTypes.DATE, allowNull: true },
+    // Fase 7 (supresión): cuándo se anonimizó la cuenta. Es la única marca real de "ya se borró" —
+    // ningún endpoint la expone para editar, a diferencia de un campo de perfil (auditoría de Fase 7).
+    anonimizadoAt: { type: DataTypes.DATE, allowNull: true },
   },
   { tableName: 'usuarios', underscored: true },
 );

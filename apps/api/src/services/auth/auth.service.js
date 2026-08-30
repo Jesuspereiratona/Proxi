@@ -1,4 +1,4 @@
-const { sequelize, Usuario, Sesion, Consentimiento, TokenVerificacion } = require('../../models');
+const { sequelize, Usuario, Sesion, Consentimiento, TokenVerificacion, Estudiante } = require('../../models');
 const { NoAutenticado, NoAutorizado, Conflicto, ErrorValidacion, ReglaDeNegocio } = require('../../errors');
 const {
   AUTH_CORREO_YA_REGISTRADO,
@@ -120,6 +120,12 @@ const login = async ({ email, clave, ip, userAgent }) => {
 
   return sequelize.transaction(async (t) => {
     await usuario.update({ ...intentosLogin.trasExito(), ultimoAccesoAt: new Date() }, { transaction: t });
+    // Reabre el ciclo de aviso de retención (Fase 7): sin esto, a quien se le avisó una vez y volvió
+    // a usar la plataforma se le podía eliminar la cuenta en un ciclo de inactividad posterior sin
+    // recibir nunca un aviso vigente — el aviso viejo seguía "cumpliendo" el plazo de
+    // RETENCION_AVISO_DIAS aunque fuera de hace un año (auditoría de Fase 7). No falla si el usuario
+    // no es estudiante: el where no encuentra filas y el update simplemente no afecta ninguna.
+    await Estudiante.update({ avisoRetencionEnviadoAt: null }, { where: { usuarioId: usuario.id }, transaction: t });
     return crearSesion(usuario, { ip, userAgent }, t);
   });
 };
@@ -149,6 +155,11 @@ const refrescar = async ({ refreshToken, ip, userAgent }) => {
 
   return sequelize.transaction(async (t) => {
     await sesion.update({ revocadaAt: new Date() }, { transaction: t });
+    // Sin esto, una sesión web (que se sostiene solo con refrescos, nunca vuelve a mandar la
+    // contraseña) nunca actualizaba "última actividad" — la tarea de retención de Fase 7 podía
+    // marcar como inactiva y eventualmente eliminar la cuenta de alguien que usa Proxi todas las
+    // semanas (auditoría de Fase 7).
+    await usuario.update({ ultimoAccesoAt: new Date() }, { transaction: t });
     return crearSesion(usuario, { ip, userAgent }, t);
   });
 };

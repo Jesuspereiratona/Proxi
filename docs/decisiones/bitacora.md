@@ -17,6 +17,119 @@ Formato:
 
 ---
 
+## 2026-08-29 · Portabilidad, borrado y retención — decisiones y auditoría de seguridad, antes del push (Fase 7, parte de código)
+**Contexto:** primera vez que el proyecto borra/anonimiza datos de forma **irreversible** por
+pedido del propio usuario, y primera tarea programada que manda correos automáticos sin que nadie
+la dispare. `docs/03-seguridad.md` ya documentaba las tres obligaciones (portabilidad, supresión,
+retención) desde Fase 0; nada las implementaba. Ver `specs/08-datos-personales/`.
+**Decisiones:**
+- **Alcance solo estudiante.** `docs/03-seguridad.md` describe las tres obligaciones enteramente en
+  esos términos (CV, RUT, postulaciones); una empresa no tiene datos personales de una persona
+  natural en el mismo sentido, y coordinación es personal interno. Portabilidad/borrado de empresa
+  queda documentado como fuera de alcance, no como un olvido.
+- **Una sola función anonimiza, `eliminarCuenta()`** — la llaman tanto `DELETE /mi-cuenta` como la
+  tarea de retención, para que "qué significa borrar una cuenta" viva en un solo lugar.
+- **El correo real se reemplaza por un marcador único (`eliminado-<id>-<random>@proxi.invalid`) en
+  vez de borrar la fila de `usuarios`.** `.invalid` es un TLD reservado por RFC 2606, nunca
+  resoluble ni registrable de verdad — un intento de login con el correo original ya no encuentra
+  la fila y cae en el mismo `AUTH_CREDENCIALES_INVALIDAS` que un correo que nunca existió, sin
+  ningún caso especial en `auth.service.js`. Borrar la fila habría roto todo lo que la referencia
+  (`postulaciones.estudiante_id` vía `estudiantes.usuario_id`, sesiones, auditoría).
+- **RETENCION_CV_MESES ya estaba en `.env`/`.env.example` desde una fase anterior** (valor 12), sin
+  que nada lo leyera — el default de `env.js` replica ese valor, no inventa uno nuevo.
+**Encontrado por `revisor-migraciones`, antes de aplicar la migración de la columna de aviso:**
+- **[Bloqueante] La segunda pasada de `procesarRetencion` no filtraba por la antigüedad del aviso,
+  solo por `IS NOT NULL`.** La primera noche después de desplegar, un estudiante inactivo pasaba las
+  dos pasadas en la misma ejecución: se le avisaba y, segundos después, se le eliminaba en la misma
+  corrida — el "aviso previo" de 30 días que pide `docs/03-seguridad.md` quedaba en cero días
+  reales. Arreglado exigiendo `avisoRetencionEnviadoAt` más viejo que `RETENCION_AVISO_DIAS`
+  (`Op.lt`, no `Op.ne: null`) antes de considerar la eliminación.
+- Además: el orden de rollback de una migración que agrega una columna que el modelo ya declara
+  (revertir la base antes de revertir el código deja cualquier consulta sobre esa tabla en 500) —
+  anotado en `docs/07-operacion-y-mantenimiento.md`, que hasta ahora solo cubría el despliegue de ida.
+**Auditado con `auditor-seguridad` antes del push — la revisión más extensa del proyecto hasta
+ahora. Dos hallazgos Graves, uno Alto, varios Medios/Menores, todos corregidos:**
+- **[Grave] Con el arreglo de arriba ya aplicado, alguien a quien se le avisó una vez y volvió a
+  usar Proxi normalmente podía terminar eliminado en un ciclo de inactividad posterior sin recibir
+  nunca un aviso vigente para ese ciclo** — nada limpiaba `avisoRetencionEnviadoAt` al volver a
+  entrar, así que un aviso de hace un año seguía "cumpliendo" los 30 días de antigüedad que exige el
+  filtro. Arreglado en `auth.service.js login()`: dentro de la misma transacción que ya actualiza
+  `ultimoAccesoAt`, se limpia el aviso del estudiante (si lo es; si no, el `UPDATE` con ese `WHERE`
+  simplemente no afecta ninguna fila). Reabre el ciclo completo de aviso cada vez que la persona
+  vuelve de verdad.
+- **[Grave] "Actividad" solo se actualizaba en el login con contraseña — una sesión web sostenida
+  solo por refrescos de token (`sesion.js iniciarSesion()` en cada carga de página, Fase 6) nunca
+  volvía a escribir `ultimoAccesoAt`.** Alguien que usa Proxi todas las semanas sin volver a teclear
+  su contraseña quedaba con la fecha congelada en su primer login; a los 12 meses la tarea lo
+  clasificaba como inactivo y, 30 días después del aviso, le borraba el CV, le anulaba el RUT y le
+  reemplazaba el correo — mientras seguía usando la plataforma activamente, y sin forma de volver a
+  entrar después (el correo real ya no existe). Arreglado con una línea en `auth.service.js
+  refrescar()`: actualiza `ultimoAccesoAt` en la misma transacción que rota el token.
+- **[Alto] La supresión anonimizaba a quien postuló, pero no el texto libre que escribió.**
+  `postulaciones.mensaje` (la carta de presentación, hasta 2000 caracteres) y
+  `postulacion_eventos.motivo` de un retiro propio seguían intactos y visibles para la empresa
+  después de `DELETE /mi-cuenta` — con nombre, RUT o teléfono adentro si la persona los había escrito
+  ahí, que es exactamente el tipo de texto libre que la gente pone en una carta de presentación.
+  `docs/03-seguridad.md` dice literalmente "anonimiza postulaciones"; la primera versión no
+  anonimizaba ninguna. Arreglado anulando `mensaje` y el `motivo` de los eventos actorados por el
+  propio usuario, dentro de la misma transacción — se conserva el estado y la fecha de cada
+  transición, que es "el evento estadístico sin identidad" que pide la spec.
+- **[Medio] El disco se borraba antes de abrir la transacción.** Un fallo a mitad de camino (corte
+  de conexión, la colisión de correo del punto siguiente) dejaba el CV destruido con la cuenta
+  intacta — la persona recibía un error y creía que el borrado había fallado del todo, con su perfil
+  todavía identificable pero su CV ya perdido sin vuelta. Arreglado invirtiendo el orden: toda la
+  parte transaccional primero (incluido marcar el archivo como suprimido), `fs.unlink` — irreversible,
+  no participa de un rollback — recién después del commit.
+- **[Medio] El archivo suprimido no quedaba marcado como tal, solo le faltaban los bytes.** Un
+  respaldo restaurado dentro de la ventana de retención de 30 días (`docs/07-operacion-y-
+  mantenimiento.md`) repone el PDF con el mismo nombre, y `descargar()` solo comprobaba `fs.access`
+  — el CV de alguien que ejerció su derecho de supresión podía volver a servirse. Arreglado usando
+  `archivos.expira_at`, una columna que ya existía en el modelo y la migración desde Fase 4 sin que
+  nadie la usara: se marca al suprimir, `descargar()` la revisa.
+- **[Medio] Ni exportar los datos ni borrar la cuenta dejaban rastro en `auditoria_accesos`** —
+  inconsistente con el resto del proyecto (`descargar_cv`, `ver_rut`) y con la obligación de poder
+  decir, ante una brecha, qué cuentas se exportaron o se destruyeron. Arreglado con
+  `accion:'exportar_datos'`/`'eliminar_cuenta'`, mismo patrón que las demás.
+- **[Medio] La configuración de retención no se validaba al arrancar, y la tarea no tenía techo por
+  corrida.** `RETENCION_CV_MESES` negativo o `RETENCION_AVISO_DIAS` mayor que el plazo total son
+  errores de despliegue plausibles (una unidad mal puesta), y el primero, sin validación, habría
+  hecho que la primera corrida calificara a toda la tabla de estudiantes para eliminarse. Arreglado
+  con validación en `env.js` (enteros positivos, aviso menor que el plazo total en días) y un tope
+  de 50 eliminaciones por corrida: si se supera, la pasada se aborta y queda un `logger.error`, no
+  una base de estudiantes anonimizada de golpe.
+- **[Baja] `eliminarCuenta` no era idempotente** — repetir la petición (o que el borrado manual y la
+  tarea de retención coincidieran) rehacía todo el trabajo, incluido un bcrypt de costo 12 en el
+  hilo principal cada vez. Arreglado con una salida temprana si `usuario.anonimizadoAt` ya está
+  puesto.
+- **[Baja] La marca de "cuenta ya anonimizada" era `estudiante.nombres === 'Estudiante eliminado'`**
+  — un campo que el propio estudiante puede editar (`PATCH /estudiantes/perfil`), y que además nunca
+  cubre cuentas sin perfil de estudiante. Arreglado con una columna dedicada,
+  `usuarios.anonimizado_at`, que ningún endpoint expone para editar — nueva migración
+  (`agregar-anonimizado-usuarios`), mismo patrón revisado que la anterior.
+- **[Baja] `DELETE /mi-cuenta` no pedía ninguna confirmación para una acción irreversible.** Con un
+  token de acceso robado y hasta 15 minutos de vida, alcanzaba para destruir la cuenta de otra
+  persona sin que su dueño real confirmara nada. Arreglado exigiendo la contraseña actual en el
+  cuerpo (`cuenta.schemas.js`), verificada antes de llamar a `eliminarCuenta` — la tarea de
+  retención no pasa por ahí, no le hace falta: ya exige el aviso previo vencido.
+- **[Observación, corregida] El registro de cuentas aceptaba cualquier dominio de correo**, incluido
+  `.invalid` — alguien podía registrarse con el mismo patrón del marcador de una cuenta suprimida y
+  quedar confuso en una revisión manual. Arreglado con un `refine` en `registroEsquema`.
+- **[Observación, corregida] `correo.service.js` registraba el correo del destinatario en el log**
+  en dos lugares — viola una regla dura de `CLAUDE.md`, preexistente de Fase 1. Se corrigió de paso:
+  esta es la primera tarea que llama `enviarCorreo` fuera del flujo de registro/recuperación.
+- **[Observación, corregida] La respuesta de `GET /mi-cuenta/datos` (lleva el RUT en claro) no
+  tenía `Cache-Control: no-store`.** Una línea en el controller.
+- **[Observación, corregida] La exportación no incluía los consentimientos otorgados** (versión de
+  política, fecha) — parte de lo que un pedido de portabilidad debería mostrar. Agregado.
+**Verificado real, no solo con mocks:** contra la base de desarrollo con curl real —
+`GET /mi-cuenta/datos` de una cuenta demo real trae el RUT descifrado, el CV y la línea de tiempo
+correctos. El borrado en sí **no** se probó contra ninguna cuenta demo persistente (habría destruido
+los datos de prueba usados para que el usuario siguiera navegando los paneles) — queda cubierto por
+las 18 pruebas nuevas de `cuenta.test.js`, incluidas dos que reproducen exactamente los dos
+hallazgos Graves (avisar, volver a entrar, inactivarse de nuevo, y confirmar que no se elimina sin
+un aviso vigente; refrescar la sesión y confirmar que cuenta como actividad). 431 pruebas en
+`apps/api`, 34 en `apps/web`, 0 fallas.
+
 ## 2026-08-29 · Panel de coordinación — decisiones y auditoría de seguridad, antes del push (cierra Fase 6)
 **Contexto:** última pantalla de Fase 6 — con esta, los tres roles pueden usar Proxi de punta a
 punta sin `curl`. Coordinación es el rol con más poder del sistema (valida/rechaza/suspende

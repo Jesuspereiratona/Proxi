@@ -6,6 +6,7 @@ const empresasRoutes = require('./empresas.routes');
 const ofertasRoutes = require('./ofertas.routes');
 const postulacionesRoutes = require('./postulaciones.routes');
 const archivosRoutes = require('./archivos.routes');
+const cuentaRoutes = require('./cuenta.routes');
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/empresas', empresasRoutes);
 router.use('/ofertas', ofertasRoutes);
 router.use('/postulaciones', postulacionesRoutes);
 router.use('/archivos', archivosRoutes);
+router.use('/mi-cuenta', cuentaRoutes);
 
 module.exports = router;

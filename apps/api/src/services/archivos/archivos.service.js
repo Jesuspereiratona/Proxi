@@ -90,6 +90,14 @@ const descargar = async (archivoId, usuarioActual, ip) => {
   // existencia de un CV ajeno (docs/03-seguridad.md).
   if (!archivo) throw new NoEncontrado(ARCHIVO_NO_ENCONTRADO, 'Ese archivo no existe.');
 
+  // expiraAt lo pone cuenta.service.js eliminarCuenta() al suprimir un CV: los bytes ya no están en
+  // disco, pero un respaldo restaurado dentro de la ventana de retención (docs/07) los repondría con
+  // el mismo nombre — sin esta marca, fs.access() los volvería a encontrar y a servir (auditoría de
+  // Fase 7).
+  if (archivo.expiraAt && archivo.expiraAt <= new Date()) {
+    throw new NoEncontrado(ARCHIVO_NO_ENCONTRADO, 'Ese archivo no existe.');
+  }
+
   const ruta = path.join(env.uploadDir, archivo.nombreAlmacenado);
   // Si el archivo ya no está en disco, se corta acá: ni se registra un acceso que nunca ocurrió,
   // ni la ruta absoluta llega a un log de error no operacional (auditoría de Fase 4).

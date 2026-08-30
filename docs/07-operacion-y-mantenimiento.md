@@ -24,6 +24,12 @@ Migraciones: siempre reversibles (`up` y `down`), nunca destructivas en un solo 
 columna: primero dejar de usarla y desplegar, después borrarla en un despliegue posterior. Así un
 retroceso no pierde datos.
 
+**Revertir una migración es al revés que aplicarla: primero el proceso vuelve a la versión
+anterior, después `db:migrate:undo`.** Un modelo de Sequelize declara sus columnas de forma
+explícita — si el proceso nuevo sigue corriendo cuando se le quita una columna a la base, cualquier
+`SELECT`/`INSERT`/`UPDATE` sobre esa tabla falla con un 500 hasta que también se revierte el código
+(encontrado por `revisor-migraciones` al revisar la migración de retención de Fase 7).
+
 ## Respaldos
 - Diario automático de la base, retención 30 días.
 - Los CVs entran en el respaldo desde la fase 4.
