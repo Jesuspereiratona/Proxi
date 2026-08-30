@@ -551,6 +551,12 @@ describe('listado público', () => {
     const fila = listado.body.ofertas.find((o) => o.id === creada.body.id);
     assert.equal(fila.Empresa.razonSocial, 'Empresa de prueba');
   });
+
+  test('un pagina descomunal responde 422, no 500 (pentester-api: desbordaba el OFFSET de Postgres)', async () => {
+    const respuesta = await request(app).get('/api/v1/ofertas').query({ pagina: '1e30' });
+    assert.equal(respuesta.status, 422);
+    assert.equal(respuesta.body.error.codigo, 'VALIDACION_ENTRADA');
+  });
 });
 
 describe('rastro de auditoría en oferta_eventos', () => {

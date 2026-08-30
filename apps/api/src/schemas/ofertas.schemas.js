@@ -67,7 +67,11 @@ const filtrosListadoEsquema = z.object({
   // z.coerce.boolean() es Boolean(valor): "false" -> true (auditoría de Fase 3). Un filtro público
   // que hace lo contrario de lo que pide no es un problema de seguridad, pero sigue siendo un bug.
   remunerada: z.enum(['true', 'false']).transform((valor) => valor === 'true').optional(),
-  pagina: z.coerce.number().int().positive().optional(),
+  // Sin el .max(), un pagina descomunal (p. ej. 1e30 — sigue siendo "entero" para
+  // Number.isInteger con precisión de punto flotante) llega tal cual a (pagina-1)*limite y
+  // desborda el rango de OFFSET en Postgres: la consulta falla y el endpoint público, sin
+  // autenticación, responde 500 en vez de un 422 de validación (pentester-api).
+  pagina: z.coerce.number().int().positive().max(100_000).optional(),
   limite: z.coerce.number().int().positive().max(100).optional(),
 });
 

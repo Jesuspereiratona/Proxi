@@ -1166,6 +1166,12 @@ esta alerta en la próxima corrida: la regla busca librerías de CSRF conocidas 
 necesariamente reconoce una implementación propia — si pasa, se descarta como falso positivo
 apuntando a este párrafo, no se silencia sin más.
 
+**Seguimiento (mismo día, tras el fix del hallazgo Grave de arriba):** ocurrió lo anticipado — la
+corrida de CodeQL sobre `fd25b76` siguió marcando la alerta. Descartada en GitHub como falso
+positivo (`dismissed_reason: false positive`), con la razón de este párrafo. El control queda vivo:
+si algún día se saca `verificar-csrf.middleware.js` sin reemplazo, esta alerta hay que volver a
+tomarla en serio.
+
 **Alerta #2 — `js/http-to-file-access` ("Network data written to file"), media, [archivos.service.js:38](../../apps/api/src/services/archivos/archivos.service.js#L38).**
 **Decisión:** descartada como falso positivo directamente en GitHub (alerta #2, `dismissed_reason:
 false positive`).
@@ -1231,3 +1237,21 @@ cerrar, no confiar en que "pasaron las pruebas".
 **Consecuencia:** los seis hallazgos están arreglados y probados (437 pruebas de API, 41 de web,
 todas verdes) antes de este commit. `pentester-api` corrió en paralelo contra la instancia local;
 sus resultados se documentan aparte cuando terminen.
+
+## 2026-08-30 · `pentester-api` (parcial): `pagina` sin tope desbordaba el OFFSET en Postgres
+**Contexto:** `pentester-api` se cortó a mitad de la corrida por límite de sesión, pero alcanzó a
+dejar una pista sin confirmar: un 500 relacionado con `pagina` en el listado público de ofertas.
+**Decisión:** revisado por código y confirmado — `pagina: z.coerce.number().int().positive()` en
+`ofertas.schemas.js` no tenía tope. Un valor como `1e30` sigue siendo "entero" para
+`Number.isInteger` (precisión de punto flotante) y llega tal cual a `(pagina-1)*limite` como
+`OFFSET`: Postgres lo rechaza por desbordar su rango, y el endpoint público (sin autenticación, la
+vitrina) responde 500 en vez de un 422 de validación. **No es un cuelgue del proceso** — el
+`manejadorErrores` del proyecto atrapa cualquier rechazo de la base y siempre responde JSON — pero
+sí es información de menos (un 500 genérico no le dice al cliente que el problema es suyo) contra
+un endpoint que cualquiera puede golpear sin cuenta.
+**Motivo:** `limite` ya tenía `.max(100)`; `pagina` se quedó sin el mismo tope cuando se escribió el
+esquema, probablemente porque "página" no suena a algo que pueda desbordar nada.
+**Arreglo:** `.max(100_000)` en `pagina`, prueba nueva (`ofertas.test.js`) que confirma 422 en vez
+de 500. Verificado con la suite completa (437 API + 41 web) antes de este commit.
+**Consecuencia:** ninguna pérdida de funcionalidad — nadie necesita legítimamente pasar de la
+página 100.000 de un listado. `pentester-api` sigue pendiente de una corrida completa.
