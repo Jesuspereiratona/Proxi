@@ -27,14 +27,28 @@ const MENSAJES = {
   ARCHIVO_NO_ENCONTRADO: 'Ese archivo no existe.',
   RUT_INVALIDO: 'El RUT no es válido.',
   PERFIL_YA_EXISTE: 'Ya tienes un perfil creado.',
+  // Panel de empresa (Fase 6 parte 4).
+  EMPRESA_NO_VALIDADA: 'Todavía no estás validado por coordinación.',
+  EMPRESA_TRANSICION_INVALIDA: 'Esta empresa ya no admite ese cambio.',
+  EMPRESA_RUT_YA_REGISTRADO: 'Ese RUT de empresa ya está registrado.',
+  EMPRESA_CIERRES_PENDIENTES: 'Tienes ofertas cerradas sin declarar su resultado. Decláralo antes de enviar una nueva a revisión.',
+  OFERTA_SIN_FECHA_CIERRE: 'Falta la fecha de cierre.',
+  OFERTA_FECHA_CIERRE_INVALIDA: 'La fecha de cierre debe ser futura.',
+  OFERTA_TRANSICION_INVALIDA: 'Esta oferta ya no admite ese cambio.',
+  OFERTA_CAMPO_NO_EDITABLE: 'Ese campo ya no se puede editar en esta oferta.',
 };
 const MENSAJE_GENERICO = 'Ocurrió un problema. Intenta de nuevo en un momento.';
 
 export class ErrorApi extends Error {
-  constructor(codigo, mensaje) {
+  constructor(codigo, mensaje, detalles) {
     super(mensaje);
     this.name = 'ErrorApi';
     this.codigo = codigo;
+    // Detalle por campo (validar.middleware.js: [{campo, mensaje}]) — casi ningún formulario lo
+    // necesita (el mensaje genérico de VALIDACION_ENTRADA alcanza), pero el de oferta del panel de
+    // empresa tiene varias reglas cruzadas (Fase 6 parte 4) y perder el mensaje específico que la
+    // API ya calculó, a cambio de uno genérico, es peor experiencia sin ninguna ganancia real.
+    this.detalles = detalles;
   }
 }
 
@@ -65,13 +79,15 @@ export const usuarioActual = () => {
 
 const cuerpoDeError = async (respuesta) => {
   let codigo = 'ERROR_INTERNO';
+  let detalles;
   try {
     const cuerpo = await respuesta.json();
     codigo = cuerpo?.error?.codigo || codigo;
+    detalles = cuerpo?.error?.detalles;
   } catch {
     // sin cuerpo JSON legible: se queda con ERROR_INTERNO
   }
-  throw new ErrorApi(codigo, mensajeParaCodigo(codigo));
+  throw new ErrorApi(codigo, mensajeParaCodigo(codigo), detalles);
 };
 
 // POST /auth/refrescar no lleva Authorization (no autenticado): se apoya solo en la cookie

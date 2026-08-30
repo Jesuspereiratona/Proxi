@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularEstado, UMBRAL_URGENTE_DIAS } from '../assets/js/componentes/estado-oferta.js';
+import { calcularEstado, textoEstadoOferta, UMBRAL_URGENTE_DIAS } from '../assets/js/componentes/estado-oferta.js';
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 
@@ -36,5 +36,17 @@ describe('calcularEstado', () => {
     const ahora = new Date('2026-03-15T09:00:00');
     const resultado = calcularEstado('2026-03-15T20:00:00', ahora);
     assert.equal(resultado.texto, 'Cierra hoy');
+  });
+});
+
+describe('textoEstadoOferta (panel de empresa)', () => {
+  test('traduce cada estado de flujo real a texto humano', () => {
+    assert.deepEqual(textoEstadoOferta('borrador'), { texto: 'Borrador', clase: 'vencida' });
+    assert.deepEqual(textoEstadoOferta('en_revision'), { texto: 'En revisión', clase: 'urgente' });
+    assert.deepEqual(textoEstadoOferta('publicada'), { texto: 'Publicada', clase: 'normal' });
+  });
+
+  test('un estado desconocido se muestra tal cual, no revienta', () => {
+    assert.deepEqual(textoEstadoOferta('algo_nuevo'), { texto: 'algo_nuevo', clase: 'vencida' });
   });
 });

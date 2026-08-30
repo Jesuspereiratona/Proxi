@@ -1,6 +1,10 @@
 import { login } from '../api/sesion.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 
+// Coordinación no tiene panel propio todavía (Fase 6 sigue después de empresa) — vuelve a la
+// vitrina, igual que antes.
+const PAGINA_POR_ROL = { estudiante: 'panel-estudiante.html', empresa: 'mis-ofertas.html' };
+
 const formulario = document.getElementById('formulario-login');
 const mensajeError = document.getElementById('mensaje-error');
 const boton = formulario.querySelector('button[type="submit"]');
@@ -16,10 +20,8 @@ formulario.addEventListener('submit', async (evento) => {
   boton.disabled = true;
   try {
     const datos = new FormData(formulario);
-    await login(datos.get('email'), datos.get('clave'));
-    // Sin panel propio todavía por rol (Fase 6 sigue en construcción): vuelve a la vitrina, que
-    // es la única pantalla que existe hasta ahora.
-    window.location.href = 'index.html';
+    const usuario = await login(datos.get('email'), datos.get('clave'));
+    window.location.href = PAGINA_POR_ROL[usuario.rol] ?? 'index.html';
   } catch (error) {
     mostrarError(error instanceof ErrorApi ? error.message : mensajeParaCodigo());
     boton.disabled = false;

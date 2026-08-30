@@ -23,3 +23,18 @@ export const calcularEstado = (fechaCierre, ahora = new Date()) => {
   }
   return { texto: `Cierra el ${formatoFecha(cierre)}`, clase: 'normal', urgente: false };
 };
+
+// Estado de flujo de una oferta (panel de empresa, Fase 6 parte 4) — distinto de calcularEstado()
+// de arriba, que es la vigencia de una oferta ya publicada que ve la vitrina pública. Reusa las
+// mismas tres clases visuales (.normal/.urgente/.vencida de uah-theme.css) en vez de inventar
+// colores nuevos: "publicada" es el estado activo (igual que "vigente"), "en_revision" es el que
+// necesita atención (igual que "urgente"), y "borrador"/"cerrada"/"archivada" son neutros.
+const ESTADOS_OFERTA = {
+  borrador: { texto: 'Borrador', clase: 'vencida' },
+  en_revision: { texto: 'En revisión', clase: 'urgente' },
+  publicada: { texto: 'Publicada', clase: 'normal' },
+  cerrada: { texto: 'Cerrada', clase: 'vencida' },
+  archivada: { texto: 'Archivada', clase: 'vencida' },
+};
+
+export const textoEstadoOferta = (estado) => ESTADOS_OFERTA[estado] ?? { texto: estado, clase: 'vencida' };
