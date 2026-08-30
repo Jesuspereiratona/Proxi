@@ -4,10 +4,12 @@ const MODALIDADES = ['presencial', 'hibrida', 'remota'];
 const JORNADAS = ['completa', 'parcial'];
 
 const camposBase = {
-  titulo: z.string().min(1),
-  descripcion: z.string().min(1),
-  requisitos: z.string().min(1),
-  area: z.string().min(1),
+  // .trim() antes de .min(1): un título/descripción de solo espacios pasaba la validación, mismo
+  // arreglo que ya tenían motivo/rechazoEsquema (pentester-api).
+  titulo: z.string().trim().min(1),
+  descripcion: z.string().trim().min(1),
+  requisitos: z.string().trim().min(1),
+  area: z.string().trim().min(1),
   modalidad: z.enum(MODALIDADES),
   // nullable además de optional: PATCH (panel de empresa) manda null explícito para vaciar el campo
   // al cambiar a modalidad remota o a no remunerada — omitirlo en vez de anularlo dejaba el valor
@@ -15,8 +17,12 @@ const camposBase = {
   comuna: z.string().min(1).nullable().optional(),
   jornada: z.enum(JORNADAS),
   remunerada: z.boolean(),
-  montoMensual: z.number().int().positive().nullable().optional(),
-  cupos: z.number().int().positive().optional(),
+  // .max(): mismo defecto que pagina más abajo, pero contra la columna int4 de Postgres en vez del
+  // OFFSET — un monto entre 2.147.483.648 y Number.MAX_SAFE_INTEGER pasaba .int().positive() y
+  // reventaba en la base con 500 en vez de 422 (pentester-api). El tope es generosamente mayor que
+  // cualquier práctica real, no una regla de negocio.
+  montoMensual: z.number().int().positive().max(100_000_000).nullable().optional(),
+  cupos: z.number().int().positive().max(1_000).optional(),
   // Fecha de cierre es opcional: un borrador puede no tenerla todavía (se exige recién al enviar a
   // revisión, ver services/ofertas/ofertas.service.js).
   // z.coerce.date() solo, sin el z.union() de adelante, acepta cualquier cosa que Date() acepte:

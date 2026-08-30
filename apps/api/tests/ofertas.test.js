@@ -81,6 +81,33 @@ describe('creación y envío a revisión', () => {
     assert.equal(envio.body.error.codigo, 'OFERTA_SIN_FECHA_CIERRE');
   });
 
+  test('cupos o montoMensual que desbordan int4 responden 422, no 500 (pentester-api)', async () => {
+    const empresa = await crearEmpresaValidada();
+
+    const cuposDesborda = await request(app)
+      .post('/api/v1/ofertas')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send(datosOferta({ cupos: 2_147_483_648 }));
+    assert.equal(cuposDesborda.status, 422);
+    assert.equal(cuposDesborda.body.error.codigo, 'VALIDACION_ENTRADA');
+
+    const montoDesborda = await request(app)
+      .post('/api/v1/ofertas')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send(datosOferta({ remunerada: true, montoMensual: 3_000_000_000 }));
+    assert.equal(montoDesborda.status, 422);
+    assert.equal(montoDesborda.body.error.codigo, 'VALIDACION_ENTRADA');
+  });
+
+  test('un título de solo espacios responde 422, no se guarda vacío (pentester-api)', async () => {
+    const empresa = await crearEmpresaValidada();
+    const respuesta = await request(app)
+      .post('/api/v1/ofertas')
+      .set('Authorization', `Bearer ${empresa.accessToken}`)
+      .send(datosOferta({ titulo: '   ' }));
+    assert.equal(respuesta.status, 422);
+  });
+
   test('una fecha de cierre pasada responde 422 OFERTA_FECHA_CIERRE_INVALIDA al enviar a revisión', async () => {
     const empresa = await crearEmpresaValidada();
     const creada = await request(app)

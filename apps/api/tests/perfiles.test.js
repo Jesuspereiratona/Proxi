@@ -102,6 +102,17 @@ describe('POST /estudiantes/perfil', () => {
     assert.equal(respuesta.status, 422);
     assert.equal(respuesta.body.error.codigo, 'RUT_INVALIDO');
   });
+
+  test('un nivel que desborda int4 responde 422, no 500 (pentester-api)', async () => {
+    const { accessToken } = await crearUsuarioActivo('estudiante');
+    const respuesta = await request(app)
+      .post('/api/v1/estudiantes/perfil')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send(datosEstudiante({ nivel: 3_000_000_000 }));
+
+    assert.equal(respuesta.status, 422);
+    assert.equal(respuesta.body.error.codigo, 'VALIDACION_ENTRADA');
+  });
 });
 
 describe('acceso cruzado entre estudiantes', () => {

@@ -1255,3 +1255,49 @@ esquema, probablemente porque "página" no suena a algo que pueda desbordar nada
 de 500. Verificado con la suite completa (437 API + 41 web) antes de este commit.
 **Consecuencia:** ninguna pérdida de funcionalidad — nadie necesita legítimamente pasar de la
 página 100.000 de un listado. `pentester-api` sigue pendiente de una corrida completa.
+
+## 2026-08-30 · `pentester-api`, corrida completa: dos hallazgos del mismo patrón que `pagina`, todo lo demás sin hallazgo
+**Contexto:** corrida completa contra la instancia local real (la anterior se había cortado por
+límite de sesión). Confirmó en ejecución el arreglo de `pagina` de la entrada de arriba, y confirmó
+que la lista blanca de campos (contrabando de `estadoValidacion`, `validadaPorUsuarioId`, etc. en el
+perfil de empresa) funciona de verdad, no solo en el esquema.
+
+**[Media-baja] Mismo defecto que `pagina`, pero en columnas `int4` en vez del `OFFSET`.**
+`cupos` y `montoMensual` (`ofertas.schemas.js`) y `nivel` (`estudiantes.schemas.js`) usaban
+`.int().positive()` sin `.max()`. Un valor entre 2.147.483.648 y `Number.MAX_SAFE_INTEGER` pasa la
+validación igual y revienta en Postgres ("value out of range for type integer") con 500 en vez de
+422. **Arreglo:** topes de dominio generosos (`cupos` 1.000, `montoMensual` 100.000.000, `nivel`
+20) — ninguno reduce un caso de uso real. De paso, `.trim()` en `titulo`/`descripcion`/`requisitos`/
+`area` de ofertas (un título de solo espacios pasaba, mismo arreglo que ya tenían los campos
+`motivo*`).
+
+**[Baja] Cuerpo de más de 1 MB respondía 500 en vez de 413, sin necesitar cuenta.**
+`express.json({limit:'1mb'})` lanza `PayloadTooLargeError` (`type: 'entity.too.large'`) para
+cualquier petición que supere el límite, autenticada o no; `manejador-errores.middleware.js` solo
+reclasificaba `SyntaxError` (JSON inválido) y `MulterError`, así que este caso caía al 500 genérico
+`ERROR_INTERNO`. Sin fuga (el cuerpo grande no se adjunta a este error, a diferencia del
+`SyntaxError`), pero un 500 disparable por cualquiera contra `/auth/login` sin token. **Arreglo:**
+nuevo código `CUERPO_DEMASIADO_GRANDE`, reclasificado a `ErrorValidacion` (422) igual que
+`JSON_INVALIDO`.
+
+**[Informativo, sin acción] La censura del logger no cubre 2+ niveles de anidamiento** — el propio
+comentario de `config/logger.js` ya declara esto como limitación aceptada (segunda barrera; la
+primera es no pasar nunca datos personales al logger), y `pentester-api` no encontró ninguna ruta
+viva que registre un objeto anidado así. Queda anotado para si algún `logger.info/error` futuro pasa
+un objeto de dominio de dos niveles.
+
+**Sin hallazgo, confirmado en ejecución (no solo por código):** las once rutas con `:id` responden
+404 ante un token de otro usuario o sin token; autorización por rol correcta en cada endpoint
+probado; JWT con firma alterada / sin `rol` / `alg:none` rechazados; reuso de un refresco rotado
+revoca *toda* la sesión, incluido el token nuevo; CSRF de doble-submit rechaza sin el header
+correcto; los cubos de límite de tasa de `/login`, `/recuperar-clave` y el nuevo `/registro` están
+separados entre sí y el de `/registro` es realmente por IP (no por IP+correo, que habría dejado
+enumerar cambiando el correo); condiciones de carrera reales (5 transiciones simultáneas, 3
+postulaciones idénticas en paralelo) resolvieron en una sola escritura cada vez; ninguna respuesta
+exitosa expuso `password_hash`, `rut_cifrado`, rutas de disco ni datos de terceros.
+**Motivo:** mismo patrón que `pagina` — un campo numérico validado solo con `.int().positive()`,
+sin tope, es una superficie repetible de 500s evitables. Vale revisar el resto de campos numéricos
+del proyecto la próxima vez que se toque un esquema, no solo estos tres.
+**Consecuencia:** seis pruebas nuevas (`ofertas.test.js`, `perfiles.test.js`, y un archivo nuevo
+`manejador-errores.test.js` para JSON inválido y cuerpo demasiado grande). 443 pruebas de API + 41
+de web, todas verdes.

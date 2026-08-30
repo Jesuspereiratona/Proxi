@@ -1,5 +1,5 @@
 const { AppError, ErrorValidacion } = require('../errors');
-const { ERROR_INTERNO, JSON_INVALIDO, ARCHIVO_INVALIDO } = require('@proxi/errores');
+const { ERROR_INTERNO, JSON_INVALIDO, ARCHIVO_INVALIDO, CUERPO_DEMASIADO_GRANDE } = require('@proxi/errores');
 const logger = require('../config/logger');
 
 const manejadorErrores = (errorOriginal, req, res, next) => {
@@ -12,11 +12,17 @@ const manejadorErrores = (errorOriginal, req, res, next) => {
   // multer (subida de CV) lanza su propio MulterError -- tamaño excedido, campo inesperado, etc.
   // Sin este caso caía como 500 en vez de un 422 que el cliente pueda mostrar.
   const esErrorMulter = errorOriginal?.name === 'MulterError';
+  // express.json({limit:'1mb'}) lanza esto para CUALQUIER petición (ni siquiera hace falta estar
+  // autenticado) cuyo cuerpo supere el límite — sin este caso caía como 500 ERROR_INTERNO en vez de
+  // un 422 operacional (pentester-api).
+  const esCuerpoDemasiadoGrande = errorOriginal?.type === 'entity.too.large';
   const error = esJsonInvalido
     ? new ErrorValidacion(JSON_INVALIDO, 'El cuerpo de la petición no es JSON válido.')
     : esErrorMulter
       ? new ErrorValidacion(ARCHIVO_INVALIDO, 'El archivo no cumple los requisitos de tamaño o formato.')
-      : errorOriginal;
+      : esCuerpoDemasiadoGrande
+        ? new ErrorValidacion(CUERPO_DEMASIADO_GRANDE, 'El cuerpo de la petición es demasiado grande.')
+        : errorOriginal;
 
   const esAppError = error instanceof AppError;
   const status = esAppError ? error.httpStatus : 500;
