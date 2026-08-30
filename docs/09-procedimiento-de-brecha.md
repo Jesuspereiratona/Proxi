@@ -86,7 +86,7 @@ datos, cuántas personas aproximadamente, qué medidas se tomaron, qué se hará
 > Qué te recomendamos hacer: [acciones concretas — cambiar la contraseña si la reutilizas en otro
 > sitio, estar atento a correos que digan ser de la facultad].
 >
-> Si tienes dudas, escríbenos a [correo de contacto de privacidad].
+> Si tienes dudas, escríbenos a uahmarketcl@gmail.com.
 >
 > Lamentamos lo ocurrido. Te contaremos qué cambiamos para que no vuelva a pasar.
 

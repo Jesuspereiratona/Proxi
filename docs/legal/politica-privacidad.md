@@ -16,7 +16,7 @@
 ## 1. Quién trata tus datos y cómo contactarnos
 
 **Responsable:** Facultad de Economía y Negocios, Universidad Alberto Hurtado.
-**Contacto para asuntos de datos personales:** *[correo pendiente de definir por la FEN]*
+**Contacto para asuntos de datos personales:** **uahmarketcl@gmail.com** *(provisional — reemplazar por una casilla institucional de la FEN antes de operar)*
 **Delegado de Protección de Datos:** *[si la Universidad tiene uno designado, su contacto va aquí]*
 
 A ese correo puedes escribir para ejercer cualquiera de tus derechos, hacer una consulta o reportar un

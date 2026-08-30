@@ -126,4 +126,4 @@ controversias.
 
 ## 12. Contacto
 
-*[correo de contacto de la Facultad — pendiente de definir]*
+**uahmarketcl@gmail.com** *(provisional)*
