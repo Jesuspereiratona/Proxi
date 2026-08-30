@@ -13,6 +13,14 @@ const DOMINIO_PRUEBA = 'auth.uahurtado.test';
 const correoUnico = (prefijo) => `${prefijo}.${Date.now()}.${Math.random().toString(36).slice(2)}@${DOMINIO_PRUEBA}`;
 const CLAVE = 'claveDePrueba123456';
 
+// El middleware de CSRF exige el valor de la cookie `csrf` también como encabezado
+// (verificar-csrf.middleware.js) — las pruebas lo leen del Set-Cookie de un login/refrescar
+// previo, igual que tendría que hacerlo un cliente real.
+const csrfDe = (cookies = []) => {
+  const fila = cookies.find((c) => c.startsWith('csrf='));
+  return fila ? fila.split(';')[0].split('=')[1] : '';
+};
+
 const registrarActivo = async (email, clave = CLAVE, rol = 'estudiante') => {
   const passwordHash = await passwords.hashear(clave);
   return Usuario.create({ email, passwordHash, rol, estado: 'activo', emailVerificadoAt: new Date() });
@@ -165,11 +173,11 @@ describe('rotación y reuso del refresco', () => {
     const loginResp = await request(app).post('/api/v1/auth/login').send({ email, clave: CLAVE });
     const cookieOriginal = loginResp.headers['set-cookie'];
 
-    const rotado = await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookieOriginal);
+    const rotado = await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookieOriginal).set('X-CSRF-Token', csrfDe(cookieOriginal));
     assert.equal(rotado.status, 200);
     assert.ok(rotado.body.accessToken);
 
-    const reintento = await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookieOriginal);
+    const reintento = await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookieOriginal).set('X-CSRF-Token', csrfDe(cookieOriginal));
     assert.equal(reintento.status, 401);
   });
 
@@ -179,12 +187,12 @@ describe('rotación y reuso del refresco', () => {
     const loginResp = await request(app).post('/api/v1/auth/login').send({ email, clave: CLAVE });
     const cookieViejo = loginResp.headers['set-cookie'];
 
-    const primeraRotacion = await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookieViejo);
+    const primeraRotacion = await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookieViejo).set('X-CSRF-Token', csrfDe(cookieViejo));
     const cookieNuevo = primeraRotacion.headers['set-cookie'];
 
-    await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookieViejo); // reuso
+    await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookieViejo).set('X-CSRF-Token', csrfDe(cookieViejo)); // reuso
 
-    const conElNuevo = await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookieNuevo);
+    const conElNuevo = await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookieNuevo).set('X-CSRF-Token', csrfDe(cookieNuevo));
     assert.equal(conElNuevo.status, 401);
 
     const sesiones = await Sesion.findAll({ where: { usuarioId: usuario.id } });
@@ -200,7 +208,7 @@ describe('POST /auth/logout', () => {
     const loginResp = await request(app).post('/api/v1/auth/login').send({ email, clave: CLAVE });
     const cookie = loginResp.headers['set-cookie'];
 
-    const respuesta = await request(app).post('/api/v1/auth/logout').set('Cookie', cookie);
+    const respuesta = await request(app).post('/api/v1/auth/logout').set('Cookie', cookie).set('X-CSRF-Token', csrfDe(cookie));
     assert.equal(respuesta.status, 204);
     assert.match(respuesta.headers['set-cookie'][0], /Expires=Thu, 01 Jan 1970/);
 
@@ -211,6 +219,55 @@ describe('POST /auth/logout', () => {
   test('sin sesión activa, igual responde 204', async () => {
     const respuesta = await request(app).post('/api/v1/auth/logout');
     assert.equal(respuesta.status, 204);
+  });
+});
+
+describe('protección CSRF en /refrescar y /logout', () => {
+  test('login emite la cookie csrf legible por JS (no HttpOnly), junto a la de sesión', async () => {
+    const email = correoUnico('csrfcookie');
+    await registrarActivo(email);
+    const loginResp = await request(app).post('/api/v1/auth/login').send({ email, clave: CLAVE });
+
+    const cookieCsrf = loginResp.headers['set-cookie'].find((c) => c.startsWith('csrf='));
+    assert.ok(cookieCsrf);
+    assert.doesNotMatch(cookieCsrf, /HttpOnly/);
+    assert.match(cookieCsrf, /SameSite=Strict/);
+  });
+
+  test('refrescar con la cookie de sesión pero sin X-CSRF-Token responde 403 AUTH_CSRF_INVALIDO', async () => {
+    const email = correoUnico('csrf1');
+    await registrarActivo(email);
+    const loginResp = await request(app).post('/api/v1/auth/login').send({ email, clave: CLAVE });
+
+    const respuesta = await request(app).post('/api/v1/auth/refrescar').set('Cookie', loginResp.headers['set-cookie']);
+    assert.equal(respuesta.status, 403);
+    assert.equal(respuesta.body.error.codigo, 'AUTH_CSRF_INVALIDO');
+  });
+
+  test('refrescar con un X-CSRF-Token que no coincide con la cookie responde 403', async () => {
+    const email = correoUnico('csrf2');
+    await registrarActivo(email);
+    const loginResp = await request(app).post('/api/v1/auth/login').send({ email, clave: CLAVE });
+
+    const respuesta = await request(app)
+      .post('/api/v1/auth/refrescar')
+      .set('Cookie', loginResp.headers['set-cookie'])
+      .set('X-CSRF-Token', 'un-valor-inventado-que-no-coincide');
+    assert.equal(respuesta.status, 403);
+    assert.equal(respuesta.body.error.codigo, 'AUTH_CSRF_INVALIDO');
+  });
+
+  test('logout sin X-CSRF-Token responde 403 y NO revoca la sesión (el ataque no llega al service)', async () => {
+    const email = correoUnico('csrf3');
+    const usuario = await registrarActivo(email);
+    const loginResp = await request(app).post('/api/v1/auth/login').send({ email, clave: CLAVE });
+
+    const respuesta = await request(app).post('/api/v1/auth/logout').set('Cookie', loginResp.headers['set-cookie']);
+    assert.equal(respuesta.status, 403);
+    assert.equal(respuesta.body.error.codigo, 'AUTH_CSRF_INVALIDO');
+
+    const sesiones = await Sesion.findAll({ where: { usuarioId: usuario.id } });
+    assert.ok(sesiones.every((s) => s.revocadaAt === null));
   });
 });
 

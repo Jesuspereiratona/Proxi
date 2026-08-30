@@ -1140,3 +1140,40 @@ antes, y Dependabot vigila lo mismo de forma continua — un tercer chequeo idé
 de CI (encontrado al revisar este mismo workflow antes de comitearlo).
 **Consecuencia:** el push tarda un poco más y CodeQL puede reportar falsos positivos que hay que
 descartar con criterio, no silenciar por costumbre. Un hallazgo descartado se anota aquí con su razón.
+
+## 2026-08-30 · Primera corrida de CodeQL en `main`: dos alertas, una descartada y una atendida
+**Contexto:** primera corrida real del workflow `Seguridad` (commit `ca77e41`) sobre todo el código
+existente. CodeQL abrió dos alertas (`security-extended`). Por la regla acordada, ninguna se toca sin
+mostrarla antes.
+
+**Alerta #1 — `js/missing-token-validation` ("Missing CSRF middleware"), alta, [app.js:30](../../apps/api/src/app.js#L30).**
+**Decisión:** agregar protección CSRF explícita (doble-submit cookie) en `/auth/refrescar` y
+`/auth/logout` — las únicas dos rutas de todo el proyecto que leen una cookie para autorizar algo,
+todo lo demás usa `Authorization: Bearer`. Nuevo middleware `verificar-csrf.middleware.js`: exige un
+encabezado `X-CSRF-Token` igual a una segunda cookie `csrf` (no `HttpOnly`, para que el cliente pueda
+leerla), comparados con `crypto.timingSafeEqual`. Se emite junto a la cookie de sesión
+(`fijarCookiesSesion` en `auth.controller.js`) y se exige solo cuando ya existe una cookie de sesión
+que proteger.
+**Motivo:** la cookie de sesión ya usa `SameSite=Strict`, que en la práctica ya bloquea que el
+navegador la mande en una petición cross-site — es una mitigación real, no un saludo a la bandera.
+Aun así se optó por la capa extra (decisión explícita del usuario, no mía): `SameSite` depende de que
+el navegador respete el atributo; el doble-submit no depende de eso.
+**Consecuencia:** `/auth/refrescar` y `/auth/logout` ahora rechazan con 403 `AUTH_CSRF_INVALIDO` si
+falta o no coincide el encabezado — se actualizaron las pruebas existentes que llamaban esas rutas
+(`auth.test.js`, `cuenta.test.js`) para mandarlo, y se agregaron pruebas nuevas del rechazo (backend)
+y del envío automático del encabezado (`cliente.js`, frontend). Es posible que CodeQL siga marcando
+esta alerta en la próxima corrida: la regla busca librerías de CSRF conocidas (`csurf`, `lusca`), no
+necesariamente reconoce una implementación propia — si pasa, se descarta como falso positivo
+apuntando a este párrafo, no se silencia sin más.
+
+**Alerta #2 — `js/http-to-file-access` ("Network data written to file"), media, [archivos.service.js:38](../../apps/api/src/services/archivos/archivos.service.js#L38).**
+**Decisión:** descartada como falso positivo directamente en GitHub (alerta #2, `dismissed_reason:
+false positive`).
+**Motivo:** el nombre en disco es `crypto.randomUUID()` generado en el servidor
+(`subirCv`), nunca derivado de `nombreOriginal` ni de ningún dato que mande quien sube el archivo —
+no hay ruta de traversal posible. El contenido se valida contra la firma real de un PDF (`%PDF-`)
+antes de escribir. Es la forma esperada de cualquier subida de archivo; la regla de CodeQL es
+genérica ("dato de red escrito a disco") y no distingue esto de un backdoor real.
+**Consecuencia:** ninguna — no había nada que arreglar. Si en el futuro `nombreArchivoSeguro` deja de
+sanear el nombre, o el nombre en disco deja de ser aleatorio, esta alerta pasa a ser real y hay que
+revisar esta entrada.

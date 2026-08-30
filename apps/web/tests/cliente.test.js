@@ -163,6 +163,61 @@ describe('sesión: token en memoria, nunca en localStorage/sessionStorage', () =
   });
 });
 
+describe('CSRF: doble-submit cookie en peticiones con credenciales (verificar-csrf.middleware.js)', () => {
+  afterEach(() => { delete globalThis.document; });
+
+  test('con credenciales:true manda X-CSRF-Token si hay cookie csrf', async () => {
+    globalThis.document = { cookie: 'csrf=token-de-prueba; otra=x' };
+    let encabezados;
+    globalThis.fetch = async (url, opciones) => {
+      encabezados = opciones.headers;
+      return respuestaFalsa(200, {});
+    };
+    await enviar('POST', '/auth/logout', undefined, { autenticado: true, credenciales: true });
+    assert.equal(encabezados['X-CSRF-Token'], 'token-de-prueba');
+  });
+
+  test('sin cookie csrf (nunca hubo sesión), no manda el encabezado', async () => {
+    let encabezados;
+    globalThis.fetch = async (url, opciones) => {
+      encabezados = opciones.headers;
+      return respuestaFalsa(200, {});
+    };
+    await enviar('POST', '/auth/logout', undefined, { autenticado: true, credenciales: true });
+    assert.equal(encabezados['X-CSRF-Token'], undefined);
+  });
+
+  test('sin credenciales:true, no manda el encabezado aunque haya cookie', async () => {
+    globalThis.document = { cookie: 'csrf=token-de-prueba' };
+    let encabezados;
+    globalThis.fetch = async (url, opciones) => {
+      encabezados = opciones.headers;
+      return respuestaFalsa(200, { ofertas: [], total: 0 });
+    };
+    await obtener('/ofertas');
+    assert.equal(encabezados['X-CSRF-Token'], undefined);
+  });
+
+  test('el refresco automático ante un 401 también manda X-CSRF-Token si hay cookie', async () => {
+    globalThis.document = { cookie: 'csrf=token-refresco' };
+    fijarToken('token-vencido');
+    let encabezadosRefrescar;
+    let intentos = 0;
+    globalThis.fetch = async (url, opciones) => {
+      const ruta = url instanceof URL ? url.pathname : url;
+      if (ruta.endsWith('/auth/refrescar')) {
+        encabezadosRefrescar = opciones.headers;
+        return respuestaFalsa(200, { accessToken: 'token-nuevo' });
+      }
+      intentos += 1;
+      if (intentos === 1) return respuestaFalsa(401, { error: { codigo: 'AUTH_TOKEN_EXPIRADO' } });
+      return respuestaFalsa(200, { ok: true });
+    };
+    await obtenerAutenticado('/estudiantes/perfil');
+    assert.equal(encabezadosRefrescar['X-CSRF-Token'], 'token-refresco');
+  });
+});
+
 describe('enviarFormData (subida de archivos)', () => {
   test('manda el FormData tal cual, sin forzar Content-Type ni JSON.stringify', async () => {
     fijarToken('token-de-prueba');

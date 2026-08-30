@@ -366,7 +366,9 @@ describe('tarea de retención (procesarRetencion)', () => {
     const cookie = login.headers['set-cookie'];
 
     await Usuario.update({ ultimoAccesoAt: diasAntes(new Date(), 1) }, { where: { id: estudiante.usuario.id } });
-    await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookie);
+    // verificar-csrf.middleware.js exige el valor de la cookie `csrf` también como encabezado.
+    const csrf = cookie.find((c) => c.startsWith('csrf=')).split(';')[0].split('=')[1];
+    await request(app).post('/api/v1/auth/refrescar').set('Cookie', cookie).set('X-CSRF-Token', csrf);
 
     const usuarioFinal = await Usuario.findByPk(estudiante.usuario.id);
     assert.ok(usuarioFinal.ultimoAccesoAt.getTime() > Date.now() - 60 * 1000, 'el refresco debería haber actualizado ultimoAccesoAt a ahora');
