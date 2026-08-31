@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const app = require('../src/app');
 const { sequelize, Usuario, Sesion, TokenVerificacion, Consentimiento } = require('../src/models');
+const { borrarUsuariosDePrueba } = require('./limpiar');
 const tokensService = require('../src/services/auth/tokens');
 const passwords = require('../src/services/auth/passwords');
 const authService = require('../src/services/auth/auth.service');
@@ -39,7 +40,7 @@ const crearTokenUnSoloUso = async (usuarioId, tipo, { expirado = false } = {}) =
 };
 
 after(async () => {
-  await Usuario.destroy({ where: { email: { [require('sequelize').Op.like]: `%@${DOMINIO_PRUEBA}` } } });
+  await borrarUsuariosDePrueba(DOMINIO_PRUEBA);
   await sequelize.close();
 });
 

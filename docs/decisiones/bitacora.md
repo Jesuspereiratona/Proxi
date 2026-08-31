@@ -1334,7 +1334,7 @@ que **rotar el secreto además de correr el script**; eso sí invalida en el act
 justamente para acotar esa ventana.
 
 **Hueco 4 · Contacto de privacidad.** El más grave según el propio simulacro, y el más barato:
-`privacidad@proxi.cl` en el pie de las 13 páginas y en la política. Es un placeholder marcado como
+`uahmarketcl@gmail.com` en el pie de las 13 páginas y en la política. Es un placeholder marcado como
 tal en la propia interfaz ("dirección provisoria, pendiente casilla real de la FEN"), no una
 dirección inventada que se hace pasar por real — una casilla de contacto que rebota es peor que
 ninguna, y decirlo en la interfaz es más honesto que esconderlo en un comentario del código.
@@ -1388,3 +1388,52 @@ desbloquear solo.
    Anotadas en el roadmap dentro de Fase 7 · Bloqueado, con la advertencia de que la Fase 8 no
    debería cerrarse sin ellas: descubrir en el despliegue que el flujo de registro tiene que cambiar
    es mucho más caro que saberlo ahora.
+
+## 2026-08-30 · Dos correcciones al cierre de Fase 7: correo real y la FK que se comía la evidencia
+
+**1. El correo de contacto apuntaba a un dominio que no es nuestro.** `privacidad@proxi.cl` se puso
+como placeholder, pero `proxi.cl` no está registrado por el proyecto: un correo que rebota es peor
+que ninguno, porque promete un canal de ejercicio de derechos que no existe. Reemplazado por
+`uahmarketcl@gmail.com` en las 13 páginas, la política, el roadmap, la bitácora y la plantilla de
+notificación de brecha — 17 ocurrencias en 16 archivos. Sigue marcado como provisional en la propia
+interfaz hasta que la FEN asigne una casilla institucional.
+**Pendiente relacionado, no tocado:** `MAIL_FROM` sigue con el default `Proxi
+<no-responder@proxi.cl>` (`.env.example` y `config/env.js`). Es la dirección *remitente*, no la de
+contacto, así que no engaña a nadie sobre dónde reclamar — pero con un dominio ajeno, SPF/DKIM van a
+fallar en producción y el correo va a spam o lo rechazan. Es decisión de Fase 8 (junto con el
+dominio real), no un cambio que corresponda hacer a ciegas ahora.
+
+**2. `auditoria_accesos` tenía la FK a `usuarios` en `ON DELETE CASCADE`.** Un `DELETE` de un usuario
+se llevaba su rastro de auditoría completo: la evidencia que la Ley 21.719 exige poder mostrar y la
+única fuente que `docs/09` usa para medir el alcance de una brecha.
+**Decisión:** `RESTRICT`. Migración reversible, ciclo up → down → up verificado a mano (`r` → `c` →
+`r`), y el bloqueo comprobado ejecutando un `DELETE` real contra la base: falla con violación de
+clave foránea, como debe.
+**Consecuencia en las pruebas:** seis archivos limpiaban con `Usuario.destroy(...)` en su `after()`;
+con `RESTRICT` eso ya no puede funcionar. Se agregó `tests/limpiar.js` (`borrarUsuariosDePrueba`)
+que borra el rastro y después el usuario. Que las pruebas hayan tenido que cambiar es la señal de
+que la restricción es real y no decorativa.
+
+**Lo que NO se hizo, y por qué.** La instrucción incluía "anonimizar el `usuarioId` en la auditoría
+en vez de borrar la fila". No se implementó: **haría lo contrario de lo que busca**.
+- En `auditoria_accesos`, `usuario_id` es **quien accede**, no el dueño del dato. La prueba de quién
+  bajó el CV de un estudiante son filas con el `usuario_id` de la *empresa*; la baja de cuenta del
+  estudiante nunca las tocó, ni con `CASCADE` ni sin él.
+- Anonimizar el `usuario_id` de las filas propias del estudiante borraría el registro de sus propias
+  acciones — incluida la fila `eliminar_cuenta`, que es justamente cómo se demuestra que la supresión
+  se hizo y cuándo (responsabilidad proactiva). Sería destruir evidencia, no preservarla.
+- El objetivo de privacidad ya está cubierto sin tocar nada: `eliminarCuenta` **anonimiza** la fila
+  de `usuarios` (correo a marcador, perfil borrado, `anonimizado_at` puesto) y nunca la borra, así
+  que el `usuario_id` de la auditoría apunta a un registro que ya no identifica a nadie.
+En su lugar se agregó una prueba de regresión (`cuenta.test.js`) que fija el invariante real: tras
+`DELETE /mi-cuenta` siguen ahí tanto la fila de coordinación que descifró el RUT como la del propio
+borrado.
+**Corrección de un supuesto:** la premisa "hoy un estudiante que borra su cuenta destruye la prueba"
+no se sostenía contra el código — `eliminarCuenta` nunca ejecutó un `DELETE`, así que el `CASCADE`
+jamás llegaba a dispararse por esa vía. El riesgo era **latente** (un borrado manual en medio de un
+incidente, o un cambio futuro), que es motivo suficiente para arreglarlo, pero no era una fuga en
+curso. Conviene que quede escrito: arreglar por la razón correcta importa tanto como arreglar.
+
+**A Fase 8** (levantados por `revisor-migraciones`, fuera del alcance de hoy): definir retención para
+`auditoria_accesos`, que hoy crece sin límite y ahora guarda un dato personal más; y hacer que CI
+ejercite el `down` de las migraciones, que hoy nunca se prueba.

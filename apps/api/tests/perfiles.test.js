@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const app = require('../src/app');
 const { sequelize, Usuario, Estudiante, Empresa, Oferta } = require('../src/models');
+const { borrarUsuariosDePrueba } = require('./limpiar');
 const tokensService = require('../src/services/auth/tokens');
 const passwords = require('../src/services/auth/passwords');
 const { normalizarRut } = require('../src/utils/rut');
@@ -60,8 +61,7 @@ const datosEmpresa = (overrides = {}) => ({
 });
 
 after(async () => {
-  const { Op } = require('sequelize');
-  await Usuario.destroy({ where: { email: { [Op.like]: `%@${DOMINIO_PRUEBA}` } } });
+  await borrarUsuariosDePrueba(DOMINIO_PRUEBA);
   await sequelize.close();
 });
 

@@ -186,7 +186,7 @@ para quien lo corra con el reloj andando:
 - **No es un endpoint HTTP a propósito.** Uno autenticado por JWT sería vulnerable exactamente al
   escenario que este script existe para responder.
 
-**Hueco 4 — contacto de privacidad.** `privacidad@proxi.cl`, visible en el pie de las 13 páginas y
+**Hueco 4 — contacto de privacidad.** `uahmarketcl@gmail.com`, visible en el pie de las 13 páginas y
 en la política. Está marcado como dirección provisoria en la propia interfaz: **cuando la FEN asigne
 una casilla real, hay que cambiarlo en `apps/web/*.html` y en la plantilla de correo del paso 4** de
 este documento. Una dirección de contacto que rebota es peor que ninguna.
@@ -195,6 +195,16 @@ este documento. Una dirección de contacto que rebota es peor que ninguna.
 que escriben ahí. **Las filas anteriores al 2026-08-30 la tienen en NULL, y eso significa "no se
 capturó", no "cliente desconocido"** — no se puede backfillear, el dato nunca existió. Importa
 tenerlo claro leyendo la tabla en medio de un incidente.
+
+**Extra — la base ahora protege la evidencia.** La FK de `auditoria_accesos` a `usuarios` estaba en
+`ON DELETE CASCADE`: un `DELETE` de un usuario se llevaba su rastro completo. Pasó a `RESTRICT`, así
+que **la base se niega a borrar un usuario que dejó rastro de auditoría**. Dos consecuencias
+prácticas para el paso 1 ("Contener"), donde la tentación de "limpiar" es mayor:
+- El `DELETE FROM usuarios` que alguien pueda intentar en medio de un incidente **va a fallar**, y
+  eso es lo correcto. La vía es `DELETE /mi-cuenta` (anonimiza y conserva el rastro), no un borrado.
+- Para el rastro de **quién accedió a los datos de una persona**, la baja de cuenta de esa persona
+  nunca fue el riesgo: esas filas llevan el `usuario_id` de quien accedió (la empresa, coordinación),
+  no el de la víctima. Lo que la FK protege es el caso general de un borrado manual.
 
 ## Cuándo se vuelve a probar
 Una vez al año, y cada vez que cambie algo grande de cómo se guardan o se acceden los datos

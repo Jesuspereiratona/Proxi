@@ -196,7 +196,7 @@ Ver la especificación de la parte de código en `specs/08-datos-personales/`.
       A propósito no es un endpoint HTTP: uno autenticado por JWT sería vulnerable justo al escenario
       (secreto comprometido) que este script existe para responder
 - [x] Hueco 4 del simulacro: correo de contacto de privacidad en la política y en el pie de las 13
-      páginas. Dirección provisoria (`privacidad@proxi.cl`), marcada como tal hasta que la FEN asigne
+      páginas. Dirección provisoria (`uahmarketcl@gmail.com`), marcada como tal hasta que la FEN asigne
       una casilla real
 - [x] Hueco 7 del simulacro: columna `user_agent` en `auditoria_accesos` (migración reversible)
 - [x] Borrador de política de privacidad publicado y versionado (`apps/web/politica-privacidad.html`,
@@ -261,6 +261,13 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
 - [ ] Hueco 3 del simulacro: poder notificar por correo a N personas afectadas (hoy solo transaccional)
 - [ ] Hueco 5 del simulacro: la llave de cifrado se respalda **separada** de la base
 - [ ] Hueco 6 del simulacro: definir retención de logs (si la brecha se detecta tarde, tiene que haber con qué investigar)
+- [ ] Retención de `auditoria_accesos`: hoy crece sin límite y guarda `usuario_id` + `ip` +
+      `user_agent` para siempre, incluso de cuentas ya suprimidas — `eliminarCuenta` no la toca a
+      propósito (es evidencia), pero el otro extremo quedó abierto. Fijar una ventana en
+      `docs/03-seguridad.md` (12–24 meses cubre las 72 h de notificación y la revisión anual) y una
+      tarea de purga con el patrón de `procesarRetencion`
+- [ ] CI nunca ejercita el `down` de las migraciones: un `down` roto se descubre en producción, en el
+      peor momento. Agregar `db:migrate:undo` + `db:migrate` después de `npm test` en `ci.yml`
 - [ ] Runbook de operación en `07-operacion-y-mantenimiento.md`
 
 ---

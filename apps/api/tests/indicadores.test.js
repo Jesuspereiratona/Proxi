@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const request = require('supertest');
 const app = require('../src/app');
 const { sequelize, Usuario, Estudiante, Empresa, Oferta, Postulacion, PostulacionEvento, Archivo } = require('../src/models');
+const { borrarUsuariosDePrueba } = require('./limpiar');
 const tokensService = require('../src/services/auth/tokens');
 const passwords = require('../src/services/auth/passwords');
 const recalcularIndicadores = require('../src/tareas/recalcularIndicadores');
@@ -106,8 +107,7 @@ const crearPostulacion = async (oferta, estudiante, { creadaHaceDias = 0, estado
 };
 
 after(async () => {
-  const { Op } = require('sequelize');
-  await Usuario.destroy({ where: { email: { [Op.like]: `%@${DOMINIO_PRUEBA}` } } });
+  await borrarUsuariosDePrueba(DOMINIO_PRUEBA);
   await sequelize.close();
 });
 

@@ -5,6 +5,7 @@ const path = require('path');
 const request = require('supertest');
 const app = require('../src/app');
 const { sequelize, Usuario, Estudiante, Empresa, Postulacion, PostulacionEvento, AuditoriaAcceso, Archivo } = require('../src/models');
+const { borrarUsuariosDePrueba } = require('./limpiar');
 const tokensService = require('../src/services/auth/tokens');
 const passwords = require('../src/services/auth/passwords');
 const archivosService = require('../src/services/archivos/archivos.service');
@@ -95,8 +96,7 @@ const crearEstudianteConCv = async () => {
 };
 
 after(async () => {
-  const { Op } = require('sequelize');
-  await Usuario.destroy({ where: { email: { [Op.like]: `%@${DOMINIO_PRUEBA}` } } });
+  await borrarUsuariosDePrueba(DOMINIO_PRUEBA);
   await Promise.all(
     archivosSubidosEnDisco.map((nombre) => fs.unlink(path.join(env.uploadDir, nombre)).catch(() => {})),
   );

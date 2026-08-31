@@ -4,7 +4,8 @@ const fs = require('fs/promises');
 const path = require('path');
 const request = require('supertest');
 const app = require('../src/app');
-const { sequelize, Usuario, Estudiante, Empresa, Postulacion, PostulacionEvento, Archivo, Sesion } = require('../src/models');
+const { sequelize, Usuario, Estudiante, Empresa, Postulacion, PostulacionEvento, Archivo, Sesion, AuditoriaAcceso } = require('../src/models');
+const { borrarUsuariosDePrueba } = require('./limpiar');
 const tokensService = require('../src/services/auth/tokens');
 const passwords = require('../src/services/auth/passwords');
 const estudiantesService = require('../src/services/estudiantes/estudiantes.service');
@@ -86,8 +87,7 @@ const crearOfertaPublicada = async (empresa) => {
 };
 
 after(async () => {
-  const { Op } = require('sequelize');
-  await Usuario.destroy({ where: { email: { [Op.like]: `%@${DOMINIO_PRUEBA}` } } });
+  await borrarUsuariosDePrueba(DOMINIO_PRUEBA);
   await Promise.all(archivosSubidosEnDisco.map((nombre) => fs.unlink(path.join(env.uploadDir, nombre)).catch(() => {})));
   await sequelize.close();
 });
@@ -182,6 +182,35 @@ describe('DELETE /mi-cuenta', () => {
     const login = await request(app).post('/api/v1/auth/login').send({ email: estudiante.emailOriginal, clave: 'claveDePrueba123456' });
     assert.equal(login.status, 401);
     assert.equal(login.body.error.codigo, 'AUTH_CREDENCIALES_INVALIDAS');
+  });
+
+  test('borrar la cuenta conserva el rastro de auditoría, incluido el de quién accedió a sus datos', async () => {
+    const estudiante = await crearEstudianteConPerfil();
+    const archivo = await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
+    archivosSubidosEnDisco.push(archivo.nombreAlmacenado);
+
+    // Coordinación descifra el RUT: la fila queda a nombre de COORDINACIÓN, no del estudiante —
+    // es la prueba de "quién accedió a los datos de esta persona", y la baja de cuenta del
+    // estudiante no debe poder tocarla.
+    const coordinacion = await crearUsuarioActivo('coordinacion');
+    const filaEstudiante = await Estudiante.findOne({ where: { usuarioId: estudiante.usuario.id } });
+    await request(app)
+      .get(`/api/v1/estudiantes/${filaEstudiante.id}/rut`)
+      .set('Authorization', `Bearer ${coordinacion.accessToken}`);
+
+    const antes = await AuditoriaAcceso.count({ where: { usuarioId: coordinacion.usuario.id, accion: 'ver_rut' } });
+    assert.equal(antes, 1);
+
+    await request(app)
+      .delete('/api/v1/mi-cuenta')
+      .set('Authorization', `Bearer ${estudiante.accessToken}`)
+      .send({ clave: 'claveDePrueba123456' });
+
+    // La fila de coordinación sigue ahí...
+    assert.equal(await AuditoriaAcceso.count({ where: { usuarioId: coordinacion.usuario.id, accion: 'ver_rut' } }), 1);
+    // ...y la del propio borrado también: es cómo se demuestra que la supresión se hizo y cuándo
+    // (responsabilidad proactiva, Ley 21.719).
+    assert.equal(await AuditoriaAcceso.count({ where: { usuarioId: estudiante.usuario.id, accion: 'eliminar_cuenta' } }), 1);
   });
 
   test('borrar la cuenta revoca las sesiones activas', async () => {
