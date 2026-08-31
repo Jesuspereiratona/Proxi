@@ -1437,3 +1437,34 @@ curso. Conviene que quede escrito: arreglar por la razón correcta importa tanto
 **A Fase 8** (levantados por `revisor-migraciones`, fuera del alcance de hoy): definir retención para
 `auditoria_accesos`, que hoy crece sin límite y ahora guarda un dato personal más; y hacer que CI
 ejercite el `down` de las migraciones, que hoy nunca se prueba.
+
+## 2026-08-30 · El correo de verificación sale de la transacción de registro
+**Contexto:** al probar el flujo completo de punta a punta antes de empezar el pulido visual, el
+primer registro contra un servidor recién arrancado falló con error de conexión. La cuenta **no**
+quedó a medias (la transacción revirtió bien), pero al revisar por qué apareció la causa de fondo:
+`correo.enviarCorreo()` se llamaba **dentro** de `sequelize.transaction()`.
+**Decisión:** mover el envío fuera, después del commit. Si el envío falla, se deshace la cuenta
+recién creada (`usuario.destroy()`) y se propaga el error.
+**Motivo:** mantener abierta una transacción de base mientras se espera a un servicio externo es el
+problema — con un SMTP lento agota el pool de conexiones bajo carga, y con uno caído ningún registro
+se puede completar. La compensación explícita conserva la propiedad que ya tenía el diseño ("o queda
+todo, o no queda nada") sin pagar ese precio: sin ella, un fallo de correo dejaría una cuenta
+inservible **ocupando ese email**, y como no existe reenvío de verificación, la persona no podría ni
+volver a registrarse. Es seguro borrarla: recién creada no tiene sesiones, perfil ni auditoría, y
+`consentimientos`/`tokens_verificacion` caen en cascada (verificado en `pg_constraint`).
+
+**Dos cosas encontradas en el mismo camino, arregladas acá:**
+1. **`correo.service.js` cacheaba la promesa del transporte aunque se rechazara.** Un tropiezo de red
+   al crear el transporte dejaba una promesa ya rechazada en la variable de módulo: toda llamada
+   posterior recibía el mismo rechazo y el correo quedaba roto **hasta reiniciar el proceso**, aunque
+   la red se hubiera recuperado. Ahora el intento fallido se olvida.
+2. **Un error de SMTP podía filtrar el correo del destinatario al log.** Los mensajes de error SMTP
+   suelen incluir la dirección ("550 no such user <alguien@...>"), y `manejadorErrores` registra
+   `error.message` y el stack de todo error no operacional. Ahora `enviarCorreo` captura, registra
+   solo `codigo`/`respuestaSmtp` y relanza un error sin datos personales dentro — la regla dura de
+   `CLAUDE.md` es que el correo no entra a un log.
+
+**Consecuencia:** prueba nueva que simula el SMTP caído y verifica lo que de verdad importa — que
+tras el fallo no queda usuario, y que **la persona puede volver a registrarse con el mismo correo**.
+446 pruebas de API + 41 de web, verdes. Verificado además contra el servidor real, no solo con
+pruebas: registro 201 y correo efectivamente enviado.

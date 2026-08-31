@@ -7,6 +7,7 @@ const { borrarUsuariosDePrueba } = require('./limpiar');
 const tokensService = require('../src/services/auth/tokens');
 const passwords = require('../src/services/auth/passwords');
 const authService = require('../src/services/auth/auth.service');
+const correoService = require('../src/services/correo/correo.service');
 
 // Dominio propio de este archivo: node --test corre los archivos en paralelo contra la misma base,
 // así que un dominio compartido con otro archivo hace que el after() de uno borre a mitad de prueba
@@ -84,6 +85,28 @@ describe('POST /auth/registro', () => {
     assert.equal(respuesta.status, 201);
     const consentimiento = await Consentimiento.findOne({ where: { usuarioId: respuesta.body.id } });
     assert.notEqual(consentimiento.versionPolitica, 'valor-inventado-del-cliente');
+  });
+
+  test('si el envío del correo falla, no queda una cuenta a medias ocupando ese email', async () => {
+    const email = correoUnico('smtpcaido');
+    const original = correoService.enviarCorreo;
+    correoService.enviarCorreo = async () => { throw new Error('SMTP caído'); };
+    try {
+      const respuesta = await request(app)
+        .post('/api/v1/auth/registro')
+        .send({ email, clave: CLAVE, rol: 'estudiante', aceptaPolitica: true });
+      assert.equal(respuesta.status, 500);
+      // Nada quedó a medias: ni el usuario, ni su consentimiento, ni su token de verificación.
+      assert.equal(await Usuario.findOne({ where: { email } }), null);
+    } finally {
+      correoService.enviarCorreo = original;
+    }
+
+    // Y lo que de verdad importa: la persona puede volver a intentarlo con el mismo correo.
+    const reintento = await request(app)
+      .post('/api/v1/auth/registro')
+      .send({ email, clave: CLAVE, rol: 'estudiante', aceptaPolitica: true });
+    assert.equal(reintento.status, 201);
   });
 
   test('rol=coordinacion se rechaza: el registro público no lo permite', async () => {

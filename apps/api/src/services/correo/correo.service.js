@@ -24,6 +24,12 @@ const obtenerTransporte = () => {
         }),
       );
 
+  // Sin esto, un tropiezo de red al crear el transporte deja cacheada una promesa YA RECHAZADA: toda
+  // llamada posterior recibe el mismo rechazo y el envío de correo queda roto hasta reiniciar el
+  // proceso, aunque la red se haya recuperado. Se olvida el intento fallido para que el siguiente
+  // vuelva a probar.
+  transportePromesa.catch(() => { transportePromesa = null; });
+
   return transportePromesa;
 };
 
@@ -38,7 +44,16 @@ const enviarCorreo = async ({ para, asunto, texto }) => {
   }
 
   const transporte = await obtenerTransporte();
-  const info = await transporte.sendMail({ from: env.mailFrom, to: para, subject: asunto, text: texto });
+  let info;
+  try {
+    info = await transporte.sendMail({ from: env.mailFrom, to: para, subject: asunto, text: texto });
+  } catch (error) {
+    // El mensaje de un error SMTP suele traer la dirección del destinatario ("550 no such user
+    // <alguien@...>"), y ese error termina en el log con su stack vía manejadorErrores. Se registra
+    // solo el código, que basta para depurar, y se relanza un error sin datos personales dentro.
+    logger.error({ asunto, codigo: error.code, respuestaSmtp: error.responseCode }, 'Falló el envío de correo');
+    throw new Error('No se pudo enviar el correo.');
+  }
 
   if (!env.smtp.host) {
     logger.info({ asunto, vistaPrevia: nodemailer.getTestMessageUrl(info) }, 'Correo de desarrollo (Ethereal)');

@@ -40,19 +40,19 @@ const registrar = async ({ email, clave, rol, aceptaPolitica }) => {
     throw new Conflicto(AUTH_CORREO_YA_REGISTRADO, 'Ese correo ya está registrado.');
   }
 
-  return sequelize.transaction(async (t) => {
+  const { usuario, plano } = await sequelize.transaction(async (t) => {
     const passwordHash = await passwords.hashear(clave);
-    const usuario = await Usuario.create({ email, passwordHash, rol, estado: 'pendiente_verificacion' }, { transaction: t });
+    const nuevo = await Usuario.create({ email, passwordHash, rol, estado: 'pendiente_verificacion' }, { transaction: t });
 
     await Consentimiento.create(
-      { usuarioId: usuario.id, versionPolitica: VERSION_POLITICA, otorgadoAt: new Date() },
+      { usuarioId: nuevo.id, versionPolitica: VERSION_POLITICA, otorgadoAt: new Date() },
       { transaction: t },
     );
 
-    const { plano, hash } = tokens.generarTokenAleatorio();
+    const { plano: tokenPlano, hash } = tokens.generarTokenAleatorio();
     await TokenVerificacion.create(
       {
-        usuarioId: usuario.id,
+        usuarioId: nuevo.id,
         tokenHash: hash,
         tipo: 'verificacion_correo',
         expiraAt: new Date(Date.now() + TTL_VERIFICACION_MS),
@@ -60,6 +60,13 @@ const registrar = async ({ email, clave, rol, aceptaPolitica }) => {
       { transaction: t },
     );
 
+    return { usuario: nuevo, plano: tokenPlano };
+  });
+
+  // El correo se manda con la transacción YA confirmada. Adentro, una llamada de red a un servicio
+  // externo mantenía abierta la transacción todo lo que tardara el SMTP — con un servidor lento
+  // agota el pool de conexiones, y con uno caído ningún registro se podía completar.
+  try {
     await correo.enviarCorreo({
       para: email,
       asunto: 'Confirma tu cuenta en Proxi',
@@ -68,9 +75,16 @@ const registrar = async ({ email, clave, rol, aceptaPolitica }) => {
       // verificar la cuenta salvo activarla a mano desde la base).
       texto: `Confirma tu correo entrando a ${env.webUrl}/verificar-correo.html?token=${plano}`,
     });
+  } catch (error) {
+    // Sin el correo la cuenta no sirve para nada — no hay reenvío de verificación — y encima deja
+    // ocupado ese email, así que la persona no puede ni volver a registrarse. Se deshace para que
+    // reintentar funcione. Es seguro: recién creada no tiene sesiones, perfil ni auditoría, y
+    // consentimientos/tokens_verificacion caen en cascada.
+    await usuario.destroy();
+    throw error;
+  }
 
-    return { id: usuario.id, email: usuario.email, rol: usuario.rol, estado: usuario.estado };
-  });
+  return { id: usuario.id, email: usuario.email, rol: usuario.rol, estado: usuario.estado };
 };
 
 const verificarCorreo = async ({ token }) => {
