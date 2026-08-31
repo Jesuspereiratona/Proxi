@@ -6,7 +6,10 @@ Plataforma de prácticas profesionales: las empresas publican ofertas y los estu
 postulación queda sin respuesta. El estado y el tiempo son el centro del sistema, no un detalle.
 
 ## Estado
-En diseño. Ver `docs/06-roadmap.md` para el avance por fases.
+Fases 0 a 7 cerradas. Falta la Fase 8 (despliegue) y el pulido visual.
+Detalle casilla por casilla en `docs/06-roadmap.md`.
+
+**¿Llegas sin contexto?** Lee `ARRANQUE.md` primero.
 
 ## Documentación
 | Documento | Para qué sirve |

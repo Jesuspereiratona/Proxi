@@ -1,75 +1,83 @@
-# Arranque en VS Code
+# Retomar Proxi
 
-Este proyecto quedó **planteado y documentado**. Falta escribir el código, y eso se hace en VS Code
-con Claude Code.
+Este archivo es para quien llega sin contexto: otra sesión de Claude, otra persona, o tú mismo en
+tres meses. **Léelo completo antes de tocar nada.** Ocho minutos aquí ahorran una tarde de suposiciones.
 
-## Antes de la primera sesión
+## Dónde está el proyecto ahora
+
+Las fases 0 a 6 están **terminadas y verificadas**: fundaciones, identidad, perfiles y validación de
+empresas, ciclo de vida de ofertas, postulaciones con CV, indicadores de transparencia y cliente web
+completo con sus cinco pantallas. La fase 7 está cerrada por nuestra parte. La fase 8 no ha empezado.
+
+**El estado real y detallado está en `docs/06-roadmap.md`, casilla por casilla. Ese archivo manda
+sobre cualquier resumen, incluido este.** Si alguno de los dos está desactualizado, es este.
+
+## Orden de lectura
+1. `CLAUDE.md` — las reglas duras. Claude Code lo lee solo en cada sesión, no hay que pegarlo.
+2. `docs/06-roadmap.md` — qué está hecho y qué falta.
+3. `docs/00-vision-y-alcance.md` — qué es Proxi y por qué existe.
+4. `docs/decisiones/bitacora.md` — **el porqué de todo lo raro.** Lo más reciente arriba. Si algo del
+   código parece una decisión extraña, la explicación está acá.
+5. El resto de `docs/` según lo que vayas a tocar.
+
+## Cómo se trabaja aquí
+El método es especificación selectiva: **lo que tiene reglas de negocio o riesgo se escribe antes de
+programarse.** Un CRUD sin reglas va directo al código. La skill `nueva-funcionalidad` tiene el flujo.
+
+Las decisiones no obvias van a `docs/decisiones/bitacora.md`; las grandes, con alternativas
+evaluadas, a `docs/adr/`. El avance se marca en el roadmap. Esa disciplina es la razón de que este
+archivo pueda existir.
+
+Hay **seis skills** en `.claude/skills/` (construir una funcionalidad, crear un endpoint, revisar
+seguridad, depurar, mantener la bitácora, escribir menos código) y **cuatro agentes** en
+`.claude/agents/` (auditor de seguridad, pentester, revisor de migraciones, escritor de pruebas,
+guardián de docs). Se activan solos por contexto o se llaman por nombre.
+
+## Levantar el proyecto
 ```bash
-cd ~/proyectos/Proxi
-git init
-git add .
-git commit -m "docs: planteamiento del proyecto, arquitectura, seguridad y specs"
+cp .env.example .env     # completar los secretos, ver abajo
+docker compose up -d db  # PostgreSQL en el puerto 5433
+npm install
+npm run db:migrate
+npm run dev -w apps/api  # http://localhost:3000
 ```
-Opcional pero recomendado: crea el repo en GitHub y súbelo. Así la CI corre desde el primer día.
+Verificar con `GET /api/v1/salud`. Las pruebas: `npm test`.
 
-## Qué hay aquí y por qué importa
-- **`CLAUDE.md`** — Claude Code lo lee solo en cada sesión. Son las reglas duras: capas, nombres,
-  qué nunca se registra en logs, cómo responder. No hay que pegarlo ni recordarlo.
-- **`docs/`** — el porqué de cada cosa. Empieza por `00-vision-y-alcance.md`.
-- **`specs/`** — cómo debe comportarse cada funcionalidad, con criterios de aceptación que se
-  traducen directo a pruebas. La primera ya está escrita: `01-ciclo-de-vida-oferta/`.
-- **`.claude/skills/`** — cinco procedimientos que Claude Code carga solo cuando corresponde:
-  construir una funcionalidad, crear un endpoint, revisar seguridad, depurar, y mantener la bitácora.
-- **`.claude/agents/`** — cuatro revisores especializados que se invocan a pedido: auditor de
-  seguridad, revisor de migraciones, escritor de pruebas y guardián de la documentación.
+**Los secretos no están en el repositorio y no van a estarlo.** `.env.example` documenta cada clave.
+Las de desarrollo se generan con
+`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. Para el correo en
+desarrollo se usa una cuenta de Ethereal. La skill `manejo-de-secretos` tiene las reglas.
 
-## Cómo empezar la primera sesión de código
-Abre la carpeta en VS Code, abre Claude Code y escribe algo así:
+## Lo que NO está en el repositorio
+Para que nadie lo busque en vano:
+- **Los secretos.** A propósito.
+- **La carpeta `Skills/`** con plantillas legales, que vive fuera del repo. Solo cuatro sirven y están
+  referenciadas en la Fase 7 del roadmap.
+- **Las conversaciones** donde se tomaron las decisiones. Lo que valía la pena está en la bitácora;
+  lo demás se perdió, y está bien.
 
-> Lee CLAUDE.md y docs/06-roadmap.md. Vamos a hacer la Fase 0 completa: estructura de apps/api,
-> configuración validada al arrancar, conexión a PostgreSQL, healthcheck, clases de error con el
-> manejador central, logger con censura de datos personales, helmet y límite de tasa, y Jest con una
-> prueba del healthcheck. Empieza por la estructura de carpetas y muéstramela antes de escribir código.
+## Lo que está bloqueado esperando a alguien
+No son tareas pendientes: son decisiones de terceros. Están en
+`docs/legal/00-que-debe-revisar-un-abogado.md`, y **tres de las diez bloquean código, no texto**:
 
-Cuando llegues a la Fase 3, el arranque es más corto porque la spec ya existe:
+1. **Si el consentimiento es "libre"** cuando Proxi es el único canal para postular. Si no lo es,
+   cambia el flujo de registro.
+2. **Estudiantes menores de 18 años.** Hoy el sistema no pregunta la edad ni distingue.
+3. **Transferencia internacional** si el hosting queda fuera de Chile. Omitirla es infracción
+   gravísima bajo la Ley 21.719.
 
-> Lee specs/01-ciclo-de-vida-oferta/ completo e implementa las tareas en orden, marcándolas a medida
-> que avanzas.
+**La Fase 8 no debería cerrarse sin las tres resueltas.** Descubrir en el despliegue que el registro
+tiene que cambiar sale caro.
 
-## Cómo usar las skills y los agentes
-Se activan solas por contexto, pero puedes llamarlas por nombre:
-- `usa la skill nueva-funcionalidad` — al empezar algo con reglas de negocio
-- `usa la skill nuevo-endpoint` — al crear una ruta
-- `revisa esto con el agente auditor-seguridad` — antes de fusionar una rama
-- `usa el agente revisor-migraciones` — antes de aplicar una migración
-- `usa el agente escritor-pruebas` — cuando falten pruebas
-- `usa el agente guardian-docs` — al cerrar una fase
+## Lo que sigue
+1. **Pulido visual** — logos de empresa y más color, sobre la base UAH que ya existe en
+   `assets/css/uah-theme.css`. La skill `revision-visual` diagnostica antes de tocar código.
+2. **Fase 8 · Despliegue** — es lo único que separa el proyecto de que alguien lo use.
 
-## Deuda de planificación conocida
-La API está especificada al detalle; **el cliente web no**. La Fase 6 del roadmap tiene la advertencia
-completa, pero en corto: antes de escribir la primera pantalla hay que crear
-`specs/02-vitrina-publica/` y `docs/08-guia-visual.md`, y decidir cómo se ve cada estado de una oferta.
-Es trabajo de planificación, no de código, y toma poco. Saltárselo significa improvisar la parte del
-producto que la gente efectivamente mira.
-
-También falta una skill `nueva-pantalla`, equivalente de `nuevo-endpoint` para el front. Vale la pena
-escribirla recién después de la primera pantalla, cuando ya exista un patrón real que copiar en vez de
-uno inventado.
-
-## Reglas de higiene
-1. **Una rama por funcionalidad.** `main` siempre debe poder desplegarse.
-2. **Nada de secretos en el repo.** `.env` está ignorado; `.env.example` documenta las claves.
-3. **Anota lo no obvio** en `docs/decisiones/bitacora.md`. Es la memoria del proyecto: sin ella, cada
-   sesión nueva de Claude empieza de cero.
-4. **Marca el roadmap.** Es lo primero que se lee para saber dónde quedó todo.
-5. **La prueba de acceso cruzado no se salta.** Es la defensa contra el riesgo número uno del sistema.
-
-## Si vienes de tus proyectos del bootcamp
-La estructura de `apps/api/src` es la misma de tu `toolshare-api`. Lo que cambia son cuatro cosas, y
-están explicadas una por una en `docs/investigacion/referencia-proyectos-previos.md`: aparece la capa
-`services/`, el `try/catch` sale de los controllers, el middleware de auth devuelve 401/403 y trae el
-rol, y hay pruebas obligatorias de acceso cruzado.
-
-## Orden de lectura para alguien que llega nuevo
-`README.md` → `CLAUDE.md` → `docs/00-vision-y-alcance.md` → `docs/01-arquitectura.md` →
-`docs/02-modelo-de-datos.md` → `docs/03-seguridad.md` → `docs/06-roadmap.md`
+## Higiene
+- Una rama por funcionalidad. `main` siempre debe poder desplegarse.
+- Nada de secretos en el repositorio.
+- Anota lo no obvio en la bitácora: es la memoria del proyecto.
+- Marca el roadmap.
+- **La prueba de acceso cruzado no se salta.** Es la defensa contra el riesgo número uno del sistema:
+  que alguien cambie un id en una URL y lea el currículum de otra persona.
