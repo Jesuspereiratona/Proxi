@@ -9,6 +9,18 @@ import { etiquetaModalidad, etiquetaRemuneracion, formatoFechaCorta } from '../f
 // Tocar cualquiera de estos en una oferta en_revision o publicada la manda de vuelta a borrador
 // (mismo CAMPOS_CONTENIDO de ofertas.service.js) — se avisa antes de guardar.
 const CAMPOS_CONTENIDO = ['titulo', 'descripcion', 'requisitos', 'area', 'modalidad', 'jornada', 'comuna', 'cupos'];
+// Los tres estados que no son "validada" decían todos lo mismo: "tu empresa todavía no está
+// validada". Una empresa suspendida leía eso y entendía que su solicitud seguía en cola, cuando en
+// realidad coordinación le cerró las ofertas publicadas — es el estado más grave de los tres y era
+// el peor explicado. Cada uno dice ahora qué pasó y qué se puede hacer al respecto.
+const avisoDelEstado = (estado) => AVISO_POR_ESTADO[estado] ?? AVISO_POR_ESTADO.pendiente;
+
+const AVISO_POR_ESTADO = {
+  pendiente: 'Tu empresa está en revisión por coordinación: puedes preparar borradores, pero todavía no enviarlos a revisión.',
+  rechazada: 'Coordinación rechazó el perfil de tu empresa. Corrígelo en "Mi empresa" y vuelve a revisión automáticamente.',
+  suspendida: 'Tu empresa está suspendida por coordinación: sus ofertas publicadas se cerraron y no puedes publicar nuevas. Escribe a coordinación si crees que es un error.',
+};
+
 const CAMPOS_FORMULARIO = [...CAMPOS_CONTENIDO, 'remunerada', 'montoMensual', 'fechaCierre'];
 // Si se vacían, hay que decírselo a la API con null explícito, no omitirlos del PATCH — son justo
 // los dos campos que dejan de ser obligatorios según otro campo del mismo formulario (comuna al
@@ -33,6 +45,7 @@ function iniciar() {
   const botonCancelarFormulario = document.getElementById('boton-cancelar-formulario');
 
   let empresaValidada = false;
+  let estadoValidacion = null;
   let ofertaEnEdicion = null; // la oferta que se está editando (tal como la trajo la API), o null si es nueva
 
   const mostrarMensaje = (texto) => {
@@ -215,9 +228,9 @@ function iniciar() {
 
   const crearTarjeta = (oferta) => {
     const tarjeta = document.createElement('article');
-    tarjeta.className = 'card card-oferta';
+    tarjeta.className = 'card-oferta';
     const cuerpo = document.createElement('div');
-    cuerpo.className = 'card-body';
+    cuerpo.className = 'oferta-cuerpo';
 
     const estado = textoEstadoOferta(oferta.estado);
     const insignia = document.createElement('span');
@@ -225,11 +238,11 @@ function iniciar() {
     insignia.textContent = estado.texto;
 
     const titulo = document.createElement('h2');
-    titulo.className = 'h5 mt-2 mb-1';
+    titulo.className = 'oferta-titulo mb-1';
     titulo.textContent = oferta.titulo;
 
     const detalle = document.createElement('p');
-    detalle.className = 'small text-body-secondary mb-2';
+    detalle.className = 'oferta-empresa mb-2';
     const partes = [
       etiquetaModalidad(oferta.modalidad),
       oferta.comuna,
@@ -239,7 +252,7 @@ function iniciar() {
     detalle.textContent = partes.join(' · ');
 
     const acciones = document.createElement('div');
-    acciones.className = 'd-flex flex-wrap gap-2';
+    acciones.className = 'd-flex flex-wrap gap-2 mt-2';
 
     const enlacePostulantes = document.createElement('a');
     enlacePostulantes.className = 'btn btn-outline-secondary btn-sm';
@@ -262,7 +275,7 @@ function iniciar() {
       botonEnviar.className = 'btn btn-primary btn-sm';
       botonEnviar.textContent = 'Enviar a revisión';
       botonEnviar.disabled = !empresaValidada;
-      if (!empresaValidada) botonEnviar.title = 'Tu empresa todavía no está validada por coordinación.';
+      if (!empresaValidada) botonEnviar.title = avisoDelEstado(estadoValidacion);
       botonEnviar.addEventListener('click', () => accionarEnviarARevision(oferta, botonEnviar));
       acciones.append(botonEnviar);
     }
@@ -273,9 +286,17 @@ function iniciar() {
       acciones.append(bloqueCierre.botonAbrir);
     }
 
-    cuerpo.append(insignia, titulo, detalle, acciones);
+    cuerpo.append(titulo, detalle, acciones);
     if (bloqueCierre) cuerpo.append(bloqueCierre.contenedor);
-    tarjeta.append(cuerpo);
+
+    // La insignia va en la columna derecha, igual que en la vitrina: si cada estado aparece a una
+    // altura distinta segun el largo del titulo, hay que buscarlo en cada fila en vez de leer la
+    // columna de un vistazo.
+    const lateral = document.createElement('div');
+    lateral.className = 'oferta-lateral';
+    lateral.append(insignia);
+
+    tarjeta.append(cuerpo, lateral);
     return tarjeta;
   };
 
@@ -302,9 +323,10 @@ function iniciar() {
   (async () => {
     try {
       const perfil = await obtenerPerfilEmpresa();
-      empresaValidada = perfil.estadoValidacion === 'validada';
+      estadoValidacion = perfil.estadoValidacion;
+      empresaValidada = estadoValidacion === 'validada';
       if (!empresaValidada) {
-        avisoNoValidada.textContent = 'Tu empresa todavía no está validada por coordinación: puedes preparar borradores, pero no enviarlos a revisión.';
+        avisoNoValidada.textContent = avisoDelEstado(estadoValidacion);
         avisoNoValidada.hidden = false;
       }
       await cargar();

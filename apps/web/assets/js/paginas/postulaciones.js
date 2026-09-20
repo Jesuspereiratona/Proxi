@@ -41,13 +41,13 @@ function iniciar() {
 
   const crearTarjeta = (postulacion) => {
     const tarjeta = document.createElement('article');
-    tarjeta.className = 'card card-oferta';
+    tarjeta.className = 'card-oferta';
 
     // .card-body, no hijos directos de .card: .card es flex-column en Bootstrap 5, así que un
     // hijo directo (un botón, acá) se estira al ancho completo en vez de quedarse en su tamaño
     // natural (mismo bug encontrado y corregido en tarjeta-oferta.js).
     const cuerpo = document.createElement('div');
-    cuerpo.className = 'card-body';
+    cuerpo.className = 'oferta-cuerpo';
 
     const titulo = document.createElement('h2');
     titulo.className = 'h5 mb-1';

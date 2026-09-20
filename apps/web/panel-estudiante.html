@@ -22,10 +22,11 @@
     </div>
   </nav>
 
-  <main class="container py-4" style="max-width: 600px;">
+  <main class="container py-4" style="max-width: 640px;">
     <h1 class="titular mb-4">Mi perfil</h1>
     <p id="mensaje-estado" role="status" hidden></p>
 
+    <section class="panel mb-3">
     <form id="formulario-perfil" method="post" novalidate>
       <div class="mb-3">
         <label for="nombres" class="form-label">Nombres</label>
@@ -54,9 +55,14 @@
       </div>
       <button type="submit" class="btn btn-primary">Guardar</button>
     </form>
+    </section>
 
-    <hr class="my-4">
+    <section class="panel">
     <h2 class="h5">Currículum (CV)</h2>
+    <p class="small text-body-secondary">
+      Es el que la empresa ve cuando postulas. Al postular queda congelado: cambiarlo acá después no
+      afecta las postulaciones ya enviadas.
+    </p>
     <p id="cv-estado"></p>
     <button id="boton-descargar-cv" class="btn btn-outline-secondary btn-sm" hidden>Descargar mi CV</button>
     <div class="mt-3">
@@ -64,6 +70,7 @@
       <input type="file" id="archivo-cv" accept="application/pdf" class="form-control">
       <button id="boton-subir-cv" type="button" class="btn btn-secondary btn-sm mt-2">Subir</button>
     </div>
+    </section>
   </main>
 
   <footer class="border-top py-3 mt-5 text-center small text-body-secondary">

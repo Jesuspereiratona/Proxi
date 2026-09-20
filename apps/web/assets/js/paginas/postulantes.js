@@ -54,9 +54,9 @@ function iniciar() {
 
   const crearTarjeta = (postulacion) => {
     const tarjeta = document.createElement('article');
-    tarjeta.className = 'card card-oferta';
+    tarjeta.className = 'card-oferta';
     const cuerpo = document.createElement('div');
-    cuerpo.className = 'card-body';
+    cuerpo.className = 'oferta-cuerpo';
 
     const nombre = document.createElement('h2');
     nombre.className = 'h5 mb-1';

@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   formatoMonto, formatoFechaCorta, formatoFechaLarga,
-  etiquetaModalidad, etiquetaJornada, etiquetaRemuneracion, etiquetaArea,
+  etiquetaModalidad, etiquetaJornada, etiquetaRemuneracion, etiquetaArea, formatoRut,
 } from '../assets/js/formato.js';
 
 describe('formatoMonto', () => {
@@ -75,5 +75,32 @@ describe('fechas', () => {
 
   test('acepta el string ISO que manda la API, no solo un Date', () => {
     assert.equal(formatoFechaLarga('2026-09-25T15:00:00'), '25 de septiembre de 2026');
+  });
+});
+
+describe('formatoRut', () => {
+  test('pone puntos y guion a un RUT que llega corrido', () => {
+    // Coordinación lo contrasta contra un registro externo: nueve dígitos seguidos se leen mal.
+    assert.equal(formatoRut('626178944'), '62.617.894-4');
+    assert.equal(formatoRut('240127008'), '24.012.700-8');
+  });
+
+  test('acepta el dígito verificador K', () => {
+    assert.equal(formatoRut('76543210K'), '76.543.210-K');
+  });
+
+  test('un RUT que ya viene formateado no se formatea dos veces', () => {
+    assert.equal(formatoRut('76.543.210-K'), '76.543.210-K');
+  });
+
+  test('un valor que no tiene forma de RUT se devuelve tal cual', () => {
+    // Inventarle formato a un RUT mal guardado lo haría parecer válido.
+    assert.equal(formatoRut('abc'), 'abc');
+    assert.equal(formatoRut('123'), '123');
+  });
+
+  test('vacío o ausente no revienta', () => {
+    assert.equal(formatoRut(''), '');
+    assert.equal(formatoRut(null), '');
   });
 });

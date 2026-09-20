@@ -47,3 +47,17 @@ export const etiquetaArea = (valor) => {
   const limpio = valor.replace(/[-_]+/g, ' ').trim();
   return limpio.charAt(0).toUpperCase() + limpio.slice(1);
 };
+
+// RUT chileno con puntos y guion: 626178944 -> 62.617.894-4. El dato llega sin formato desde la
+// API, y coordinación lo usa para contrastar contra un registro externo — nueve dígitos corridos se
+// leen mal y se transcriben peor.
+// Un valor que no calza con la forma esperada se devuelve tal cual, sin intentar arreglarlo:
+// inventarle un formato a un RUT mal guardado lo haría parecer válido.
+export const formatoRut = (valor) => {
+  if (!valor) return '';
+  const limpio = String(valor).replace(/[.\-]/g, '').toUpperCase();
+  if (!/^\d{7,8}[\dK]$/.test(limpio)) return String(valor);
+  const cuerpo = limpio.slice(0, -1);
+  const verificador = limpio.slice(-1);
+  return `${cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}-${verificador}`;
+};

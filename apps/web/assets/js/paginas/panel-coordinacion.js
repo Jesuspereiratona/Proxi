@@ -3,7 +3,7 @@ import { listarTodas, validar, rechazar as rechazarEmpresa, suspender, listarTod
 import { listarPendientesRevision, aprobar, rechazarOferta } from '../api/ofertas.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { logout } from '../api/sesion.js';
-import { etiquetaModalidad, etiquetaJornada, etiquetaRemuneracion, formatoFechaCorta } from '../formato.js';
+import { etiquetaModalidad, etiquetaJornada, etiquetaRemuneracion, formatoFechaCorta, formatoRut } from '../formato.js';
 
 // Texto y clase de insignia van juntos a propósito (docs/08-guia-visual.md, sección "Empresa"): la
 // misma idea de "el color nunca es la única señal" que ya usan las insignias de oferta/postulación.
@@ -42,9 +42,9 @@ function iniciar() {
 
   const crearFilaEmpresa = (empresa) => {
     const tarjeta = document.createElement('article');
-    tarjeta.className = 'card card-oferta';
+    tarjeta.className = 'card-oferta';
     const cuerpo = document.createElement('div');
-    cuerpo.className = 'card-body';
+    cuerpo.className = 'oferta-cuerpo';
 
     const titulo = document.createElement('h3');
     titulo.className = 'h6 mb-1';
@@ -56,7 +56,7 @@ function iniciar() {
     const detalle = document.createElement('p');
     detalle.className = 'small text-body-secondary mb-1';
     detalle.textContent = [
-      `RUT: ${empresa.rutEmpresa}`,
+      `RUT: ${formatoRut(empresa.rutEmpresa)}`,
       empresa.giro,
       empresa.sitioWeb,
       empresa.comuna,
@@ -143,9 +143,9 @@ function iniciar() {
 
   const crearFilaOferta = (oferta) => {
     const tarjeta = document.createElement('article');
-    tarjeta.className = 'card card-oferta';
+    tarjeta.className = 'card-oferta';
     const cuerpo = document.createElement('div');
-    cuerpo.className = 'card-body';
+    cuerpo.className = 'oferta-cuerpo';
 
     const titulo = document.createElement('h3');
     titulo.className = 'h6 mb-1';

@@ -1,3 +1,44 @@
+## 2026-09-20 (2) · Los paneles alcanzan a la vitrina, y dos bugs que aparecieron al mirar
+
+**Regresión propia, encontrada mirando.** Al convertir `.card-oferta` en un contenedor flex con su
+propio relleno, las cinco pantallas que la usaban con un `.card-body` de Bootstrap adentro quedaron
+con el relleno duplicado: cada oferta del panel de empresa ocupaba 200px para tres líneas de texto.
+No lo detectó ninguna prueba —es CSS— sino una captura del panel con sesión real. Las cinco pasan
+ahora al mismo par `.card-oferta` + `.oferta-cuerpo`, sin `.card-body`.
+
+**Bug real 1 — el filtro de área nunca funcionó.** El listado público comparaba `area` por igualdad
+exacta, y `area` es `z.string()` libre: escribir "Marketing" no encontraba "marketing", y "Control"
+no encontraba "control-gestion". Pasa a `iLike` parcial, con los comodines de LIKE escapados —sin
+eso, escribir "%" devolvía todas las ofertas publicadas en vez de filtrar, convirtiendo un filtro en
+un listado sin filtrar. 5 pruebas nuevas, incluidas las dos de comodines.
+
+**Bug real 2 — "tu empresa todavía no está validada" se le decía también a una suspendida.** Los
+tres estados que no son `validada` compartían un solo mensaje. Una empresa suspendida leía eso y
+entendía que su solicitud seguía en cola, cuando en realidad coordinación le cerró las ofertas
+publicadas: era el estado más grave de los tres y el peor explicado. Ahora cada estado dice qué pasó
+y qué se puede hacer, y el `title` del botón deshabilitado usa el mismo texto en vez de una versión
+aguada.
+
+**De paso.** `formatoRut` (`62.617.894-4` en vez de `626178944`): coordinación contrasta ese número
+contra un registro externo y nueve dígitos corridos se transcriben mal. Se aplica solo donde se
+**muestra**, nunca en el campo editable de `panel-empresa.html` —ahí el input debe mostrar lo que se
+va a enviar. Un valor sin forma de RUT se devuelve tal cual: inventarle formato a un dato mal
+guardado lo haría parecer válido.
+
+**Confirmado, no asumido.** `demo.empresa1` (Andes Consultores) está `suspendida`, y por eso sus
+cuatro ofertas figuran `cerrada` aunque su `fecha_cierre` sea futura. No es un defecto de
+`cerrarOfertasVencidas` como se sospechó en la sesión anterior: es el cierre en cascada al suspender
+una empresa, comportamiento documentado desde la Fase 3. Dicho de otro modo, el botón "Suspender"
+funciona y esta es su evidencia.
+
+**Verificación.** 451 pruebas de API + 59 de web, 0 fallas. Capturas con sesión real de los tres
+roles (estudiante, empresa, coordinación), no solo de las páginas públicas. Las 13 páginas cargadas
+en secuencia sin un error de JS ni rechazo de promesa. El filtro probado además contra la API
+corriendo. Se borró el ayudante de login automático usado para las capturas: una página que toma
+credenciales por la URL no entra al repositorio.
+
+---
+
 ## 2026-09-20 · La vitrina pasa a lista, y el naranja se reserva para la urgencia
 
 **Contexto.** El usuario trajo como referencia la bolsa de trabajo de Alumni UAH
