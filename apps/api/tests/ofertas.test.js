@@ -558,6 +558,68 @@ describe('listado público', () => {
     assert.equal(listado.body.ofertas[0].estado, 'publicada');
   });
 
+  // El filtro de área comparaba por igualdad exacta, y 'area' es texto libre en el esquema
+  // (z.string(), no un enum): convivían "control-gestion", "Auditoria" y "marketing" en la misma
+  // vitrina, así que escribir "Marketing" no encontraba nada. Cada área de estas pruebas es única
+  // porque node --test corre los archivos en paralelo contra la misma base.
+  describe('filtro de área y comuna, sin distinguir mayúsculas ni exigir el texto completo', () => {
+    const publicarConArea = async (empresa, area, extra = {}) => {
+      const creada = await request(app).post('/api/v1/ofertas')
+        .set('Authorization', `Bearer ${empresa.accessToken}`).send(datosOferta({ area, ...extra }));
+      await request(app).post(`/api/v1/ofertas/${creada.body.id}/revision`)
+        .set('Authorization', `Bearer ${empresa.accessToken}`);
+      await request(app).post(`/api/v1/ofertas/${creada.body.id}/aprobacion`)
+        .set('Authorization', `Bearer ${empresa.coordinacion.accessToken}`);
+      return creada.body.id;
+    };
+
+    test('encuentra la oferta aunque se escriba con otra caja', async () => {
+      const empresa = await crearEmpresaValidada();
+      const id = await publicarConArea(empresa, 'marketing-caja-unica');
+
+      const listado = await request(app).get('/api/v1/ofertas').query({ area: 'MARKETING-CAJA-UNICA' });
+      assert.equal(listado.status, 200);
+      assert.ok(listado.body.ofertas.some((o) => o.id === id), 'debería encontrarla en mayúsculas');
+    });
+
+    test('encuentra la oferta escribiendo solo una parte del área', async () => {
+      const empresa = await crearEmpresaValidada();
+      const id = await publicarConArea(empresa, 'control-gestion-parcial-unica');
+
+      const listado = await request(app).get('/api/v1/ofertas').query({ area: 'gestion-parcial-unica' });
+      assert.ok(listado.body.ofertas.some((o) => o.id === id), 'debería encontrarla por coincidencia parcial');
+    });
+
+    test('la comuna se filtra con el mismo criterio', async () => {
+      const empresa = await crearEmpresaValidada();
+      const id = await publicarConArea(empresa, 'area-comuna-unica', { comuna: 'Providencia' });
+
+      const listado = await request(app).get('/api/v1/ofertas').query({ area: 'area-comuna-unica', comuna: 'providencia' });
+      assert.ok(listado.body.ofertas.some((o) => o.id === id), 'la comuna debería ignorar mayúsculas');
+    });
+
+    test('un % escrito por la persona se busca como texto, no como comodín', async () => {
+      // Sin escapar los comodines de LIKE, "%" devolvía TODAS las ofertas publicadas de la base en
+      // vez de las que contienen ese carácter. No es una inyección (Sequelize parametriza el valor),
+      // pero convierte un filtro en un listado sin filtrar.
+      const empresa = await crearEmpresaValidada();
+      await publicarConArea(empresa, 'area-comodin-unica');
+
+      const listado = await request(app).get('/api/v1/ofertas').query({ area: '%' });
+      assert.equal(listado.status, 200);
+      assert.equal(listado.body.ofertas.length, 0, 'un % literal no coincide con ningún área');
+    });
+
+    test('un guion bajo tampoco actúa como comodín', async () => {
+      const empresa = await crearEmpresaValidada();
+      await publicarConArea(empresa, 'area-guionbajo-unica');
+
+      // "area-guionbajo_unica" con _ como comodín coincidiría con "area-guionbajo-unica".
+      const listado = await request(app).get('/api/v1/ofertas').query({ area: 'area-guionbajo_unica' });
+      assert.equal(listado.body.ofertas.length, 0, 'el _ debe buscarse literal');
+    });
+  });
+
   test('el listado y el detalle incluyen la razón social de la empresa (Fase 6, vitrina)', async () => {
     const empresa = await crearEmpresaValidada();
     // área única + filtro por esa área: node --test corre los archivos en paralelo contra la misma

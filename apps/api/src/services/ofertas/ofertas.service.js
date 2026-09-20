@@ -253,11 +253,22 @@ const cerrarPorSuspension = async (empresaId, transaction) => {
   return procesadas;
 };
 
+// area y comuna son texto libre escrito por cada empresa (area es z.string(), no un enum), así que
+// conviven "control-gestion", "Auditoria" y "marketing" en la misma vitrina. Con igualdad exacta el
+// filtro era inservible: escribir "Marketing" no encontraba la oferta de "marketing", y escribir
+// "Control" no encontraba "control-gestion". Se compara sin distinguir mayúsculas y por coincidencia
+// parcial.
+//
+// Los comodines de LIKE se escapan: no es una inyección (Sequelize parametriza el valor), pero sin
+// esto alguien que escribe "100%" filtra por "todo lo que empiece con 100" en vez de buscar ese
+// texto. El guion bajo importa acá en particular, porque las áreas vienen escritas como slugs.
+const patronDeBusqueda = (texto) => `%${texto.replace(/[\\%_]/g, (caracter) => `\\${caracter}`)}%`;
+
 const listarPublicas = async ({ area, modalidad, comuna, remunerada, pagina = 1, limite = 20 } = {}) => {
   const where = { estado: 'publicada', fechaCierre: { [Op.gt]: new Date() } };
-  if (area) where.area = area;
+  if (area) where.area = { [Op.iLike]: patronDeBusqueda(area) };
   if (modalidad) where.modalidad = modalidad;
-  if (comuna) where.comuna = comuna;
+  if (comuna) where.comuna = { [Op.iLike]: patronDeBusqueda(comuna) };
   if (remunerada !== undefined) where.remunerada = remunerada;
 
   const { rows, count } = await Oferta.findAndCountAll({
