@@ -9,7 +9,7 @@ const NOMBRE_COOKIE_CSRF = 'csrf';
 const OPCIONES_COOKIE = {
   httpOnly: true,
   secure: env.esProduccion,
-  sameSite: 'strict',
+  sameSite: env.cookieSameSite,
   path: '/api/v1/auth',
   maxAge: aMilisegundos(env.jwt.refreshTtl),
 };

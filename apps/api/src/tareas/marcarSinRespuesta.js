@@ -21,8 +21,21 @@ const ejecutar = async () => {
 };
 
 // 4am, una hora después de cerrarOfertasVencidas: evita que ambas tareas corran al mismo minuto.
-const programar = () => cron.schedule('0 4 * * *', ejecutar);
+// Se guarda la referencia para poder detenerla: en el apagado ordenado (server.js) las tareas se
+// paran antes de cerrar la base, porque una que arranque justo en ese momento abriría una
+// transacción contra conexiones que se están cerrando.
+let programada = null;
+
+const programar = () => {
+  programada = cron.schedule('0 4 * * *', ejecutar);
+  return programada;
+};
+
+const detener = () => {
+  programada?.stop();
+  programada = null;
+};
 
 const obtenerEstado = () => ({ ...estado });
 
-module.exports = { programar, ejecutar, obtenerEstado };
+module.exports = { programar, detener, ejecutar, obtenerEstado };

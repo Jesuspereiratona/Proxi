@@ -4,19 +4,44 @@ const path = require('path');
 // pero el .env vive en la raíz del monorepo (junto a docker-compose.yml).
 require('dotenv').config({ path: path.resolve(__dirname, '../../../../.env') });
 
+// Casi todos los proveedores administrados (Render, Fly, Railway, Heroku) entregan la base como una
+// sola URL y no como cinco variables sueltas. Si viene DATABASE_URL se usa esa; si no, las cinco de
+// siempre, que es como funciona el docker compose local. Un solo lugar decide, así que database.js y
+// config-cli.js no se enteran de la diferencia.
+const leerUrlDeBase = () => {
+  if (!process.env.DATABASE_URL) return null;
+  let url;
+  try {
+    url = new URL(process.env.DATABASE_URL);
+  } catch {
+    throw new Error('DATABASE_URL no es una URL válida.');
+  }
+  if (!url.hostname || !url.pathname.slice(1)) {
+    throw new Error('DATABASE_URL debe incluir host y nombre de base (postgres://usuario:clave@host:puerto/base).');
+  }
+  // decodeURIComponent en usuario y clave: una contraseña generada por el proveedor puede traer
+  // caracteres escapados en la URL (%40 por una arroba, por ejemplo) y sin decodificar la
+  // autenticación falla con un mensaje que no dice por qué.
+  return {
+    host: url.hostname,
+    port: Number(url.port) || 5432,
+    nombre: url.pathname.slice(1),
+    usuario: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+  };
+};
+
+const dbDeUrl = leerUrlDeBase();
+
 // Sin valor por defecto seguro: si falta alguna, la app no debe arrancar.
 // WEB_URL es la lista blanca de CORS: un default silencioso ahí sería un hueco de seguridad.
 const REQUERIDAS = [
   'NODE_ENV',
   'WEB_URL',
-  'DB_HOST',
-  'DB_PORT',
-  'DB_NAME',
-  'DB_USER',
-  'DB_PASSWORD',
   'JWT_ACCESS_SECRET',
   'JWT_REFRESH_SECRET',
   'RUT_CIFRADO_KEY',
+  ...(dbDeUrl ? [] : ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']),
 ];
 
 const faltantes = REQUERIDAS.filter((clave) => !process.env[clave]);
@@ -36,6 +61,30 @@ if (process.env.RUT_CIFRADO_KEY.length < 32) {
 
 const puerto = Number(process.env.PORT) || 3000;
 const esProduccion = process.env.NODE_ENV === 'production';
+
+// SameSite de la cookie de sesión. Es configurable porque depende de dónde queden alojadas la API y
+// la web, no de una preferencia:
+//
+//   - Mismo sitio (proxi.cl y api.proxi.cl, o todo bajo un dominio): 'strict', el default y el más
+//     seguro. El navegador manda la cookie porque el dominio registrable es el mismo.
+//   - Sitios distintos (proxi-api.onrender.com y proxi-web.onrender.com): hace falta 'none'.
+//     'onrender.com' está en la Public Suffix List, así que el navegador trata dos subdominios suyos
+//     como sitios DISTINTOS y con 'strict' o 'lax' nunca manda la cookie: el login parece funcionar
+//     y la sesión se pierde al recargar la página.
+//
+// 'none' no deja la app indefensa ante CSRF: la protección real es el token de doble envío de
+// verificar-csrf.middleware.js, que no depende de SameSite. Pero baja una capa, así que se elige a
+// conciencia y no por descuido — por eso es explícito y no automático.
+const SAMESITE_VALIDOS = ['strict', 'lax', 'none'];
+const cookieSameSite = (process.env.COOKIE_SAMESITE || 'strict').toLowerCase();
+if (!SAMESITE_VALIDOS.includes(cookieSameSite)) {
+  throw new Error(`COOKIE_SAMESITE debe ser uno de ${SAMESITE_VALIDOS.join(', ')}, no "${cookieSameSite}".`);
+}
+// Regla del propio navegador, no nuestra: una cookie SameSite=None sin Secure se descarta en
+// silencio. Mejor no arrancar que arrancar con sesiones que no se guardan y nadie sabe por qué.
+if (cookieSameSite === 'none' && !esProduccion) {
+  throw new Error('COOKIE_SAMESITE=none exige NODE_ENV=production, porque el navegador descarta una cookie SameSite=None que no sea Secure.');
+}
 
 // Ley 21.719 (docs/03-seguridad.md): CV y perfil se eliminan tras esta inactividad, con aviso
 // previo. RETENCION_CV_MESES ya estaba en .env/.env.example desde una fase anterior, sin que nada
@@ -64,7 +113,7 @@ const env = {
   puerto,
   apiUrl: process.env.API_URL || `http://localhost:${puerto}`,
   webUrl: process.env.WEB_URL,
-  db: {
+  db: dbDeUrl ?? {
     host: process.env.DB_HOST,
     port: Number(process.env.DB_PORT),
     nombre: process.env.DB_NAME,
@@ -88,6 +137,7 @@ const env = {
   },
   mailFrom: process.env.MAIL_FROM || 'Proxi <no-responder@proxi.cl>',
   rutCifradoKey: process.env.RUT_CIFRADO_KEY,
+  cookieSameSite,
   // Regla de negocio, no un secreto: default igual al de .env.example si no está seteada.
   plazoDeclararCierreDias: Number(process.env.PLAZO_DECLARAR_CIERRE_DIAS) || 7,
   slaRespuestaDias: Number(process.env.SLA_RESPUESTA_DIAS) || 15,
