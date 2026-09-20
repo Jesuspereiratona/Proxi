@@ -191,7 +191,7 @@ Ver la especificación de la parte de código en `specs/08-datos-personales/`.
 
 - [x] `GET /mi-cuenta/datos` (portabilidad en JSON) — solo estudiantes; empresa/coordinación quedan
       fuera de este incremento (decisión explícita, ver spec)
-- [x] `DELETE /mi-cuenta` (borra CV del disco, anonimiza perfil y el texto libre de postulaciones,
+- [x] `DELETE /mi-cuenta` (anula los bytes del CV, anonimiza perfil y el texto libre de postulaciones,
       inutiliza el correo, revoca sesiones)
 - [x] Tarea de retención: aviso y eliminación tras inactividad (`RETENCION_CV_MESES`,
       `RETENCION_AVISO_DIAS`)
@@ -255,8 +255,14 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
 - [ ] Variables de entorno en el proveedor, secretos rotados
 - [ ] DPA (acuerdo de procesamiento de datos) con el proveedor de hosting — venía de Fase 7; se movió
       acá porque depende de qué proveedor se elija, decisión que se toma en esta fase
-- [ ] Apagado ordenado del servidor (`SIGTERM` + `server.close()` con temporizador) antes de que el
-      supervisor del proveedor mate el proceso — hoy corta peticiones en vuelo en cada despliegue
+- [x] Apagado ordenado del servidor (`SIGTERM` + `server.close()` con temporizador) antes de que el
+      supervisor del proveedor mate el proceso. Verificado en un contenedor `node:20-alpine` real,
+      no en Windows, que no tiene SIGTERM de verdad: salida 0 en 380 ms con la secuencia completa
+- [x] Los archivos salen del disco: CV y logos viven en `archivos.contenido` (2026-09-20). El disco
+      del proveedor se borra en cada despliegue, así que desplegar con los CV en disco significaba
+      perderlos en el primer reinicio. `UPLOAD_DIR` queda solo para el script de migración de una vez
+- [x] Cuentas fijas de prueba para los tres roles (`npm run db:seed:cuentas -w apps/api`), con guarda
+      que se niega a correr fuera de `development`/`test`: su clave está escrita en un repo público
 - [ ] Lock distribuido para `tareas/cerrarOfertasVencidas.js` (`pg_advisory_lock` o similar) si se
       corre más de una instancia de la API — hoy el cron se programa por proceso, sin coordinación
       entre réplicas (auditoría de Fase 3; con una sola instancia no es un problema)

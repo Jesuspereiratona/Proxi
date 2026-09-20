@@ -1,10 +1,8 @@
 const path = require('path');
-const fs = require('fs/promises');
 const crypto = require('crypto');
 const { Archivo, Estudiante, Postulacion, Oferta, Empresa, AuditoriaAcceso } = require('../../models');
 const { ErrorValidacion, NoEncontrado } = require('../../errors');
 const { ARCHIVO_INVALIDO, ARCHIVO_NO_ENCONTRADO, PERFIL_NO_ENCONTRADO } = require('@proxi/errores');
-const env = require('../../config/env');
 
 // El número mágico real de un PDF, no la extensión del nombre ni el Content-Type que manda el
 // cliente: ambos los controla quien sube el archivo (docs/03-seguridad.md).
@@ -31,11 +29,11 @@ const subirCv = async (usuarioId, archivo) => {
   const estudiante = await Estudiante.findOne({ where: { usuarioId } });
   if (!estudiante) throw new NoEncontrado(PERFIL_NO_ENCONTRADO, 'Todavía no tienes un perfil de estudiante.');
 
+  // Los bytes van a la base, no al disco (bitácora 2026-09-20): el disco de un contenedor es
+  // efímero y se pierde en cada despliegue, y ese disco guardaría justo el dato más sensible del
+  // proyecto. nombreAlmacenado se sigue generando: es el identificador opaco del archivo, no una
+  // ruta, y la columna es NOT NULL.
   const nombreAlmacenado = `${crypto.randomUUID()}.pdf`;
-  // 0o700/0o600: el directorio y el archivo no deben ser legibles por otras cuentas del sistema
-  // (auditoría de Fase 4) — un CV es el dato más sensible del proyecto.
-  await fs.mkdir(env.uploadDir, { recursive: true, mode: 0o700 });
-  await fs.writeFile(path.join(env.uploadDir, nombreAlmacenado), archivo.buffer, { mode: 0o600 });
 
   // El CV anterior (si existía) no se borra: puede seguir referenciado por postulaciones ya
   // enviadas, que tienen que conservar exactamente el CV que la empresa recibió.
@@ -50,6 +48,7 @@ const subirCv = async (usuarioId, archivo) => {
     mime: 'application/pdf',
     tamanoBytes: archivo.buffer.length,
     tipo: 'cv',
+    contenido: archivo.buffer,
   });
   await estudiante.update({ cvArchivoId: nuevoArchivo.id });
   return nuevoArchivo;
@@ -90,26 +89,21 @@ const descargar = async (archivoId, usuarioActual, ip, userAgent) => {
   // existencia de un CV ajeno (docs/03-seguridad.md).
   if (!archivo) throw new NoEncontrado(ARCHIVO_NO_ENCONTRADO, 'Ese archivo no existe.');
 
-  // expiraAt lo pone cuenta.service.js eliminarCuenta() al suprimir un CV: los bytes ya no están en
-  // disco, pero un respaldo restaurado dentro de la ventana de retención (docs/07) los repondría con
-  // el mismo nombre — sin esta marca, fs.access() los volvería a encontrar y a servir (auditoría de
-  // Fase 7).
+  // expiraAt lo pone cuenta.service.js eliminarCuenta() al suprimir un CV. Los bytes se anulan en
+  // la misma transacción, así que hoy esta comprobación es redundante por ese camino; sigue puesta
+  // porque un respaldo restaurado dentro de la ventana de retención (docs/07) repondría la fila
+  // ENTERA, bytes incluidos, y esta marca es lo único que la distingue de un CV vigente.
   if (archivo.expiraAt && archivo.expiraAt <= new Date()) {
     throw new NoEncontrado(ARCHIVO_NO_ENCONTRADO, 'Ese archivo no existe.');
   }
 
-  const ruta = path.join(env.uploadDir, archivo.nombreAlmacenado);
-  // Si el archivo ya no está en disco, se corta acá: ni se registra un acceso que nunca ocurrió,
-  // ni la ruta absoluta llega a un log de error no operacional (auditoría de Fase 4).
-  try {
-    await fs.access(ruta);
-  } catch {
-    throw new NoEncontrado(ARCHIVO_NO_ENCONTRADO, 'Ese archivo no existe.');
-  }
+  // Sin bytes no hay nada que servir: o es una fila suprimida, o una anterior a la migración a la
+  // base cuyo archivo en disco ya no se busca. Se corta antes de registrar un acceso que no ocurrió.
+  if (!archivo.contenido) throw new NoEncontrado(ARCHIVO_NO_ENCONTRADO, 'Ese archivo no existe.');
 
   await AuditoriaAcceso.create({ usuarioId: usuarioActual.id, accion: 'descargar_cv', entidad: 'archivo', entidadId: archivo.id, ip, userAgent });
 
-  return { ruta, nombreOriginal: archivo.nombreOriginal };
+  return { contenido: archivo.contenido, nombreOriginal: archivo.nombreOriginal, mime: archivo.mime };
 };
 
 module.exports = { subirCv, descargar };

@@ -1,7 +1,5 @@
 const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('fs/promises');
-const path = require('path');
 const request = require('supertest');
 const app = require('../src/app');
 const { sequelize, Usuario, Estudiante, Empresa, Postulacion, PostulacionEvento, AuditoriaAcceso, Archivo } = require('../src/models');
@@ -79,7 +77,6 @@ const crearOfertaPublicada = async (empresa, overrides = {}) => {
 const PDF_VALIDO = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.from('contenido de prueba')]);
 const NO_ES_PDF = Buffer.from('esto no es un pdf, aunque se llame cv.pdf');
 
-const archivosSubidosEnDisco = [];
 
 const crearEstudianteConCv = async () => {
   const estudianteUsuario = await crearUsuarioActivo('estudiante');
@@ -91,15 +88,11 @@ const crearEstudianteConCv = async () => {
     nivel: 5,
   });
   const archivo = await archivosService.subirCv(estudianteUsuario.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
-  archivosSubidosEnDisco.push(archivo.nombreAlmacenado);
   return { ...estudianteUsuario, estudianteId: perfil.id, archivoId: archivo.id };
 };
 
 after(async () => {
   await borrarUsuariosDePrueba(DOMINIO_PRUEBA);
-  await Promise.all(
-    archivosSubidosEnDisco.map((nombre) => fs.unlink(path.join(env.uploadDir, nombre)).catch(() => {})),
-  );
   await sequelize.close();
 });
 
@@ -206,7 +199,6 @@ describe('postular', () => {
     const cvOriginal = postulacion.body.cvArchivoId;
 
     const nuevoArchivo = await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv-actualizado.pdf' });
-    archivosSubidosEnDisco.push(nuevoArchivo.nombreAlmacenado);
     assert.notEqual(nuevoArchivo.id, cvOriginal);
 
     const detalle = await request(app)
@@ -498,12 +490,14 @@ describe('subida de CV', () => {
 
     assert.equal(respuesta.status, 201);
     // Lista blanca en la respuesta (auditoría del panel de estudiante): nombreAlmacenado es el
-    // UUID interno en disco, el cliente no lo necesita.
+    // identificador interno del archivo, el cliente no lo necesita.
     assert.deepEqual(Object.keys(respuesta.body).sort(), ['id', 'nombreOriginal', 'tamanoBytes']);
     assert.equal(respuesta.body.nombreOriginal, 'cv.pdf');
 
+    // Los bytes quedan en la base, no en el disco del contenedor (bitácora 2026-09-20).
     const archivo = await Archivo.findByPk(respuesta.body.id);
-    archivosSubidosEnDisco.push(archivo.nombreAlmacenado);
+    assert.ok(archivo.contenido.equals(PDF_VALIDO));
+    assert.equal(archivo.tamanoBytes, String(PDF_VALIDO.length));
   });
 
   test('un archivo que no es un PDF real se rechaza aunque diga serlo', async () => {

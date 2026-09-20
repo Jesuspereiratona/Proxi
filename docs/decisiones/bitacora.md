@@ -1,3 +1,45 @@
+## 2026-09-20 (4) · Los CV siguen al logo: fuera del disco, dentro de la base
+
+**Contexto.** La entrada anterior mudó los logos a `archivos.contenido` por una razón de despliegue:
+el disco del contenedor donde va a correr Proxi se borra en cada reinicio. Los CV seguían en disco —
+es decir, el dato **más sensible** del proyecto era el único que dependía de un almacenamiento que el
+despliegue no conserva. Desplegar así significaba que el primer reinicio se llevaba todos los CV y
+dejaba 119 filas de `archivos` apuntando a nada.
+
+**Decisión.** Los CV pasan a `archivos.contenido`, la misma columna `BYTEA` que ya creó la migración
+`20260920140000` para los logos. Sin tabla nueva, sin migración nueva, sin dependencia nueva.
+
+**Lo que mejoró de paso, y no es cosmético:**
+
+1. **El borrado de cuenta ocurre entero dentro de una transacción.** El comentario de
+   `cuenta.service.js` lo venía diciendo desde la Fase 7: el `fs.unlink` iba *después* del commit
+   porque el disco no participa de un rollback, y eso dejaba una ventana en que el CV ya no existía y
+   la cuenta seguía entera si algo fallaba a mitad de camino. Ahora `contenido: null` va en el mismo
+   `UPDATE` que `expiraAt`, dentro de la transacción: o se suprime todo, o no se toca nada. Esto es
+   supresión de datos personales (docs/03-seguridad.md), no una mejora de estilo.
+2. **`expiraAt` cambia de motivo, y hay que decirlo.** Antes marcaba "los bytes ya no están en disco,
+   pero un respaldo restaurado los repondría con el mismo nombre". Ahora un respaldo restaurado repone
+   la **fila entera, bytes incluidos**, así que `expiraAt` pasó de ser una defensa secundaria a ser lo
+   único que distingue un CV suprimido de uno vigente. Se conserva por eso, no por inercia.
+3. **La descarga deja de tocar el sistema de archivos.** `res.download(ruta)` pasa a
+   `res.attachment(nombre)` + `res.send(bytes)`, con el `Content-Type` tomado del mime guardado —el
+   que se validó por número mágico al subir— y `Cache-Control: no-store`, que antes no estaba: un CV
+   no tiene por qué quedar en ninguna caché intermedia.
+
+**Migración de lo que ya existía.** `apps/api/scripts/migrar-cv-a-la-base.js`, idempotente, a mano.
+No es una migración de Sequelize a propósito: `db:migrate` corre en el despliegue, donde el disco con
+los CV no existe; esto se corre una vez en la máquina que todavía los tiene. Corrida real en
+desarrollo: **8 de 14 CV vigentes migrados**, 6 filas cuyo archivo en disco ya no estaba (restos de
+corridas de prueba viejas) quedan con `contenido NULL` y responden 404 — exactamente lo mismo que ya
+respondían cuando `fs.access` fallaba. Esas filas **no se borran**: pueden estar congeladas en una
+postulación, y el historial de una postulación no se toca.
+
+**Consecuencia.** `UPLOAD_DIR` deja de ser parte del funcionamiento: lo lee solo el script de
+migración. 472 pruebas de API + 59 de web, verdes. Verificado además contra la API real, no solo con
+pruebas: subida y descarga de un PDF con una cuenta fija, bytes idénticos al original
+(`cmp` sin diferencias), `Content-Type: application/pdf`, `Cache-Control: no-store`, y **ningún
+archivo nuevo en `almacenamiento/cv`**.
+
 ## 2026-09-20 (3) · Logo de empresa: los archivos se mudan a la base
 
 **Lo que ya estaba.** `docs/02-modelo-de-datos.md` definió `archivos.tipo CHECK ('cv','logo')` en la

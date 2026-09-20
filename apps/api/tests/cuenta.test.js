@@ -1,7 +1,5 @@
 const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('fs/promises');
-const path = require('path');
 const request = require('supertest');
 const app = require('../src/app');
 const { sequelize, Usuario, Estudiante, Empresa, Postulacion, PostulacionEvento, Archivo, Sesion, AuditoriaAcceso } = require('../src/models');
@@ -40,7 +38,6 @@ const crearUsuarioActivo = async (rol, overrides = {}) => {
 };
 
 const PDF_VALIDO = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.from('contenido de prueba')]);
-const archivosSubidosEnDisco = [];
 
 const crearEstudianteConPerfil = async (overrides = {}) => {
   const estudianteUsuario = await crearUsuarioActivo('estudiante');
@@ -88,7 +85,6 @@ const crearOfertaPublicada = async (empresa) => {
 
 after(async () => {
   await borrarUsuariosDePrueba(DOMINIO_PRUEBA);
-  await Promise.all(archivosSubidosEnDisco.map((nombre) => fs.unlink(path.join(env.uploadDir, nombre)).catch(() => {})));
   await sequelize.close();
 });
 
@@ -105,7 +101,6 @@ describe('GET /mi-cuenta/datos', () => {
   test('un estudiante con perfil, CV y postulaciones recibe todo en un solo JSON, con su propio RUT', async () => {
     const estudiante = await crearEstudianteConPerfil();
     const archivo = await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
-    archivosSubidosEnDisco.push(archivo.nombreAlmacenado);
 
     const respuesta = await request(app).get('/api/v1/mi-cuenta/datos').set('Authorization', `Bearer ${estudiante.accessToken}`);
     assert.equal(respuesta.status, 200);
@@ -134,11 +129,10 @@ describe('GET /mi-cuenta/datos', () => {
 });
 
 describe('DELETE /mi-cuenta', () => {
-  test('borra el CV del disco, anonimiza el perfil, conserva la postulación, y el correo original ya no sirve para entrar', async () => {
+  test('borra los bytes del CV, anonimiza el perfil, conserva la postulación, y el correo original ya no sirve para entrar', async () => {
     const estudiante = await crearEstudianteConPerfil();
     const archivo = await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
-    const rutaArchivo = path.join(env.uploadDir, archivo.nombreAlmacenado);
-    await fs.access(rutaArchivo); // confirma que existe antes de borrar
+    assert.ok(archivo.contenido.equals(PDF_VALIDO)); // confirma que los bytes están antes de borrar
 
     const empresa = await crearEmpresaValidada();
     const oferta = await crearOfertaPublicada(empresa);
@@ -153,11 +147,11 @@ describe('DELETE /mi-cuenta', () => {
       .send({ clave: 'claveDePrueba123456' });
     assert.equal(respuesta.status, 204);
 
-    // el archivo ya no está en disco
-    await assert.rejects(() => fs.access(rutaArchivo));
-    // y el mismo id ya no se sirve, aunque un respaldo restaurado repusiera los bytes con el mismo
-    // nombre (expiraAt marca el archivo como suprimido, no solo el nombreOriginal)
+    // los bytes ya no existen: la fila queda como constancia, sin el dato personal
     const archivoFinal = await Archivo.findByPk(archivo.id);
+    assert.equal(archivoFinal.contenido, null);
+    // y el mismo id ya no se sirve aunque un respaldo restaurado repusiera la fila entera
+    // (expiraAt marca el archivo como suprimido, no solo el nombreOriginal)
     assert.ok(archivoFinal.expiraAt && archivoFinal.expiraAt <= new Date());
     assert.equal(archivoFinal.nombreOriginal, 'cv-eliminado.pdf');
 
@@ -187,7 +181,6 @@ describe('DELETE /mi-cuenta', () => {
   test('borrar la cuenta conserva el rastro de auditoría, incluido el de quién accedió a sus datos', async () => {
     const estudiante = await crearEstudianteConPerfil();
     const archivo = await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
-    archivosSubidosEnDisco.push(archivo.nombreAlmacenado);
 
     // Coordinación descifra el RUT: la fila queda a nombre de COORDINACIÓN, no del estudiante —
     // es la prueba de "quién accedió a los datos de esta persona", y la baja de cuenta del
@@ -265,7 +258,6 @@ describe('DELETE /mi-cuenta', () => {
   test('el motivo de un retiro (texto libre del propio estudiante) también se anonimiza', async () => {
     const estudiante = await crearEstudianteConPerfil();
     const archivo = await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
-    archivosSubidosEnDisco.push(archivo.nombreAlmacenado);
     const empresa = await crearEmpresaValidada();
     const oferta = await crearOfertaPublicada(empresa);
     const postulacion = await request(app).post('/api/v1/postulaciones').set('Authorization', `Bearer ${estudiante.accessToken}`).send({ ofertaId: oferta.id });

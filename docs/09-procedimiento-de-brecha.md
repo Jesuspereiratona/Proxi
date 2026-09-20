@@ -151,7 +151,7 @@ capas de seguridad lo detiene: hacen exactamente lo que se les pidió.
 |---|---|
 | ¿Las contraseñas sirven para algo? | **No.** bcrypt con costo 12 |
 | ¿Los RUT están legibles? | **Depende.** Cifrados con pgcrypto — si la llave viajó con el respaldo, sí son legibles. Hueco 5 |
-| ¿Los CV están en el respaldo? | **Los archivos no**, están en disco aparte. Sus nombres y dueños sí |
+| ¿Los CV están en el respaldo? | **Sí, completos.** Desde 2026-09-20 los bytes viven en `archivos.contenido`. Un respaldo filtrado expone los CV enteros, no solo sus nombres — es el peor dato del proyecto y hay que tratarlo como tal en la notificación |
 | ¿Restaurar desde un respaldo limpio? | **No.** No hay respaldos ni restauración probada. Fase 8 |
 | ¿Saber cuándo se tomó ese respaldo? | **No** hoy |
 | ¿A cuántas personas afecta? | **Sí**, contando filas |

@@ -94,7 +94,7 @@ Vigente desde el **1 de diciembre de 2026**. Aplica de lleno: tratamos datos per
 | Finalidad y minimización | Solo se pide lo necesario para postular. Nada de fecha de nacimiento, foto ni estado civil |
 | Acceso y portabilidad | `GET /api/v1/mi-cuenta/datos` exporta todo en JSON |
 | Rectificación | El estudiante edita su perfil |
-| Supresión | `DELETE /api/v1/mi-cuenta`: borra CV del disco, anonimiza postulaciones (se conserva el evento estadístico sin identidad) |
+| Supresión | `DELETE /api/v1/mi-cuenta`: anula los bytes del CV (`archivos.contenido`), anonimiza postulaciones (se conserva el evento estadístico sin identidad). Todo en una transacción |
 | Seguridad proporcional | Cifrado en tránsito (TLS), RUT cifrado en reposo, control de acceso por rol y pertenencia, respaldos verificados |
 | Registro de accesos | Tabla `auditoria_accesos`: cada vez que alguien descarga un CV o ve datos de un estudiante |
 | Notificación de brechas | Procedimiento escrito en `07-operacion-y-mantenimiento.md`. Plazo: 72 horas a la Agencia y a los afectados |

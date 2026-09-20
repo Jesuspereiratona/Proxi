@@ -143,8 +143,9 @@ const env = {
   slaRespuestaDias: Number(process.env.SLA_RESPUESTA_DIAS) || 15,
   retencionCvMeses,
   retencionAvisoDias,
-  // Relativo a la raíz del monorepo, igual que la ruta del .env de arriba: fuera de apps/web y
-  // fuera de cualquier carpeta que la API sirva como estática (hoy no sirve ninguna).
+  // Ya NO se escribe nada acá: los CV viven en archivos.contenido desde la bitácora 2026-09-20.
+  // Lo único que sigue leyendo esta ruta es scripts/migrar-cv-a-la-base.js, que sube a la base los
+  // archivos que quedaron en disco antes del cambio. Se puede borrar cuando no queden.
   uploadDir: path.resolve(__dirname, '../../../../', process.env.UPLOAD_DIR || 'almacenamiento/cv'),
   uploadMaxBytes: Number(process.env.UPLOAD_MAX_BYTES) || 5 * 1024 * 1024,
 };

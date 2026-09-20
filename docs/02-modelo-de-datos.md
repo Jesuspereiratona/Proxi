@@ -136,10 +136,10 @@ respuesta" ni auditar quién rechazó a quién.
 |---|---|---|
 | propietario_usuario_id | bigint FK | |
 | nombre_original | text | se muestra, nunca se usa como ruta |
-| nombre_almacenado | text | UUID generado. El nombre del usuario jamás toca el disco |
+| nombre_almacenado | text | UUID generado. Identificador opaco del archivo; el nombre que puso el usuario nunca se usa como tal |
 | mime, tamano_bytes | text / bigint | validados contra el contenido real, no la extensión |
 | tipo | text | CHECK: `cv` · `logo` |
-| contenido | bytea | Los bytes del archivo. Nulo en los CV anteriores a 2026-09-20, que siguen en disco |
+| contenido | bytea | Los bytes del archivo, CV y logos por igual (2026-09-20). Nulo = suprimido: se anula al eliminar la cuenta y al retirar un logo |
 | expira_at | timestamptz | política de retención |
 | aprobado_at, aprobado_por_usuario_id | timestamptz / bigint FK | Solo logos: sin aprobación de coordinación no se muestran en público |
 | retirado_at | timestamptz | Solo logos: retirado por su dueña o por coordinación. La fila NO se borra, para poder demostrar después que existió |

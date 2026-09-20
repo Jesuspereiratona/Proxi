@@ -1,5 +1,3 @@
-const path = require('path');
-const fs = require('fs/promises');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
 const {
@@ -121,10 +119,10 @@ const confirmarClave = async (usuarioId, clave) => {
 // Única función que anonimiza — la llaman tanto DELETE /mi-cuenta como la tarea de retención, para
 // que "qué significa borrar una cuenta" viva en un solo lugar (docs/03-seguridad.md: supresión).
 //
-// Todo lo transaccional va primero; fs.unlink (irreversible, no participa de un rollback) va al
-// final, después del commit — si algo dentro de la transacción falla, el archivo real todavía no se
-// tocó. El orden anterior (borrar del disco y recién después abrir la transacción) dejaba un CV
-// destruido con la cuenta intacta ante cualquier fallo a mitad de camino (auditoría de Fase 7).
+// Desde que los bytes del CV viven en la base (bitácora 2026-09-20), el borrado entero ocurre dentro
+// de UNA transacción: o se anonimiza todo o no se toca nada. Antes el fs.unlink tenía que ir después
+// del commit porque el disco no participa de un rollback, y eso dejaba una ventana en que el CV ya
+// no estaba y la cuenta seguía entera si algo fallaba a mitad de camino (auditoría de Fase 7).
 const eliminarCuenta = async (usuarioId, ip, userAgent) => {
   const usuario = await Usuario.findByPk(usuarioId);
   if (!usuario) throw new NoEncontrado(PERFIL_NO_ENCONTRADO, 'Esa cuenta no existe.');
@@ -149,11 +147,12 @@ const eliminarCuenta = async (usuarioId, ip, userAgent) => {
       });
 
       if (archivos.length > 0) {
-        // expiraAt marca el archivo como suprimido para archivos.service.js descargar(): un
-        // respaldo restaurado dentro de la ventana de retención repone los bytes en disco con el
-        // mismo nombre, y sin esta marca volvería a servirse (auditoría de Fase 7).
+        // contenido: null es la supresión de verdad — los bytes dejan de existir. expiraAt va igual:
+        // un respaldo restaurado dentro de la ventana de retención (docs/07) repone la fila entera,
+        // bytes incluidos, y esa marca es lo único que la distingue después de un CV vigente
+        // (auditoría de Fase 7).
         await Archivo.update(
-          { nombreOriginal: NOMBRE_CV_ANONIMO, expiraAt: new Date() },
+          { nombreOriginal: NOMBRE_CV_ANONIMO, expiraAt: new Date(), contenido: null },
           { where: { id: archivos.map((a) => a.id) }, transaction: t },
         );
       }
@@ -179,8 +178,7 @@ const eliminarCuenta = async (usuarioId, ip, userAgent) => {
     // así que para un estudiante esto no hace nada. Va igual porque el día que se admita a empresas
     // —que es lo natural cuando se complete la portabilidad para los otros roles— el logo quedaría
     // servido en público después de que su dueña pidió borrarse, y eso no se puede descubrir
-    // tarde en la ruta del borrado legal. Al estar los bytes en la base, esto SÍ participa del
-    // rollback, a diferencia del fs.unlink de los CV que va después de la transacción.
+    // tarde en la ruta del borrado legal.
     await Archivo.update(
       { retiradoAt: new Date(), contenido: null },
       { where: { propietarioUsuarioId: usuarioId, tipo: 'logo', retiradoAt: null }, transaction: t },
@@ -190,12 +188,6 @@ const eliminarCuenta = async (usuarioId, ip, userAgent) => {
 
     await AuditoriaAcceso.create({ usuarioId, accion: 'eliminar_cuenta', entidad: 'usuario', entidadId: usuarioId, ip, userAgent }, { transaction: t });
   });
-
-  // Recién acá, con la transacción ya confirmada: el disco no participa de un rollback, así que la
-  // parte irreversible va al final, cuando ya no puede quedar huérfana de un fallo a mitad de camino.
-  for (const archivo of archivos) {
-    await fs.unlink(path.join(env.uploadDir, archivo.nombreAlmacenado)).catch(() => {});
-  }
 };
 
 // Tarea de retención (docs/03-seguridad.md): dos pasadas, no aborta si una fila falla, mismo
