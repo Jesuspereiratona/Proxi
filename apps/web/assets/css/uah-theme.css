@@ -21,6 +21,12 @@
   --bs-link-color-rgb: 17, 17, 17;
   --bs-link-hover-color: var(--uah-naranja);
   --bs-link-hover-color-rgb: 239, 100, 39;
+
+  /* Derivados de los tokens de arriba, no colores nuevos: el borde y la sombra de las tarjetas se
+     repetían a mano en cada regla y empezaban a divergir (identidad-visual, regla cero). */
+  --uah-borde: #e2e0d8;
+  --uah-sombra: 0 1px 3px rgba(17, 17, 17, 0.06);
+  --uah-sombra-alta: 0 4px 14px rgba(17, 17, 17, 0.1);
 }
 
 body {
@@ -66,23 +72,154 @@ h1, h2, .titular {
   --bs-btn-disabled-border-color: var(--uah-naranja);
 }
 
-.card-oferta {
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-  border: none;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+/* ---- Vitrina de ofertas ----------------------------------------------------------------
+   Fila horizontal, no cuadrícula de tres columnas: una vitrina de empleo es para escanear
+   (identidad-visual, "Densidad correcta"). En una fila el ojo baja por una sola columna de
+   títulos; en una cuadrícula tiene que recorrer en zigzag y el plazo de cierre, que es el
+   diferenciador del proyecto, queda en una esquina distinta en cada tarjeta. */
+.buscador {
+  background: #fff;
+  border: 1px solid var(--uah-borde);
+  border-radius: var(--bs-border-radius-lg);
+  box-shadow: var(--uah-sombra);
+  padding: 1rem;
 }
-/* Vida sin ruido: la tarjeta se levanta un poco al pasar el mouse. prefers-reduced-motion la
-   respeta desactivando la transición, no el estado final. */
+
+/* El icono hereda tamaño y color del texto que acompaña: no hay que mantener una paleta ni una
+   escala de tamaños aparte para los iconos. */
+.icono {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.card-oferta {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid var(--uah-borde);
+  border-radius: var(--bs-border-radius-lg);
+  box-shadow: var(--uah-sombra);
+  padding: 1rem 1.25rem;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+/* Solo la sombra y el borde cambian al pasar el mouse. Nada se mueve ni escala: mover, escalar y
+   cambiar color a la vez es uno de los tics de interfaz generada por IA (identidad-visual). */
 .card-oferta:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--uah-sombra-alta);
+  border-color: var(--uah-gris-claro);
 }
 @media (prefers-reduced-motion: reduce) {
   .card-oferta {
     transition: none;
   }
-  .card-oferta:hover {
-    transform: none;
+}
+
+/* Ranura del logo de la empresa. Todavía no hay subida de logos: hasta entonces lleva la inicial
+   de la razón social, que al menos distingue una empresa de otra al escanear la lista. */
+.oferta-logo {
+  width: 3.5rem;
+  height: 3.5rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--uah-blanco-3);
+  border: 1px solid var(--uah-borde);
+  border-radius: var(--bs-border-radius);
+  font-family: 'Frank Ruhl Libre', serif;
+  font-size: 1.5rem;
+  color: var(--uah-gris-1);
+}
+.oferta-logo .icono {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.oferta-cuerpo {
+  flex: 1;
+  min-width: 0; /* sin esto un título largo sin espacios desborda la fila en vez de cortarse */
+}
+
+.oferta-titulo {
+  font-family: 'Rubik', sans-serif; /* el titular serif es para la página, no para cada fila */
+  font-size: 1.0625rem;
+  font-weight: 500;
+  margin: 0 0 0.15rem;
+  line-height: 1.35;
+}
+.oferta-titulo a {
+  color: var(--uah-marengo-1);
+  text-decoration: none;
+}
+.oferta-titulo a:hover {
+  color: var(--uah-naranja);
+  text-decoration: underline;
+}
+
+.oferta-empresa {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--uah-gris-1);
+  margin: 0 0 0.5rem;
+}
+
+.oferta-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--uah-gris-2);
+}
+.oferta-meta li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.oferta-etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  padding: 0;
+  margin: 0.6rem 0 0;
+}
+.etiqueta {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--bs-border-radius-pill);
+  background: var(--uah-blanco-3);
+  border: 1px solid var(--uah-borde);
+  color: var(--uah-gris-2);
+}
+
+.oferta-lateral {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+/* Bajo 576px la fila se apila: con el logo y la columna lateral compitiendo por el ancho, el
+   título quedaba en dos palabras por línea. */
+@media (max-width: 575.98px) {
+  .card-oferta {
+    flex-wrap: wrap;
+  }
+  .oferta-cuerpo {
+    flex-basis: calc(100% - 4.5rem);
+  }
+  .oferta-lateral {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
   }
 }
 
@@ -108,15 +245,25 @@ h1, h2, .titular {
   font-size: 0.875rem;
   color: var(--uah-marengo-1);
 }
+/* Hasta 2026-09-20 'normal' y 'urgente' compartían el mismo naranja y se distinguían solo por un
+   borde de 2px: a un metro de la pantalla eran la misma insignia, y toda la vitrina gritaba por
+   igual. La regla ahora es la de identidad-visual: la urgencia es lo ÚNICO que llama la atención en
+   una fila. Un plazo cómodo es información, no alarma, así que va neutro; el naranja de marca queda
+   reservado para 'cierra pronto'. Cada una lleva además su propio icono (calendario / reloj /
+   archivado), porque el color solo no comunica a quien no distingue colores. */
 .estado-oferta.normal {
-  background: var(--uah-naranja);
+  background: var(--uah-blanco-3);
+  border: 1px solid var(--uah-borde);
+  color: var(--uah-gris-2);
 }
 .estado-oferta.urgente {
   background: var(--uah-naranja);
-  border: 2px solid var(--uah-marengo-1);
+  border: 1px solid var(--uah-naranja);
+  font-weight: 600;
 }
 .estado-oferta.vencida {
   background: var(--uah-gris-claro);
+  border: 1px solid var(--uah-gris-claro);
   color: var(--uah-gris-2);
 }
 

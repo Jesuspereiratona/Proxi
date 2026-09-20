@@ -268,6 +268,11 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
       tarea de purga con el patrón de `procesarRetencion`
 - [ ] CI nunca ejercita el `down` de las migraciones: un `down` roto se descubre en producción, en el
       peor momento. Agregar `db:migrate:undo` + `db:migrate` después de `npm test` en `ci.yml`
+- [ ] `ofertas.area` es `z.string()` libre: llega `control-gestion`, `Auditoria` y `marketing` a la
+      misma vitrina, y el filtro por área es igualdad exacta, así que escribir "Marketing" con
+      mayúscula no encuentra la oferta de "marketing". Hoy `etiquetaArea` lo maquilla en la
+      presentación (`docs/08-guia-visual.md`); el arreglo es una lista controlada en el backend
+      más una migración que normalice lo ya guardado
 - [ ] Runbook de operación en `07-operacion-y-mantenimiento.md`
 
 ---

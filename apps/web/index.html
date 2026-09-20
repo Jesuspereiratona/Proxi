@@ -20,38 +20,46 @@
   </nav>
 
   <main class="container py-4">
-    <h1 class="titular mb-4">Ofertas de práctica vigentes</h1>
+    <h1 class="titular mb-1">Ofertas de práctica vigentes</h1>
+    <p class="text-body-secondary mb-3">Facultad de Economía y Negocios · Universidad Alberto Hurtado</p>
 
-    <form id="filtros" class="row g-2 mb-4" aria-label="Filtrar ofertas">
-      <div class="col-6 col-md-3">
-        <label for="filtro-area" class="form-label">Área</label>
-        <input type="text" id="filtro-area" name="area" class="form-control">
-      </div>
-      <div class="col-6 col-md-3">
-        <label for="filtro-modalidad" class="form-label">Modalidad</label>
-        <select id="filtro-modalidad" name="modalidad" class="form-select">
-          <option value="">Todas</option>
-          <option value="presencial">Presencial</option>
-          <option value="hibrida">Híbrida</option>
-          <option value="remota">Remota</option>
-        </select>
-      </div>
-      <div class="col-6 col-md-3">
-        <label for="filtro-comuna" class="form-label">Comuna</label>
-        <input type="text" id="filtro-comuna" name="comuna" class="form-control">
-      </div>
-      <div class="col-6 col-md-3">
-        <label for="filtro-remunerada" class="form-label">Remunerada</label>
-        <select id="filtro-remunerada" name="remunerada" class="form-select">
-          <option value="">Cualquiera</option>
-          <option value="true">Sí</option>
-          <option value="false">No</option>
-        </select>
+    <form id="filtros" class="buscador mb-3" aria-label="Filtrar ofertas">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-lg-4">
+          <label for="filtro-area" class="form-label small mb-1">Área</label>
+          <input type="text" id="filtro-area" name="area" class="form-control"
+            placeholder="Contabilidad, Marketing, Finanzas…">
+        </div>
+        <div class="col-6 col-lg-2">
+          <label for="filtro-modalidad" class="form-label small mb-1">Modalidad</label>
+          <select id="filtro-modalidad" name="modalidad" class="form-select">
+            <option value="">Todas</option>
+            <option value="presencial">Presencial</option>
+            <option value="hibrida">Híbrida</option>
+            <option value="remota">Remota</option>
+          </select>
+        </div>
+        <div class="col-6 col-lg-3">
+          <label for="filtro-comuna" class="form-label small mb-1">Comuna</label>
+          <input type="text" id="filtro-comuna" name="comuna" class="form-control" placeholder="Santiago, Providencia…">
+        </div>
+        <div class="col-6 col-lg-2">
+          <label for="filtro-remunerada" class="form-label small mb-1">Remunerada</label>
+          <select id="filtro-remunerada" name="remunerada" class="form-select">
+            <option value="">Cualquiera</option>
+            <option value="true">Sí</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div class="col-6 col-lg-1 d-grid">
+          <button type="button" id="limpiar-filtros" class="btn btn-outline-secondary">Limpiar</button>
+        </div>
       </div>
     </form>
 
+    <p id="contador" class="small text-body-secondary mb-2" aria-live="polite"></p>
     <p id="mensaje-estado" class="text-body-secondary" hidden></p>
-    <div id="listado" class="row g-3" aria-live="polite"></div>
+    <div id="listado" class="d-flex flex-column gap-2" aria-live="polite"></div>
   </main>
 
   <footer class="border-top py-3 mt-5 text-center small text-body-secondary">

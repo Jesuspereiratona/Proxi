@@ -1,3 +1,51 @@
+## 2026-09-20 · La vitrina pasa a lista, y el naranja se reserva para la urgencia
+
+**Contexto.** El usuario trajo como referencia la bolsa de trabajo de Alumni UAH
+(`alumni.uahurtado.cl/trabajo/trabajos-en-chile`) pidiendo acercar la vitrina a ese nivel de
+terminación. Se corrió `identidad-visual` antes de escribir una línea de CSS, como corresponde.
+
+**El hallazgo que justificaba todo.** `.estado-oferta.normal` y `.estado-oferta.urgente` usaban el
+**mismo** `--uah-naranja` y se separaban solo por un borde de 2px. La regla dura del proyecto es que
+una oferta que cierra en dos días y una con plazo cómodo se distingan de un vistazo; en los hechos
+la vitrina mostraba diez insignias naranjas idénticas. El estado vivía en la base y en el CSS, pero
+no llegaba a la persona. Además el `gap: 0.35em` de la insignia estaba reservado desde la Fase 6
+para un ícono que nunca se dibujó: no había un solo `<svg>` en las 13 páginas.
+
+**Decisiones.**
+1. `vigente` va neutro y `cierra pronto` se queda con el naranja sólido. La urgencia es lo único que
+   llama la atención en una fila.
+2. Por lo mismo, el botón "Ver y postular" de la vitrina pasó a `btn-outline-primary`: relleno
+   naranja competía con la insignia de urgencia hasta que ninguno de los dos destacaba.
+3. Cada insignia lleva ícono propio además de color (calendario / reloj / archivado). SVG inline en
+   `assets/js/componentes/iconos.js`, `currentColor` y `1em`: heredan color y tamaño del texto, sin
+   dependencia nueva ni paleta de íconos que mantener aparte.
+4. La vitrina pasó de cuadrícula de tres columnas a una fila por oferta. Una bolsa de trabajo es
+   para escanear: en una columna el plazo de cierre queda siempre en el mismo lugar.
+5. Todo el formateo se centralizó en `assets/js/formato.js` (7 funciones, 54 pruebas web entre las
+   nuevas y las que ya había). Había divergido: el monto salía `$300000` en el panel de empresa y
+   `$300.000` en el detalle; la modalidad salía `hibrida` sin tilde; la fecha salía en dos formatos.
+
+**Deuda anotada, no tapada.** `ofertas.area` es `z.string()` libre, así que conviven
+`control-gestion`, `Auditoria` y `marketing`, y el filtro por área compara por igualdad exacta:
+escribir "Marketing" no encuentra la oferta de "marketing". `etiquetaArea` solo maquilla la
+presentación. El arreglo real —lista controlada en el backend y migración que normalice lo
+guardado— quedó en la Fase 8 del roadmap, dicho con todas sus letras.
+
+**Verificación.** 446 pruebas de API + 54 de web, 0 fallas. Capturas reales de Chrome headless en
+escritorio y en 390px. Las 10 páginas cargadas en secuencia sin un solo error de JS ni rechazo de
+promesa. Contrastes recalculados: marengo sobre naranja da 5.86:1 y gris-2 sobre blanco-3 da 9.58:1,
+ambos sobre el 4.5:1 que exige AA (el 3.2:1 que la guía citaba era blanco sobre naranja, que sigue
+prohibido). Ningún `outline: none` en el proyecto: el foco de teclado de Bootstrap queda intacto.
+
+**Falsa alarma descartada.** La primera captura a 390px se veía desbordada horizontalmente. Medido
+con `scrollWidth` contra el viewport dentro de un iframe de 390px: `scrollWidth=390`, cero elementos
+fuera de rango. El recorte era de Chrome headless en Windows, no del CSS. No se tocó nada por eso.
+
+**Datos de prueba.** Se corrigió mojibake (`3er a?o`, `auditor?a`) en 4 ofertas sembradas — daño de
+un `curl` previo en Git Bash, no un defecto de la aplicación, que guarda y devuelve UTF-8 correcto.
+
+---
+
 # Bitácora de decisiones
 
 Registro cronológico, lo más reciente arriba. Aquí va lo que **no** es obvio leyendo el código: por qué

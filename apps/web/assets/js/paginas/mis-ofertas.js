@@ -4,6 +4,7 @@ import { listarMias, crear, editar, enviarARevision, cerrar } from '../api/ofert
 import { textoEstadoOferta } from '../componentes/estado-oferta.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { logout } from '../api/sesion.js';
+import { etiquetaModalidad, etiquetaRemuneracion, formatoFechaCorta } from '../formato.js';
 
 // Tocar cualquiera de estos en una oferta en_revision o publicada la manda de vuelta a borrador
 // (mismo CAMPOS_CONTENIDO de ofertas.service.js) — se avisa antes de guardar.
@@ -229,8 +230,12 @@ function iniciar() {
 
     const detalle = document.createElement('p');
     detalle.className = 'small text-body-secondary mb-2';
-    const partes = [oferta.modalidad, oferta.comuna, oferta.remunerada ? `Remunerada ($${oferta.montoMensual ?? '—'})` : 'No remunerada'].filter(Boolean);
-    if (oferta.fechaCierre) partes.push(`Cierra el ${new Date(oferta.fechaCierre).toLocaleDateString('es-CL')}`);
+    const partes = [
+      etiquetaModalidad(oferta.modalidad),
+      oferta.comuna,
+      etiquetaRemuneracion(oferta.remunerada, oferta.montoMensual),
+    ].filter(Boolean);
+    if (oferta.fechaCierre) partes.push(`Cierra el ${formatoFechaCorta(oferta.fechaCierre)}`);
     detalle.textContent = partes.join(' · ');
 
     const acciones = document.createElement('div');

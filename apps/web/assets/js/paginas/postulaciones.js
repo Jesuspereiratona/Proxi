@@ -3,6 +3,7 @@ import { listarMias, obtenerDetalle, retirar } from '../api/postulaciones.js';
 import { textoEstado, claseEstadoPostulacion, formatoLineaTiempo } from '../componentes/linea-tiempo.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { logout } from '../api/sesion.js';
+import { formatoFechaHora } from '../formato.js';
 
 const ESTADOS_TERMINALES = ['seleccionada', 'no_seleccionada', 'sin_respuesta', 'retirada'];
 
@@ -28,7 +29,7 @@ function iniciar() {
       for (const evento of eventos) {
         const item = document.createElement('li');
         item.className = 'mb-1';
-        const fecha = evento.fecha.toLocaleString('es-CL');
+        const fecha = formatoFechaHora(evento.fecha);
         item.textContent = `${evento.texto} — ${evento.quien} — ${fecha}`;
         listaEventos.append(item);
       }

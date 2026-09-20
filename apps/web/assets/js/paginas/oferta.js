@@ -1,11 +1,10 @@
 import { obtenerDetalle } from '../api/ofertas.js';
 import { postular } from '../api/postulaciones.js';
 import { calcularEstado } from '../componentes/estado-oferta.js';
+import { crearInsigniaEstado } from '../componentes/tarjeta-oferta.js';
 import { ErrorApi, mensajeParaCodigo, usuarioActual } from '../api/cliente.js';
 import { iniciarSesion } from '../api/sesion.js';
-
-const MODALIDADES = { presencial: 'Presencial', hibrida: 'Híbrida', remota: 'Remota' };
-const JORNADAS = { completa: 'Jornada completa', parcial: 'Jornada parcial' };
+import { formatoMonto, etiquetaModalidad, etiquetaJornada } from '../formato.js';
 
 const mensajeEstado = document.getElementById('mensaje-estado');
 const detalle = document.getElementById('detalle');
@@ -23,13 +22,13 @@ const mostrarMensajePostulacion = (texto) => {
   mensajePostulacion.hidden = !texto;
 };
 
-const formatoMonto = (monto) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(monto);
-
 const pintar = (oferta) => {
   const estado = calcularEstado(oferta.fechaCierre);
-  const insignia = document.getElementById('detalle-estado');
-  insignia.textContent = estado.texto;
-  insignia.classList.add(estado.clase);
+  // La misma insignia que la vitrina, icono incluido: si el detalle la dibujara distinto, el
+  // estado dejaría de leerse igual en las dos pantallas donde la persona lo busca.
+  const insignia = crearInsigniaEstado(estado);
+  insignia.id = 'detalle-estado'; // se conserva el id: el marcador del HTML se reemplaza, no se pierde
+  document.getElementById('detalle-estado').replaceWith(insignia);
 
   document.getElementById('detalle-titulo').textContent = oferta.titulo;
 
@@ -37,9 +36,9 @@ const pintar = (oferta) => {
   enlaceEmpresa.textContent = oferta.Empresa?.razonSocial ?? 'Empresa';
   enlaceEmpresa.href = `empresa.html?id=${oferta.empresaId}`;
 
-  document.getElementById('detalle-modalidad').textContent = MODALIDADES[oferta.modalidad] ?? oferta.modalidad;
+  document.getElementById('detalle-modalidad').textContent = etiquetaModalidad(oferta.modalidad);
   document.getElementById('detalle-comuna').textContent = oferta.comuna ?? '—';
-  document.getElementById('detalle-jornada').textContent = JORNADAS[oferta.jornada] ?? oferta.jornada;
+  document.getElementById('detalle-jornada').textContent = etiquetaJornada(oferta.jornada);
   document.getElementById('detalle-remuneracion').textContent = oferta.remunerada
     ? formatoMonto(oferta.montoMensual)
     : 'No remunerada';

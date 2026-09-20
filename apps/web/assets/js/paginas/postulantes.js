@@ -4,6 +4,7 @@ import { listarDeOferta, obtenerDetalle, marcarEnRevision, marcarEntrevista, sel
 import { textoEstado, claseEstadoPostulacion, formatoLineaTiempo } from '../componentes/linea-tiempo.js';
 import { descargarArchivo, ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { logout } from '../api/sesion.js';
+import { formatoFechaHora } from '../formato.js';
 
 // Qué transición ofrecer desde cada estado, reflejo de services/postulaciones/estados.js para el
 // actor 'empresa' — no una copia de la regla, solo de qué botón mostrar (el servidor decide si de
@@ -41,7 +42,7 @@ function iniciar() {
       for (const evento of eventos) {
         const item = document.createElement('li');
         item.className = 'mb-1';
-        item.textContent = `${evento.texto} — ${evento.quien} — ${evento.fecha.toLocaleString('es-CL')}`;
+        item.textContent = `${evento.texto} — ${evento.quien} — ${formatoFechaHora(evento.fecha)}`;
         if (evento.motivo) item.textContent += ` — "${evento.motivo}"`;
         listaEventos.append(item);
       }

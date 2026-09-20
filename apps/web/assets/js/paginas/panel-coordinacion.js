@@ -3,6 +3,7 @@ import { listarTodas, validar, rechazar as rechazarEmpresa, suspender, listarTod
 import { listarPendientesRevision, aprobar, rechazarOferta } from '../api/ofertas.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { logout } from '../api/sesion.js';
+import { etiquetaModalidad, etiquetaJornada, etiquetaRemuneracion, formatoFechaCorta } from '../formato.js';
 
 // Texto y clase de insignia van juntos a propósito (docs/08-guia-visual.md, sección "Empresa"): la
 // misma idea de "el color nunca es la única señal" que ya usan las insignias de oferta/postulación.
@@ -161,12 +162,12 @@ function iniciar() {
     const detalle = document.createElement('p');
     detalle.className = 'small text-body-secondary mb-1';
     const partes = [
-      oferta.modalidad,
+      etiquetaModalidad(oferta.modalidad),
       oferta.comuna,
-      oferta.jornada,
-      oferta.remunerada ? `Remunerada ($${oferta.montoMensual ?? '—'})` : 'No remunerada',
+      etiquetaJornada(oferta.jornada),
+      etiquetaRemuneracion(oferta.remunerada, oferta.montoMensual),
     ].filter(Boolean);
-    if (oferta.fechaCierre) partes.push(`Cierra el ${new Date(oferta.fechaCierre).toLocaleDateString('es-CL')}`);
+    if (oferta.fechaCierre) partes.push(`Cierra el ${formatoFechaCorta(oferta.fechaCierre)}`);
     detalle.textContent = partes.join(' · ');
 
     const descripcion = document.createElement('p');

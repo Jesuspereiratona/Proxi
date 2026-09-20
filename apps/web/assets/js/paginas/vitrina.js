@@ -14,6 +14,8 @@ const formulario = document.getElementById('filtros');
 const listado = document.getElementById('listado');
 const mensajeEstado = document.getElementById('mensaje-estado');
 const navSesion = document.getElementById('nav-sesion');
+const contador = document.getElementById('contador');
+const botonLimpiar = document.getElementById('limpiar-filtros');
 
 // La vitrina es pública (no exige sesión): reponerla acá es solo para decidir qué mostrar en el
 // nav, nunca bloqueante ni con redirección — mismo criterio no bloqueante que oferta.js.
@@ -57,6 +59,19 @@ const leerFiltros = () => {
   return Object.fromEntries([...datos.entries()].filter(([, valor]) => valor !== ''));
 };
 
+// Un "no hay resultados" a secas no dice qué hacer. Nombrar el filtro que está de más convierte una
+// pantalla vacía en una instrucción (identidad-visual, "Estados completos").
+const ETIQUETA_FILTRO = {
+  area: 'el área', modalidad: 'la modalidad', comuna: 'la comuna', remunerada: 'el filtro de remuneración',
+};
+
+const mensajeSinResultados = (filtros) => {
+  const activos = Object.keys(filtros).map((clave) => ETIQUETA_FILTRO[clave]).filter(Boolean);
+  if (activos.length === 0) return 'Todavía no hay ofertas de práctica publicadas. Vuelve a mirar en unos días.';
+  if (activos.length === 1) return `No hay ofertas vigentes con ese filtro. Prueba quitando ${activos[0]}.`;
+  return 'No hay ofertas vigentes con esa combinación de filtros. Prueba quitando alguno.';
+};
+
 // Contador de la última petición disparada: si una respuesta lenta llega después de una más
 // nueva, se descarta en vez de pisar el resultado del filtro que la persona ya cambió (auditoría
 // de Fase 6).
@@ -64,17 +79,20 @@ let peticionActual = 0;
 
 const cargar = async () => {
   const numeroPeticion = ++peticionActual;
+  const filtros = leerFiltros();
   listado.replaceChildren();
+  contador.textContent = '';
   mostrarMensaje('Cargando…');
   try {
-    const { ofertas } = await listarPublicas(leerFiltros());
+    const { ofertas, total } = await listarPublicas(filtros);
     if (numeroPeticion !== peticionActual) return;
     if (ofertas.length === 0) {
-      mostrarMensaje('No hay ofertas con esos filtros ahora mismo.');
+      mostrarMensaje(mensajeSinResultados(filtros));
       return;
     }
     mostrarMensaje('');
-    listado.append(...ofertas.map(crearTarjetaOferta));
+    contador.textContent = total === 1 ? '1 oferta encontrada' : `${total} ofertas encontradas`;
+    listado.append(...ofertas.map((oferta) => crearTarjetaOferta(oferta)));
   } catch (error) {
     if (numeroPeticion !== peticionActual) return;
     mostrarMensaje(error instanceof ErrorApi ? error.message : mensajeParaCodigo());
@@ -91,5 +109,16 @@ const cargarConDebounce = () => {
 };
 
 formulario.addEventListener('input', cargarConDebounce);
+// submit además de input: en un formulario, Enter dispara submit y recargaría la página entera
+// perdiendo los filtros. Se intercepta y se recarga solo el listado.
+formulario.addEventListener('submit', (evento) => {
+  evento.preventDefault();
+  cargar();
+});
+botonLimpiar.addEventListener('click', () => {
+  formulario.reset();
+  cargar();
+});
+
 cargar();
 pintarNavSesion();

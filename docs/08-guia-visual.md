@@ -100,11 +100,63 @@ la base tiene un color y una forma de insignia fijos — nunca un color inventad
 ### Oferta
 | Estado | Color de fondo | Texto | Nota |
 |---|---|---|---|
-| `publicada`, vigente | `--uah-naranja` (fondo), `--uah-marengo-1` (texto) | — | **Nunca texto blanco sobre este naranja**: el contraste da 3.2:1, insuficiente para texto normal (ver Accesibilidad) |
-| `publicada`, cierra en ≤3 días | `--uah-naranja` + ícono de reloj, borde más grueso | `--uah-marengo-1` | Estado **derivado en el cliente**, no existe en la base: se calcula comparando `fechaCierre` con "ahora". El umbral (3 días) es una constante de `assets/js/`, documentada ahí, no un número mágico repetido |
+| `publicada`, vigente | `--uah-blanco-3` con borde `--uah-borde` | `--uah-gris-2` + ícono de calendario | **Neutro a propósito** (cambiado el 2026-09-20, ver abajo). Un plazo cómodo es información, no alarma |
+| `publicada`, cierra en ≤3 días | `--uah-naranja`, `font-weight: 600` | `--uah-marengo-1` + ícono de reloj | Lo **único** que lleva naranja sólido en una tarjeta. Estado **derivado en el cliente**, no existe en la base: se calcula comparando `fechaCierre` con "ahora". El umbral (3 días) es `UMBRAL_URGENTE_DIAS` en `assets/js/componentes/estado-oferta.js`. **Nunca texto blanco sobre este naranja**: da 3.2:1; el marengo da 5.86:1 |
 | `cerrada`, `motivoCierre: vencida` | `--uah-gris-claro` | `--uah-gris-2` | "Vencida" se dice tal cual en la interfaz, nunca el código `OFERTA_NO_VIGENTE` |
 | `cerrada`, otro motivo | `--uah-gris-claro` | `--uah-gris-2` + ícono según motivo (contratado/cancelada/sin candidatos) | |
 | `en_revision`, `borrador`, `archivada` | No se muestran en la vitrina pública | — | Solo visibles en el panel de la propia empresa o de coordinación; ahí alcanza con texto, sin insignia de color |
+
+#### Por qué `vigente` dejó de ser naranja (2026-09-20)
+Hasta esa fecha `normal` y `urgente` compartían el mismo `--uah-naranja` y se distinguían solo por un
+borde de 2px. En una vitrina de diez ofertas eso significaba diez insignias naranjas idénticas: el
+estado estaba en la base y en el CSS, pero no llegaba a la persona. A un metro de la pantalla no se
+veía ninguna diferencia, que es exactamente lo que esta sección existe para evitar.
+
+La regla que lo reemplaza, tomada de la skill `identidad-visual`: **la urgencia es lo único que llama
+la atención en una tarjeta.** De ahí salen tres consecuencias, y las tres están en el código:
+
+1. `vigente` va neutro (`--uah-blanco-3` con borde). Informa sin gritar.
+2. `cierra pronto` se queda con el naranja de marca, sólido y en negrita.
+3. El botón "Ver y postular" de la vitrina pasó a `btn-outline-primary`. Relleno naranja competía
+   con la insignia de urgencia hasta que ninguno de los dos destacaba.
+
+Cada insignia lleva además **su propio ícono** (calendario / reloj / archivado), no solo color: uno de
+cada doce hombres no distingue rojo de verde, y el estado es justamente lo que no se puede perder. Los
+íconos son SVG inline de 24×24 en `assets/js/componentes/iconos.js`, con `currentColor` y `1em`, así
+que heredan color y tamaño del texto — no hay paleta ni escala de íconos que mantener aparte, y no se
+agregó ninguna dependencia.
+
+### Formato de datos — un solo lugar
+Todo dato crudo de la API se convierte a texto legible en `apps/web/assets/js/formato.js`. Antes cada
+página improvisaba el suyo y habían divergido: el monto salía `$300000` en el panel de empresa y
+`$300.000` en el detalle de una oferta; la modalidad salía `hibrida`, sin tilde, en la vitrina; y la
+fecha salía `25-09-2026` en unas pantallas y "25 de septiembre" en otras.
+
+| Función | Devuelve | Dónde se usa |
+|---|---|---|
+| `formatoMonto` | `$300.000` (sin decimales: en pesos nadie escribe `,00`) | detalle, tarjeta, paneles |
+| `formatoFechaCorta` | `25 sept 2026` | listados — mes abreviado para que la fecha no le gane peso al título |
+| `formatoFechaLarga` | `25 de septiembre de 2026` | detalle, donde ya se está leyendo y no escaneando |
+| `formatoFechaHora` | `25 sept 2026, 14:30` | líneas de tiempo, donde el orden dentro de un día importa |
+| `etiquetaModalidad`, `etiquetaJornada` | `Híbrida`, `Jornada parcial` | todas |
+| `etiquetaRemuneracion` | `$300.000 al mes` / `No remunerada` | todas |
+| `etiquetaArea` | `Control gestion` desde `control-gestion` | tarjeta |
+
+Un valor desconocido se devuelve tal cual, nunca `—`: si el backend agrega una modalidad nueva, que se
+vea fea es mejor que desaparezca de la pantalla sin que nadie lo note.
+
+`etiquetaArea` es un parche de presentación, no la solución: `area` es `z.string()` en la API, así que
+llega como la escribió cada empresa (`control-gestion`, `Auditoria`, `marketing`). El arreglo de fondo
+es una lista controlada de áreas en el backend — anotado en el roadmap, no acá.
+
+### La vitrina es una lista, no una cuadrícula
+La vitrina pasó de tres tarjetas por fila a una fila por oferta el 2026-09-20. Una vitrina de empleo
+es para escanear (`identidad-visual`, "Densidad correcta"): en una columna el ojo baja por una sola
+lista de títulos, y el plazo de cierre queda siempre en el mismo lugar. En una cuadrícula hay que
+recorrer en zigzag y la insignia de estado cae en una posición distinta en cada tarjeta.
+
+La fila lleva una ranura de logo de empresa que todavía no tiene logo: hasta que exista la subida de
+logos muestra la inicial de la razón social, que al menos distingue una empresa de otra al escanear.
 
 ### Postulación
 | Estado | Color | Texto |
