@@ -10,7 +10,8 @@
     "test": "node --require ./scripts/entorno-prueba.js --test",
     "db:migrate": "sequelize-cli db:migrate",
     "db:seed": "sequelize-cli db:seed:all",
-    "revocar-sesiones": "node scripts/revocar-todas-las-sesiones.js"
+    "revocar-sesiones": "node scripts/revocar-todas-las-sesiones.js",
+    "db:seed:cuentas": "sequelize-cli db:seed --seed 20260920120000-cuentas-fijas-de-prueba.js"
   },
   "dependencies": {
     "@proxi/errores": "*",

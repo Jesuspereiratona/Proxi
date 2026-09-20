@@ -43,6 +43,34 @@ npm run dev -w apps/api  # http://localhost:3000
 ```
 Verificar con `GET /api/v1/salud`. Las pruebas: `npm test`.
 
+## Cuentas de prueba
+
+```bash
+npm run db:seed:cuentas -w apps/api
+```
+
+Deja seis cuentas **fijas** —mismo correo y misma clave en cada corrida— con la contraseña
+`ProxiFEN2026` para todas. El comando se puede repetir cuantas veces se quiera: borra las anteriores
+y las vuelve a crear.
+
+| Correo | Rol | Para qué sirve |
+|---|---|---|
+| `estudiante@cuentas-proxi.test` | estudiante | Perfil completo, con RUT. La cuenta de todos los días |
+| `estudiante2@cuentas-proxi.test` | estudiante | El segundo: sirve para comprobar que no ve nada del primero |
+| `empresa@cuentas-proxi.test` | empresa | **Validada** — es la única que puede publicar ofertas |
+| `empresa.pendiente@cuentas-proxi.test` | empresa | Esperando validación: prepara borradores pero no los envía |
+| `empresa.suspendida@cuentas-proxi.test` | empresa | Suspendida por coordinación, con sus ofertas ya cerradas |
+| `coordinacion@cuentas-proxi.test` | coordinación | Valida empresas, modera ofertas y ve los indicadores |
+
+Existen aparte del seed `20260829130000-perfiles-de-prueba`, que genera una clave **al azar** en cada
+corrida y la imprime una sola vez. Aquél es el correcto para datos de demostración; éste es para
+entrar rápido sin tener que buscar la clave en el historial de la terminal.
+
+> **La clave está escrita en el repositorio, que es público.** Por eso el seed se niega a correr si
+> `NODE_ENV` no es `development` o `test`, y por eso estas cuentas no pueden existir en ningún
+> entorno accesible desde internet. El dominio `.test` está reservado por la RFC 2606 y no resuelve:
+> ninguno de esos correos puede llegarle a una persona real.
+
 **Los secretos no están en el repositorio y no van a estarlo.** `.env.example` documenta cada clave.
 Las de desarrollo se generan con
 `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. Para el correo en
