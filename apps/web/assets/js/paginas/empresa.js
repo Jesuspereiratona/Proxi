@@ -1,6 +1,7 @@
 import { obtenerPerfilPublico, obtenerIndicadores } from '../api/empresas.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { icono } from '../componentes/iconos.js';
+import { urlLogo } from '../api/logos.js';
 
 const mensajeEstado = document.getElementById('mensaje-estado');
 const perfil = document.getElementById('perfil');
@@ -32,8 +33,23 @@ const pintarPerfil = (empresa) => {
   // empresa que la persona acaba de ver en el listado.
   const logo = document.getElementById('perfil-logo');
   const inicial = empresa.razonSocial?.trim()?.[0];
-  if (inicial) logo.textContent = inicial.toUpperCase();
-  else logo.append(icono('edificio'));
+  const caerAInicial = () => {
+    logo.replaceChildren();
+    if (inicial) logo.textContent = inicial.toUpperCase();
+    else logo.append(icono('edificio'));
+  };
+
+  if (empresa.tieneLogo) {
+    const imagen = document.createElement('img');
+    imagen.src = urlLogo(empresa.id);
+    imagen.alt = '';
+    // Si no carga (retirado justo ahora, red caída) se cae a la inicial en vez de dejar el ícono
+    // roto del navegador encabezando el perfil.
+    imagen.addEventListener('error', caerAInicial);
+    logo.append(imagen);
+  } else {
+    caerAInicial();
+  }
 
   // Cada dato se muestra solo si existe: una fila con el ícono de ubicación y nada al lado se lee
   // como un error de carga, no como "esta empresa no declaró comuna".

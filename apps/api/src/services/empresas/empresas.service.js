@@ -1,4 +1,5 @@
 const { sequelize, Empresa } = require('../../models');
+const logosRepo = require('../../repositories/logos.repository');
 const { esRutValido, normalizarRut } = require('../../utils/rut');
 const { puedeTransicionar } = require('./estados');
 const { Conflicto, NoEncontrado, ErrorValidacion } = require('../../errors');
@@ -119,7 +120,9 @@ const obtenerPerfilPublico = async (id) => {
     attributes: ['id', 'razonSocial', 'giro', 'sitioWeb', 'comuna'],
   });
   if (!empresa) throw new NoEncontrado(PERFIL_NO_ENCONTRADO, 'Esa empresa no existe.');
-  return empresa;
+  // Booleano y no una URL: armar rutas HTTP es trabajo del cliente (docs/01-arquitectura.md).
+  const conLogo = await logosRepo.idsDeEmpresasConLogo([empresa.id]);
+  return Object.assign(empresa.toJSON(), { tieneLogo: conLogo.has(String(empresa.id)) });
 };
 
 // Compare-and-set, mismo patrón que ofertas.service.js transicionar(): el estado anterior va en el

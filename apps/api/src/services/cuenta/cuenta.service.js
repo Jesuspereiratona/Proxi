@@ -175,6 +175,17 @@ const eliminarCuenta = async (usuarioId, ip, userAgent) => {
     const passwordInservible = await passwords.hashear(crypto.randomBytes(32).toString('hex'));
     await usuario.update({ email: marcador, passwordHash: passwordInservible, anonimizadoAt: new Date() }, { transaction: t });
 
+    // Logos: hoy esta ruta es solo para estudiantes (routes/cuenta.routes.js autoriza 'estudiante'),
+    // así que para un estudiante esto no hace nada. Va igual porque el día que se admita a empresas
+    // —que es lo natural cuando se complete la portabilidad para los otros roles— el logo quedaría
+    // servido en público después de que su dueña pidió borrarse, y eso no se puede descubrir
+    // tarde en la ruta del borrado legal. Al estar los bytes en la base, esto SÍ participa del
+    // rollback, a diferencia del fs.unlink de los CV que va después de la transacción.
+    await Archivo.update(
+      { retiradoAt: new Date(), contenido: null },
+      { where: { propietarioUsuarioId: usuarioId, tipo: 'logo', retiradoAt: null }, transaction: t },
+    );
+
     await Sesion.update({ revocadaAt: new Date() }, { where: { usuarioId, revocadaAt: null }, transaction: t });
 
     await AuditoriaAcceso.create({ usuarioId, accion: 'eliminar_cuenta', entidad: 'usuario', entidadId: usuarioId, ip, userAgent }, { transaction: t });

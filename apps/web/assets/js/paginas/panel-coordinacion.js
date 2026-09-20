@@ -3,6 +3,7 @@ import { listarTodas, validar, rechazar as rechazarEmpresa, suspender, listarTod
 import { listarPendientesRevision, aprobar, rechazarOferta } from '../api/ofertas.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { logout } from '../api/sesion.js';
+import { listarPendientes as listarLogosPendientes, aprobarLogo, retirarLogo, urlImagenParaRevision } from '../api/logos.js';
 import { etiquetaModalidad, etiquetaJornada, etiquetaRemuneracion, formatoFechaCorta, formatoRut } from '../formato.js';
 
 // Texto y clase de insignia van juntos a propósito (docs/08-guia-visual.md, sección "Empresa"): la
@@ -20,6 +21,7 @@ if (usuario) iniciar();
 function iniciar() {
   const listaEmpresas = document.getElementById('lista-empresas');
   const listaOfertas = document.getElementById('lista-ofertas');
+  const listaLogos = document.getElementById('lista-logos');
   const tablaIndicadores = document.getElementById('tabla-indicadores');
   const mensajeEstado = document.getElementById('mensaje-estado');
   const botonCerrarSesion = document.getElementById('boton-cerrar-sesion');
@@ -284,7 +286,99 @@ function iniciar() {
     window.location.href = 'index.html';
   });
 
+  // Las URLs de objeto de los logos que se están mostrando. Se revocan antes de repintar: sin esto
+  // cada recarga de la lista deja los blobs anteriores retenidos por toda la vida de la pestaña.
+  const urlsEnUso = new Set();
+  const soltarUrls = () => {
+    urlsEnUso.forEach((url) => URL.revokeObjectURL(url));
+    urlsEnUso.clear();
+  };
+
+  const crearFilaLogo = async (logo) => {
+    const tarjeta = document.createElement('article');
+    tarjeta.className = 'card-oferta';
+
+    // La imagen a la vista, no solo el nombre de la empresa: aprobar a ciegas fue exactamente el
+    // hallazgo que la auditoría de este panel corrigió en la Fase 6. Si no se puede cargar, se dice
+    // explícitamente en vez de mostrar un hueco que se lea como "no hay nada raro".
+    const caja = document.createElement('div');
+    caja.className = 'oferta-logo';
+    try {
+      const url = await urlImagenParaRevision(logo.id);
+      urlsEnUso.add(url);
+      const imagen = document.createElement('img');
+      imagen.src = url;
+      imagen.alt = `Logo propuesto por ${logo.razonSocial}`;
+      caja.append(imagen);
+    } catch {
+      caja.textContent = '!';
+      caja.title = 'No se pudo cargar la imagen';
+    }
+
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'oferta-cuerpo';
+    const titulo = document.createElement('h3');
+    titulo.className = 'oferta-titulo mb-1';
+    titulo.textContent = logo.razonSocial;
+    const detalle = document.createElement('p');
+    detalle.className = 'oferta-empresa mb-2';
+    // Bajo 1 KB se muestran los bytes: Math.round(n/1024) dejaba "0 KB" en un ícono chico, que se
+    // lee como un archivo vacío o roto justo cuando hay que decidir si aprobarlo.
+    const bytes = Number(logo.tamanoBytes);
+    const peso = bytes < 1024 ? `${bytes} B` : `${Math.round(bytes / 1024)} KB`;
+    detalle.textContent = `${logo.mime} · ${peso} · empresa ${logo.estadoValidacion}`;
+
+    const acciones = document.createElement('div');
+    acciones.className = 'd-flex flex-wrap gap-2';
+    const aprobar = document.createElement('button');
+    aprobar.type = 'button';
+    aprobar.className = 'btn btn-primary btn-sm';
+    aprobar.textContent = 'Aprobar';
+    aprobar.addEventListener('click', async () => {
+      aprobar.disabled = true;
+      try {
+        await aprobarLogo(logo.id);
+        await cargarLogos();
+      } catch (error) {
+        mostrarMensaje(error instanceof ErrorApi ? error.message : mensajeParaCodigo());
+        aprobar.disabled = false;
+      }
+    });
+    const retirar = document.createElement('button');
+    retirar.type = 'button';
+    retirar.className = 'btn btn-outline-danger btn-sm';
+    retirar.textContent = 'Rechazar';
+    retirar.addEventListener('click', async () => {
+      retirar.disabled = true;
+      try {
+        await retirarLogo(logo.id);
+        await cargarLogos();
+      } catch (error) {
+        mostrarMensaje(error instanceof ErrorApi ? error.message : mensajeParaCodigo());
+        retirar.disabled = false;
+      }
+    });
+    acciones.append(aprobar, retirar);
+
+    cuerpo.append(titulo, detalle, acciones);
+    tarjeta.append(caja, cuerpo);
+    return tarjeta;
+  };
+
+  const cargarLogos = async () => {
+    soltarUrls();
+    try {
+      const { logos } = await listarLogosPendientes();
+      listaLogos.replaceChildren(...(logos.length
+        ? await Promise.all(logos.map(crearFilaLogo))
+        : [document.createTextNode('No hay logos esperando revisión.')]));
+    } catch (error) {
+      mostrarMensaje(error instanceof ErrorApi ? error.message : mensajeParaCodigo());
+    }
+  };
+
   cargarEmpresas();
+  cargarLogos();
   cargarOfertas();
   cargarIndicadores();
 }

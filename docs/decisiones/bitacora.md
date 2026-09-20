@@ -1,3 +1,118 @@
+## 2026-09-20 (3) · Logo de empresa: los archivos se mudan a la base
+
+**Lo que ya estaba.** `docs/02-modelo-de-datos.md` definió `archivos.tipo CHECK ('cv','logo')` en la
+Fase 4. La mitad `logo` nunca se usó. No hubo tabla nueva: había una columna esperando su segundo
+valor desde hace un mes. Es exactamente el error contra el que advierte la skill
+`nueva-funcionalidad` ("terminar duplicando una tabla"), evitado por leer el modelo antes de escribir.
+
+**Decisión 1 — los bytes van a la base, no al disco.** Es una decisión de despliegue: la plataforma
+donde va a correr Proxi borra el disco en cada reinicio, así que un logo en `almacenamiento/`
+desaparecería en el primer despliegue. La alternativa —un servicio de almacenamiento externo— suma
+una empresa más que tiene nuestros datos, con contrato y registro de tratamiento, para guardar
+imágenes de 200 KB. Cien empresas son 50 MB en el peor caso.
+
+Efecto lateral que resultó ser una mejora legal: al estar los bytes en la base, limpiarlos al
+eliminar una cuenta **participa de la transacción**, a diferencia del `fs.unlink` de los CV, que —como
+dice el comentario que ya estaba en `cuenta.service.js`— no se puede deshacer con un rollback.
+
+**Decisión 2 — el logo se aprueba antes de verse en público.** La vitrina es la cara pública de una
+herramienta de la universidad y el logo lo sube un tercero. Los dos extremos estaban mal: sin
+moderación, cualquier imagen sale al instante en la página de la FEN; tratar el logo como campo de
+identidad (`CAMPOS_IDENTIDAD`) devolvería la empresa a `pendiente` **y le cerraría todas sus ofertas
+publicadas**, que es lo que hace hoy ese camino — desproporcionado para quien solo actualizó su marca.
+Se eligió el medio: aprobación propia, de una acción, que no toca el estado de la empresa ni sus
+ofertas. Cuesta tres columnas y un endpoint.
+
+El estado del logo no es una columna `estado` sino tres marcas de tiempo (`aprobado_at`,
+`aprobado_por_usuario_id`, `retirado_at`): se deduce igual y además queda registrado cuándo y quién,
+que es lo que un retiro por contenido inapropiado necesita poder demostrar después.
+
+**Seguridad — lo que se hizo y por qué.**
+- **SVG rechazado siempre, con su propio mensaje.** Es la única imagen que además es un documento
+  ejecutable: puede traer `<script>`, y servirla desde nuestro dominio sería XSS almacenado en la
+  página más pública del sitio. La validación por firma lo dejaría fuera igual; el chequeo explícito
+  existe para que quien lo intente sepa por qué y para que se vea que fue deliberado.
+- **El mime sale de la firma del archivo**, no de la extensión ni del `Content-Type` del cliente. Se
+  probó mandando un PNG real llamado `.jpg`: se guarda como `image/png`.
+- **Las tres condiciones de "público"** —aprobado, no retirado y empresa validada— van en UNA consulta
+  con el JOIN, no en dos pasos encadenados que alguien pueda separar después por error.
+
+**Bloqueador encontrado en ejecución, no leyendo.** helmet pone
+`Cross-Origin-Resource-Policy: same-origin` en toda respuesta, y con eso el navegador **se niega a
+pintar el logo** dentro de la web, que corre en otro origen. Se detectó mirando los encabezados
+reales de la API en el log, no razonando sobre el código. Se relaja a `cross-origin` solo en la
+respuesta del logo: es una imagen pública y ya aprobada, exactamente el caso para el que existe. El
+resto de la API conserva `same-origin`.
+
+**Dos errores propios, ambos atrapados por una prueba.**
+1. `tieneLogo` terminó en `obtenerPorId()` —de uso interno— en vez de en `obtenerPerfilPublico()`,
+   por un reemplazo de texto que tomó la primera coincidencia. La API respondía sin el campo y el
+   logo no se pintaba, **sin que nada fallara**. Hay una prueba nueva que lo fija.
+2. La prueba del borrado de cuenta dejaba una fila huérfana: `eliminarCuenta` reemplaza el correo por
+   un marcador `@proxi.invalid`, así que `borrarUsuariosDePrueba` ya no la encontraba por dominio y
+   la empresa quedaba para siempre en el panel de coordinación. La prueba ahora se limpia sola.
+
+**La prueba de lista blanca del perfil público falló, y estuvo bien que fallara.** Detectó el campo
+`tieneLogo` nuevo. Se actualizó la aserción a mano, manteniéndola exacta: es la que impide que
+`rutEmpresa` o `contactoNombre` se cuelen al perfil público sin que nadie lo note.
+
+### Lo que encontraron las dos revisiones
+
+**`auditor-seguridad` — cinco hallazgos, dos reproducidos contra la API corriendo.**
+
+1. *(Media-alta)* **Los bytes no se liberaban al retirar un logo.** Escribí `contenido: null` en dos de
+   los cuatro caminos de retiro y lo olvidé en los otros dos. Medido por el auditor: quince
+   reemplazos dejaban **7,5 MB** retenidos para una empresa que, según la spec, tiene a lo más un
+   logo vigente. Tras el arreglo, doce subidas dejan 11 filas y **70 bytes**.
+2. *(Media)* **"Quitar logo" mentía.** `quitarPropio` retiraba "el vigente" (el más nuevo por fecha),
+   así que una empresa con un logo aprobado que subía otro y pulsaba Quitar retiraba el pendiente y
+   **dejaba el aprobado publicándose**, mientras la pantalla decía "Logo quitado". Ahora retira todos
+   los no retirados.
+3. *(Media-baja)* **El límite de tasa no limitaba.** `limitar-tasa.middleware` exporta UNA instancia ya
+   montada globalmente: volver a montarla en la ruta compartía store y clave, así que la subida solo
+   descontaba dos unidades del contador de 300. Se creó `limitar-tasa-logo.middleware`, con clave por
+   id de usuario y tope de 10/hora, copiando `limitar-tasa-rut`, que existe justo para esto.
+4. *(Baja-media)* **Una empresa suspendida podía seguir subiendo logos.** Faltaba el estado dentro del
+   `where`, que es como el propio proyecto ya lo hace en `archivos.service.js`.
+5. *(Baja)* **Retirar no dejaba rastro de quién.** Contradecía el propio `plan.md`, que justifica las
+   tres marcas de tiempo diciendo que registran "cuándo y quién". Ahora escribe en
+   `auditoria_accesos` dentro de la misma transacción.
+
+Lo que confirmó bien: intentó un **polyglot real** (un JPEG que además es JavaScript válido), lo
+aprobó y lo pidió sin sesión — no se ejecuta, porque el `Content-Type` sale de la firma guardada y
+`nosniff` está activo de verdad. Probó variantes de SVG con BOM y comentarios para esquivar
+`pareceSvg`: todas caen igual en la lista de firmas. Y comparó el middleware de subida contra la
+versión en git: no se aflojó ni un límite de multer al parametrizarlo.
+
+**Revisión de economía de código (skill `menos-codigo`) — el tamaño era razonable, con ~5% removible.**
+Lo aplicado:
+- Los helpers de prueba (`correoUnico`, `generarRutValido`, `crearUsuarioActivo`) estaban copiados
+  **verbatim en seis archivos** y habían empezado a divergir: unas versiones generaban el RUT con
+  guion y otras sin él. Ahora viven en `tests/ayudas.js`, al lado de `limpiar.js`, que ya era el
+  precedente. Queda pendiente migrar los otros cinco archivos.
+- `empresasConLogo` era un reenvío puro al repositorio, que es la "capa vacía" que la skill prohíbe.
+  Los dos services llaman al repositorio directo. `listarPendientes` parece igual pero **no** se puede
+  quitar: lo llama un controller, y un controller no toca la base.
+- **Un comentario que enseñaba algo falso**: decía que el `require` de `logos.service` iba diferido
+  para evitar un ciclo de módulos. No hay tal ciclo —`logos.service` nunca requiere
+  `empresas.service`— y el revisor lo comprobó cargando ambos en los dos órdenes.
+- Tres patrones del cliente unificados con los que el repo ya usaba, y de paso el manejador de error
+  del `<img>` quedó donde de verdad hacía falta: `panel-empresa.js` era el único sin él, y es el único
+  que apunta a la URL pública desde una pantalla con sesión, así que una empresa no validada veía el
+  ícono roto del navegador en su propio panel.
+
+**Decisión revisada — la caché pasó de una hora a cinco minutos.** El plan asumía la ventana de una
+hora para un retiro por contenido, pero no había considerado que la misma ventana alcanza a la
+suspensión de una empresa y al **borrado de cuenta**, que es el ejercicio de un derecho. Cinco
+minutos siguen absorbiendo casi todas las recargas de la vitrina.
+
+**Verificación.** 472 pruebas de API (21 de logos) + 59 de web, 0 fallas. Migraciones probadas
+en los dos sentidos. Flujo completo comprobado contra la API corriendo: SVG, PDF renombrado, archivo
+de 600 KB y estudiante rechazados; PNG aceptado, invisible hasta aprobar, y con los bytes idénticos a
+los subidos al servirse. Capturas reales de la vitrina y de los dos paneles con sesión de cada rol.
+
+---
+
 ## 2026-09-20 (2) · Los paneles alcanzan a la vitrina, y dos bugs que aparecieron al mirar
 
 **Regresión propia, encontrada mirando.** Al convertir `.card-oferta` en un contenedor flex con su

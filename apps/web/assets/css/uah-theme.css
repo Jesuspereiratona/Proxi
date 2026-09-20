@@ -396,3 +396,13 @@ h1, h2, .titular {
   color: var(--uah-gris-1);
   margin-top: 0.15rem;
 }
+
+/* El logo llega como lo subió la empresa: apaisado, cuadrado o vertical. object-fit:contain lo
+   encuadra sin deformarlo y sin recortarle nada — no procesamos imágenes en el servidor
+   (specs/10-logo-de-empresa/spec.md, fuera de alcance), así que el encuadre es trabajo del CSS. */
+.oferta-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: inherit;
+}

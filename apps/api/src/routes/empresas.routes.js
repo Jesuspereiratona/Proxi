@@ -6,6 +6,9 @@ const autenticar = require('../middlewares/autenticar.middleware');
 const autorizar = require('../middlewares/autorizar.middleware');
 const esquemas = require('../schemas/empresas.schemas');
 const { idParamEsquema } = require('../schemas/comun.schemas');
+const logosController = require('../controllers/logos.controller');
+const { subirLogo } = require('../middlewares/subir-archivo.middleware');
+const limitarTasaLogo = require('../middlewares/limitar-tasa-logo.middleware');
 
 const router = Router();
 
@@ -22,6 +25,13 @@ router.patch(
 router.get('/pendientes', autenticar, autorizar('coordinacion'), controller.listarPendientes);
 router.get('/indicadores', autenticar, autorizar('coordinacion'), controller.listarIndicadores);
 router.get('/', autenticar, autorizar('coordinacion'), controller.listarTodas);
+router.post('/mi-logo', autenticar, autorizar('empresa'), limitarTasaLogo, subirLogo, logosController.subir);
+router.get('/mi-logo', autenticar, autorizar('empresa'), logosController.obtenerPropio);
+router.delete('/mi-logo', autenticar, autorizar('empresa'), logosController.quitarPropio);
+
+// Público y sin sesión, igual que el perfil de la empresa: el servicio exige que esté validada.
+router.get('/:id/logo', validarParams(idParamEsquema), logosController.obtenerPublico);
+
 router.get('/:id/indicadores', validarParams(idParamEsquema), controller.obtenerIndicadores);
 router.get('/:id', validarParams(idParamEsquema), controller.obtenerPerfilPublico);
 router.post(

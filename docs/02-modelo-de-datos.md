@@ -139,7 +139,14 @@ respuesta" ni auditar quién rechazó a quién.
 | nombre_almacenado | text | UUID generado. El nombre del usuario jamás toca el disco |
 | mime, tamano_bytes | text / bigint | validados contra el contenido real, no la extensión |
 | tipo | text | CHECK: `cv` · `logo` |
+| contenido | bytea | Los bytes del archivo. Nulo en los CV anteriores a 2026-09-20, que siguen en disco |
 | expira_at | timestamptz | política de retención |
+| aprobado_at, aprobado_por_usuario_id | timestamptz / bigint FK | Solo logos: sin aprobación de coordinación no se muestran en público |
+| retirado_at | timestamptz | Solo logos: retirado por su dueña o por coordinación. La fila NO se borra, para poder demostrar después que existió |
+
+Un logo no tiene columna `estado`: se deduce de las tres marcas de tiempo (`retirado_at` → retirado;
+si no, `aprobado_at` → aprobado; si no, pendiente), y de paso queda registrado cuándo y quién.
+Índice parcial `archivos_logo_vigente` para la consulta que corre en cada carga de la vitrina.
 
 ### sesiones, consentimientos, auditoria_accesos
 - **sesiones**: `usuario_id`, `refresh_token_hash`, `expira_at`, `revocada_at`, `ip`, `user_agent`.

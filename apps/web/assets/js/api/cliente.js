@@ -224,6 +224,17 @@ export const enviarFormData = async (ruta, formData) => {
   return respuesta.json();
 };
 
+// Una imagen que exige sesión no puede ir en el src de un <img>: la etiqueta no manda el encabezado
+// Authorization. Se baja con fetch y se devuelve una URL de objeto local, que sí sirve como src.
+//
+// Quien la use debe llamar a URL.revokeObjectURL al descartar el elemento: sin eso el blob queda
+// retenido en memoria por toda la vida de la pestaña.
+export const obtenerBlobAutenticado = async (ruta) => {
+  const respuesta = await fetchConReintento('GET', ruta, { autenticado: true });
+  if (!respuesta.ok) return cuerpoDeError(respuesta);
+  return URL.createObjectURL(await respuesta.blob());
+};
+
 // Un <a href> no puede llevar Authorization: el archivo se pide con fetch, se arma un object URL
 // del blob recibido y se dispara la descarga con un <a> temporal — el CV nunca se sirve por un
 // enlace público (docs/03-seguridad.md). El nombre real viene de Content-Disposition si el

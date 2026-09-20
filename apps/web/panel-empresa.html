@@ -60,6 +60,29 @@
       <button type="submit" class="btn btn-primary">Guardar</button>
     </form>
     </section>
+
+    <section class="panel mt-3">
+      <h2 class="h5">Logo</h2>
+      <p class="small text-body-secondary">
+        Aparece junto a tus ofertas en la vitrina pública. Antes de mostrarse lo revisa coordinación,
+        así que puede pasar un rato entre que lo subes y que se vea. PNG, JPEG o WebP, hasta 512 KB.
+      </p>
+
+      <div class="d-flex align-items-start gap-3 mb-3">
+        <div id="logo-vista" class="oferta-logo" aria-hidden="true"></div>
+        <div class="min-w-0">
+          <p id="logo-estado" class="mb-1 small"></p>
+          <button id="boton-quitar-logo" type="button" class="btn btn-outline-secondary btn-sm" hidden>
+            Quitar logo
+          </button>
+        </div>
+      </div>
+
+      <label for="archivo-logo" class="form-label">Subir o reemplazar logo</label>
+      <input type="file" id="archivo-logo" accept="image/png,image/jpeg,image/webp" class="form-control">
+      <button id="boton-subir-logo" type="button" class="btn btn-secondary btn-sm mt-2">Subir</button>
+      <p id="mensaje-logo" class="small mt-2" role="status" hidden></p>
+    </section>
   </main>
 
   <footer class="border-top py-3 mt-5 text-center small text-body-secondary">

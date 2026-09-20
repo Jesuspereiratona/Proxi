@@ -143,6 +143,11 @@ Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
 - [x] Panel coordinación: validar empresas, moderar ofertas, ver indicadores. Última pantalla de
       Fase 6 — los tres roles ya pueden usar Proxi de punta a punta sin `curl`. Ver
       `specs/07-panel-coordinacion/`
+- [x] Logo de empresa: subida, moderación por coordinación y visualización en la vitrina, el detalle
+      de oferta y el perfil público. Ver `specs/10-logo-de-empresa/`. Los bytes van en la base, no en
+      disco — el disco del proveedor se borra en cada despliegue (Fase 8). Rechaza SVG a propósito:
+      es la única imagen que además es un documento ejecutable, y servirla desde nuestro dominio
+      sería XSS almacenado en la página más pública del sitio
 - [x] Accesibilidad básica: verificada con capturas reales de Chrome headless en las cinco pantallas
       de la fase — labels, `aria-live`, foco visible por defecto de Bootstrap sin overrides, orden de
       tabulación natural del DOM

@@ -465,7 +465,14 @@ describe('GET /empresas/:id (perfil público)', () => {
     const respuesta = await request(app).get(`/api/v1/empresas/${creada.body.id}`);
     assert.equal(respuesta.status, 200);
     assert.equal(respuesta.body.razonSocial, 'Empresa Pública SpA');
-    assert.deepEqual(Object.keys(respuesta.body).sort(), ['comuna', 'giro', 'id', 'razonSocial', 'sitioWeb']);
+    // tieneLogo se sumó con la subida de logos (specs/10-logo-de-empresa): es un booleano derivado,
+    // no un dato de la empresa, y decirle al cliente si hay logo no filtra nada. Esta aserción sigue
+    // siendo exacta a propósito: es la que impide que rutEmpresa, contactoNombre/Cargo o los motivos
+    // de rechazo se cuelen al perfil público sin que nadie lo note.
+    assert.deepEqual(
+      Object.keys(respuesta.body).sort(),
+      ['comuna', 'giro', 'id', 'razonSocial', 'sitioWeb', 'tieneLogo'],
+    );
   });
 
   test('una empresa pendiente, rechazada o suspendida responde 404, igual que si no existiera', async () => {

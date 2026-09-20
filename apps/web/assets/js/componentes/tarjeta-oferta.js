@@ -1,6 +1,7 @@
 import { calcularEstado } from './estado-oferta.js';
 import { icono } from './iconos.js';
 import { etiquetaModalidad, etiquetaJornada, etiquetaRemuneracion, etiquetaArea } from '../formato.js';
+import { urlLogo } from '../api/logos.js';
 
 // textContent en todo, nunca innerHTML: el contenido viene del servidor (título de una oferta,
 // razón social de una empresa) y no se confía como si fuera HTML propio (docs/03-seguridad.md).
@@ -32,16 +33,39 @@ const crearEtiqueta = (texto) => {
   return item;
 };
 
-// Ranura del logo de la empresa. Todavía no existe la subida de logos: hasta que exista, muestra
-// un marcador con la inicial de la razón social en vez de un cuadro vacío, para que la fila no se
-// vea rota y la ranura quede lista.
-const crearLogo = (razonSocial) => {
+// Ranura del logo de la empresa. Si la empresa subió uno y coordinación lo aprobó, va la imagen;
+// si no, la inicial de la razón social, que al menos distingue una empresa de otra al escanear.
+//
+// aria-hidden en toda la ranura: la razón social está escrita al lado en texto, así que anunciar
+// además "logo de X" le repite la misma palabra a quien usa lector de pantalla. Por lo mismo el
+// alt del <img> va vacío, que es lo correcto para una imagen decorativa.
+const crearLogo = (razonSocial, empresaId, tieneLogo) => {
   const caja = document.createElement('div');
   caja.className = 'oferta-logo';
   caja.setAttribute('aria-hidden', 'true');
+
   const inicial = razonSocial?.trim()?.[0];
-  if (inicial) caja.textContent = inicial.toUpperCase();
-  else caja.append(icono('edificio'));
+  const pintarInicial = () => {
+    caja.replaceChildren();
+    if (inicial) caja.textContent = inicial.toUpperCase();
+    else caja.append(icono('edificio'));
+  };
+
+  if (!tieneLogo) {
+    pintarInicial();
+    return caja;
+  }
+
+  const imagen = document.createElement('img');
+  imagen.src = urlLogo(empresaId);
+  imagen.alt = '';
+  // loading=lazy: la vitrina trae veinte filas y el logo de la número dieciocho no hace falta hasta
+  // que alguien baje hasta ella.
+  imagen.loading = 'lazy';
+  // Si no carga (retirado justo ahora, red caída) se cae a la inicial, no al ícono roto del
+  // navegador en medio de la fila.
+  imagen.addEventListener('error', pintarInicial);
+  caja.append(imagen);
   return caja;
 };
 
@@ -97,6 +121,6 @@ export const crearTarjetaOferta = (oferta) => {
   boton.textContent = 'Ver y postular';
   lateral.append(crearInsigniaEstado(estado), boton);
 
-  tarjeta.append(crearLogo(razonSocial), cuerpo, lateral);
+  tarjeta.append(crearLogo(razonSocial, oferta.empresaId, oferta.tieneLogo), cuerpo, lateral);
   return tarjeta;
 };

@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const logosRepo = require('../../repositories/logos.repository');
 const { sequelize, Oferta, OfertaEvento, Empresa } = require('../../models');
 const { puedeTransicionar } = require('./estados');
 const ofertasReglas = require('./reglas');
@@ -278,7 +279,15 @@ const listarPublicas = async ({ area, modalidad, comuna, remunerada, pagina = 1,
     offset: (pagina - 1) * limite,
     order: [['fechaCierre', 'ASC']],
   });
-  return { ofertas: rows, total: count, pagina, limite };
+  // Una sola consulta para toda la página, no una por fila: la vitrina muestra veinte ofertas.
+  // Se devuelve un booleano y no una URL a propósito — armar rutas HTTP es trabajo del cliente, no
+  // de un service, que según docs/01-arquitectura.md ni siquiera conoce req/res.
+  const conLogo = await logosRepo.idsDeEmpresasConLogo(rows.map((o) => o.empresaId));
+  const ofertas = rows.map((oferta) => Object.assign(oferta.toJSON(), {
+    tieneLogo: conLogo.has(String(oferta.empresaId)),
+  }));
+
+  return { ofertas, total: count, pagina, limite };
 };
 
 const listarDeEmpresa = async (usuarioId) => {
