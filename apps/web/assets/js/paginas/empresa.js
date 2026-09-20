@@ -1,5 +1,6 @@
 import { obtenerPerfilPublico, obtenerIndicadores } from '../api/empresas.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
+import { icono } from '../componentes/iconos.js';
 
 const mensajeEstado = document.getElementById('mensaje-estado');
 const perfil = document.getElementById('perfil');
@@ -26,19 +27,52 @@ const urlHttpSegura = (valor) => {
 const pintarPerfil = (empresa) => {
   document.getElementById('perfil-nombre').textContent = empresa.razonSocial;
   document.getElementById('perfil-giro').textContent = empresa.giro ?? '';
-  document.getElementById('perfil-comuna').textContent = empresa.comuna ?? '';
+  // Misma ranura de logo que la tarjeta de la vitrina: hasta que exista la subida de logos, la
+  // inicial de la razón social. Que las dos pantallas muestren lo mismo importa — es la misma
+  // empresa que la persona acaba de ver en el listado.
+  const logo = document.getElementById('perfil-logo');
+  const inicial = empresa.razonSocial?.trim()?.[0];
+  if (inicial) logo.textContent = inicial.toUpperCase();
+  else logo.append(icono('edificio'));
 
-  const enlaceSitio = document.getElementById('perfil-sitio');
+  // Cada dato se muestra solo si existe: una fila con el ícono de ubicación y nada al lado se lee
+  // como un error de carga, no como "esta empresa no declaró comuna".
+  if (empresa.comuna) {
+    const item = document.getElementById('perfil-comuna-item');
+    item.prepend(icono('pin'));
+    document.getElementById('perfil-comuna').textContent = empresa.comuna;
+    item.hidden = false;
+  }
+
   const sitioSeguro = empresa.sitioWeb ? urlHttpSegura(empresa.sitioWeb) : null;
   if (sitioSeguro) {
-    enlaceSitio.href = sitioSeguro;
-    enlaceSitio.textContent = 'Sitio web';
-  } else {
-    enlaceSitio.hidden = true;
+    const item = document.getElementById('perfil-sitio-item');
+    item.prepend(icono('edificio'));
+    document.getElementById('perfil-sitio').href = sitioSeguro;
+    item.hidden = false;
   }
 
   perfil.hidden = false;
 };
+
+// La cifra y la explicación se separan a propósito: son cuatro números que la persona compara entre
+// empresas, y en una frase corrida ("Responde al 85% de las postulaciones que recibe") hay que leer
+// el renglón entero para encontrarlo. La frase no se pierde, baja a nota al pie del número.
+const pintarIndicador = (id, cifra, nota) => {
+  const destino = document.getElementById(id);
+  destino.replaceChildren();
+  const valor = document.createElement('span');
+  valor.className = 'cifra';
+  valor.textContent = cifra;
+  const aclaracion = document.createElement('span');
+  aclaracion.className = 'nota';
+  aclaracion.textContent = nota;
+  destino.append(valor, aclaracion);
+};
+
+// Una raya y no un cero: "0%" diría que la empresa no responde nunca, que es lo contrario de
+// "todavía no hay con qué calcularlo". El umbral por volumen viene del servidor (Fase 5).
+const SIN_DATOS = '—';
 
 const pintarIndicadores = (indicadores) => {
   if (!indicadores.suficienteHistorial) {
@@ -46,14 +80,25 @@ const pintarIndicadores = (indicadores) => {
     return;
   }
 
-  document.getElementById('indicador-tasa-respuesta').textContent =
+  pintarIndicador('indicador-tasa-respuesta',
+    indicadores.tasaRespuesta != null ? formatoPorcentaje(indicadores.tasaRespuesta) : SIN_DATOS,
     indicadores.tasaRespuesta != null
-      ? `Responde al ${formatoPorcentaje(indicadores.tasaRespuesta)} de las postulaciones que recibe`
-      : 'Todavía sin suficientes postulaciones para calcularla';
-  document.getElementById('indicador-dias-respuesta').textContent =
-    indicadores.diasPromedioRespuesta != null ? `${indicadores.diasPromedioRespuesta} días en promedio` : 'Todavía sin suficientes postulaciones para calcularlo';
-  document.getElementById('indicador-tasa-cierre').textContent = `Declara el resultado en el ${formatoPorcentaje(indicadores.tasaCierreDeclarado)} de sus cierres`;
-  document.getElementById('indicador-ofertas-12m').textContent = `${indicadores.ofertasPublicadas12m} en los últimos 12 meses`;
+      ? 'de las postulaciones que recibe'
+      : 'todavía sin suficientes postulaciones');
+
+  pintarIndicador('indicador-dias-respuesta',
+    indicadores.diasPromedioRespuesta != null ? `${indicadores.diasPromedioRespuesta} días` : SIN_DATOS,
+    indicadores.diasPromedioRespuesta != null
+      ? 'en promedio para responder'
+      : 'todavía sin suficientes postulaciones');
+
+  pintarIndicador('indicador-tasa-cierre',
+    formatoPorcentaje(indicadores.tasaCierreDeclarado),
+    'de sus cierres declara el resultado');
+
+  pintarIndicador('indicador-ofertas-12m',
+    String(indicadores.ofertasPublicadas12m),
+    'en los últimos 12 meses');
 
   document.getElementById('indicadores-lista').hidden = false;
 };

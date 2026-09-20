@@ -332,3 +332,67 @@ h1, h2, .titular {
   background: var(--uah-gris-2);
   color: #fff;
 }
+
+/* ---- Panel de contenido -----------------------------------------------------------------
+   La caja blanca sobre el fondo hueso que usan las páginas de contenido (perfil de empresa,
+   detalle de oferta). Mismo tratamiento que .buscador y .card-oferta: sin esto, el perfil de una
+   empresa quedaba como texto suelto sobre el fondo y se leía como una página a medio cargar al
+   lado de la vitrina. */
+.panel {
+  background: #fff;
+  border: 1px solid var(--uah-borde);
+  border-radius: var(--bs-border-radius-lg);
+  box-shadow: var(--uah-sombra);
+  padding: 1.5rem;
+}
+
+/* Bootstrap no trae esta utilidad y hace falta en cada fila flex con texto largo: sin
+   min-width:0 un hijo flex no baja de su ancho de contenido y desborda en vez de cortarse. */
+.min-w-0 {
+  min-width: 0;
+}
+
+/* Indicadores de transparencia (docs/08-guia-visual.md). Cifra grande arriba y etiqueta abajo, no
+   una lista de definiciones: son cuatro números que se comparan entre empresas, y en formato de
+   lista había que leer cada renglón entero para encontrarlos. */
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+.indicador {
+  background: var(--uah-blanco-3);
+  border: 1px solid var(--uah-borde);
+  border-radius: var(--bs-border-radius);
+  padding: 0.85rem 1rem;
+}
+.indicador dt {
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--uah-gris-1);
+  margin-bottom: 0.2rem;
+}
+.indicador dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--uah-marengo-1);
+  /* Cifras de ancho fijo: sin esto las columnas de números bailan al comparar una empresa con
+     otra, que es justamente para lo que existen estos indicadores. */
+  font-variant-numeric: tabular-nums;
+}
+.indicador .cifra {
+  display: block;
+  font-size: 1.6rem;
+  line-height: 1.15;
+}
+.indicador .nota {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--uah-gris-1);
+  margin-top: 0.15rem;
+}

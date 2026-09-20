@@ -22,27 +22,46 @@
     <p><a href="index.html">&larr; Volver a la vitrina</a></p>
     <p id="mensaje-estado" class="text-body-secondary" hidden></p>
 
-    <article id="perfil" hidden>
-      <h1 id="perfil-nombre" class="titular"></h1>
-      <p id="perfil-giro" class="text-body-secondary"></p>
-      <p>
-        <span id="perfil-comuna"></span>
-        <a id="perfil-sitio" href="#" target="_blank" rel="noopener" class="ms-2"></a>
-      </p>
+    <article id="perfil" class="panel" hidden>
+      <header class="d-flex gap-3 align-items-start mb-4">
+        <div id="perfil-logo" class="oferta-logo" aria-hidden="true"></div>
+        <div class="min-w-0">
+          <h1 id="perfil-nombre" class="titular h3 mb-1"></h1>
+          <p id="perfil-giro" class="text-body-secondary mb-1"></p>
+          <ul class="oferta-meta">
+            <li id="perfil-comuna-item" hidden><span id="perfil-comuna"></span></li>
+            <li id="perfil-sitio-item" hidden>
+              <a id="perfil-sitio" href="#" target="_blank" rel="noopener">Sitio web</a>
+            </li>
+          </ul>
+        </div>
+      </header>
 
-      <h2 class="h5 mt-4">Indicadores</h2>
+      <h2 class="h5">Indicadores</h2>
+      <p class="small text-body-secondary">
+        Cómo trata esta empresa a quienes postulan. Se calcula con su historial real en Proxi, no lo
+        declara la empresa.
+      </p>
       <p id="indicadores-sin-historial" class="text-body-secondary" hidden>
         Todavía no tiene suficiente historial de ofertas cerradas para mostrar indicadores.
       </p>
-      <dl id="indicadores-lista" class="row" hidden>
-        <dt class="col-sm-4">Tasa de respuesta</dt>
-        <dd class="col-sm-8" id="indicador-tasa-respuesta"></dd>
-        <dt class="col-sm-4">Días promedio de respuesta</dt>
-        <dd class="col-sm-8" id="indicador-dias-respuesta"></dd>
-        <dt class="col-sm-4">Cierres con resultado declarado</dt>
-        <dd class="col-sm-8" id="indicador-tasa-cierre"></dd>
-        <dt class="col-sm-4">Ofertas publicadas (12 meses)</dt>
-        <dd class="col-sm-8" id="indicador-ofertas-12m"></dd>
+      <dl id="indicadores-lista" class="indicadores" hidden>
+        <div class="indicador">
+          <dt>Tasa de respuesta</dt>
+          <dd id="indicador-tasa-respuesta"></dd>
+        </div>
+        <div class="indicador">
+          <dt>Demora en responder</dt>
+          <dd id="indicador-dias-respuesta"></dd>
+        </div>
+        <div class="indicador">
+          <dt>Resultado declarado</dt>
+          <dd id="indicador-tasa-cierre"></dd>
+        </div>
+        <div class="indicador">
+          <dt>Ofertas publicadas</dt>
+          <dd id="indicador-ofertas-12m"></dd>
+        </div>
       </dl>
     </article>
   </main>
