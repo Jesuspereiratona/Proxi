@@ -13,6 +13,11 @@ module.exports = [
         console: 'readonly',
         Buffer: 'readonly',
         URL: 'readonly',
+        // Globales del runtime de Node 20 que usan los scripts de apps/api/scripts (fetch contra la
+        // API desplegada, FormData/Blob para subir un CV en el script de datos de demostración).
+        fetch: 'readonly',
+        FormData: 'readonly',
+        Blob: 'readonly',
         // Lo usa el apagado ordenado de server.js. Faltaba, y `npm run lint` venía fallando con
         // no-undef desde que se agregó ese temporizador (encontrado al preparar el despliegue).
         setTimeout: 'readonly',
