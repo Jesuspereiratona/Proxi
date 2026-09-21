@@ -1,3 +1,41 @@
+## 2026-09-21 · Retención de `auditoria_accesos`: anonimizar primero, borrar mucho después
+
+La casilla decía "fijar una ventana y una tarea de purga". La decisión real era otra, y aparece al
+mirar qué guarda una fila de auditoría: **dos cosas con vida útil distinta**.
+
+| Parte | Para qué sirve | Cuánto hace falta |
+|---|---|---|
+| quién, qué, cuándo | demostrar que el acceso ocurrió | años |
+| `ip`, `user_agent` | investigar una brecha: desde dónde, con qué | meses |
+
+Borrar la fila entera a los 12 meses tira la evidencia junto con el dato de red. Dejarla intacta
+guarda la IP de una persona —incluida alguien que ya ejerció su supresión— mucho después de que
+sirva para algo. **Dos etapas**: a los 12 meses se anulan `ip` y `user_agent`, a los 24 se borra la
+fila. Las dos ventanas por variable de entorno, y la app **no arranca** si el borrado quedara antes
+que la anonimización: al revés, la etapa de anonimización no existiría en la práctica y nadie se
+enteraría.
+
+**Orden dentro de la tarea, que no es indiferente.** El borrado va primero. Al revés, las filas más
+viejas se anonimizarían en la misma corrida en que iban a borrarse, y el conteo de "anonimizadas"
+incluiría filas que ya no existen — un número que no significa nada para quien lea el log.
+
+**Idempotencia por el `WHERE`, no por suerte.** El `UPDATE` exige que quede algo que anular
+(`ip IS NOT NULL OR user_agent IS NOT NULL`). Sin eso, cada corrida diaria reescribiría para siempre
+las mismas filas ya anonimizadas y el conteo nunca bajaría a cero.
+
+**Un defecto viejo que apareció de paso, y es de una clase que se repite.** `Number(x) || 12`
+convierte un **0** en el default, porque 0 es falsy. Es decir, `RETENCION_CV_MESES=0` arrancaba con
+12 en silencio — lo contrario de lo que quiere quien escribió ese 0. Lo detecté probando mi propio
+criterio 8 de la spec, que exigía que un cero no arrancara. Ahora un helper distingue "no hay
+variable" de "hay una variable con un valor malo", y cubre los cuatro plazos, no solo los nuevos.
+
+**La prueba del disparador externo atrapó la tarea nueva**, porque afirma la lista exacta de tareas.
+Se actualizó a mano y sigue siendo exacta: una tarea que no se sume al disparador **no correría
+nunca** en el plan gratuito, donde el cron interno duerme con el proceso. Esa aserción vale
+justamente por eso.
+
+492 pruebas de API + 63 de web, verdes. Siete pruebas nuevas, una por criterio de la spec.
+
 ## 2026-09-20 (6) · La auditoría del despliegue: un agujero de supresión que yo mismo abrí
 
 `auditor-seguridad` sobre los dos commits del día. Los dos puntos de máxima prioridad quedaron

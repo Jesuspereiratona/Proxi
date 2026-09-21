@@ -102,8 +102,16 @@ if (cookieSameSite === 'none' && !esProduccion) {
 // Ley 21.719 (docs/03-seguridad.md): CV y perfil se eliminan tras esta inactividad, con aviso
 // previo. RETENCION_CV_MESES ya estaba en .env/.env.example desde una fase anterior, sin que nada
 // la leyera todavía — el default de acá replica el valor que ya traían (12), no uno nuevo.
-const retencionCvMeses = Number(process.env.RETENCION_CV_MESES) || 12;
-const retencionAvisoDias = Number(process.env.RETENCION_AVISO_DIAS) || 30;
+// `Number(x) || default` convierte un 0 en el default, porque 0 es falsy. Es decir, poner
+// RETENCION_CV_MESES=0 arrancaba con 12 sin decir nada, que es justo lo contrario de lo que quiere
+// quien escribió ese 0. Se distingue "no hay variable" de "hay una variable con un valor malo".
+const leerPlazo = (nombre, porDefecto) => {
+  const crudo = process.env[nombre];
+  return crudo === undefined || crudo.trim() === '' ? porDefecto : Number(crudo);
+};
+
+const retencionCvMeses = leerPlazo('RETENCION_CV_MESES', 12);
+const retencionAvisoDias = leerPlazo('RETENCION_AVISO_DIAS', 30);
 
 // Sin esto, un valor negativo o mal puesto no fallaba al arrancar — solo se notaba la noche que la
 // tarea de retención lo usara para decidir a quién borrar. Con retencionCvMeses negativo, todo el
@@ -117,6 +125,25 @@ if (!Number.isInteger(retencionAvisoDias) || retencionAvisoDias <= 0) {
 }
 if (retencionAvisoDias >= retencionCvMeses * 28) {
   throw new Error('RETENCION_AVISO_DIAS debe ser menor que RETENCION_CV_MESES en días (usando 28 días/mes como piso).');
+}
+
+// Retención de auditoria_accesos en dos etapas (specs/11-retencion-de-auditoria/spec.md). Una fila
+// de auditoría tiene dos partes con vida útil distinta: quién accedió a qué y cuándo sirve de
+// evidencia durante años; la IP y el navegador solo sirven para investigar una brecha reciente.
+// Por eso primero se anula el dato de red y mucho después se borra la fila.
+const retencionAuditoriaMeses = leerPlazo('RETENCION_AUDITORIA_MESES', 12);
+const borradoAuditoriaMeses = leerPlazo('RETENCION_AUDITORIA_BORRADO_MESES', 24);
+
+if (!Number.isInteger(retencionAuditoriaMeses) || retencionAuditoriaMeses <= 0) {
+  throw new Error('RETENCION_AUDITORIA_MESES debe ser un entero positivo.');
+}
+if (!Number.isInteger(borradoAuditoriaMeses) || borradoAuditoriaMeses <= 0) {
+  throw new Error('RETENCION_AUDITORIA_BORRADO_MESES debe ser un entero positivo.');
+}
+// Al revés se borraría la fila antes de llegar a anonimizarla, y la etapa de anonimización no
+// existiría en la práctica. Es un error de configuración silencioso: mejor no arrancar.
+if (borradoAuditoriaMeses < retencionAuditoriaMeses) {
+  throw new Error('RETENCION_AUDITORIA_BORRADO_MESES no puede ser menor que RETENCION_AUDITORIA_MESES: se borraría la fila antes de anonimizarla.');
 }
 
 const env = {
@@ -160,6 +187,8 @@ const env = {
   slaRespuestaDias: Number(process.env.SLA_RESPUESTA_DIAS) || 15,
   retencionCvMeses,
   retencionAvisoDias,
+  retencionAuditoriaMeses,
+  borradoAuditoriaMeses,
   // Ya NO se escribe nada acá: los CV viven en archivos.contenido desde la bitácora 2026-09-20.
   // Lo único que sigue leyendo esta ruta es scripts/migrar-cv-a-la-base.js, que sube a la base los
   // archivos que quedaron en disco antes del cambio. Se puede borrar cuando no queden.

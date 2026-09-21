@@ -49,12 +49,14 @@ describe('POST /tareas/ejecucion', () => {
     assert.equal(respuesta.status, 404);
   });
 
-  test('con el secreto correcto corre las cuatro tareas y devuelve el estado de cada una', async () => {
+  test('con el secreto correcto corre todas las tareas y devuelve el estado de cada una', async () => {
     const respuesta = await request(app).post(RUTA).set('X-Tareas-Token', SECRETO);
     assert.equal(respuesta.status, 200);
     assert.deepEqual(
       Object.keys(respuesta.body.tareas).sort(),
-      ['cerrarOfertasVencidas', 'marcarSinRespuesta', 'procesarRetencionCv', 'recalcularIndicadores'],
+      // Lista exacta a propósito: una tarea nueva que no se sume acá al disparador externo no
+      // correría nunca en el plan gratuito, donde el cron interno duerme con el proceso.
+      ['cerrarOfertasVencidas', 'marcarSinRespuesta', 'procesarRetencionAuditoria', 'procesarRetencionCv', 'recalcularIndicadores'],
     );
     for (const [nombre, estado] of Object.entries(respuesta.body.tareas)) {
       assert.equal(estado.huboError, false, `${nombre} dejó huboError en true`);

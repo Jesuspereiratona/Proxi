@@ -272,11 +272,10 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
 - [ ] Hueco 3 del simulacro: poder notificar por correo a N personas afectadas (hoy solo transaccional)
 - [ ] Hueco 5 del simulacro: la llave de cifrado se respalda **separada** de la base
 - [ ] Hueco 6 del simulacro: definir retención de logs (si la brecha se detecta tarde, tiene que haber con qué investigar)
-- [ ] Retención de `auditoria_accesos`: hoy crece sin límite y guarda `usuario_id` + `ip` +
-      `user_agent` para siempre, incluso de cuentas ya suprimidas — `eliminarCuenta` no la toca a
-      propósito (es evidencia), pero el otro extremo quedó abierto. Fijar una ventana en
-      `docs/03-seguridad.md` (12–24 meses cubre las 72 h de notificación y la revisión anual) y una
-      tarea de purga con el patrón de `procesarRetencion`
+- [x] Retención de `auditoria_accesos` en dos etapas (`specs/11-retencion-de-auditoria/`): a los 12
+      meses se anulan `ip` y `user_agent`, a los 24 se borra la fila. No es un borrado a secas
+      porque la fila tiene dos partes con vida útil distinta: "quién accedió a qué y cuándo" es
+      evidencia durante años, la IP solo sirve para investigar una brecha reciente
 - [x] CI ejercita el `down` de las migraciones (`db:migrate:undo:all` + `db:migrate` después de
       `npm test`): un `down` roto solo se descubría al revertir un despliegue, el peor momento posible
 - [x] Imagen de la API (`Dockerfile`, dos etapas, sin dependencias de desarrollo, usuario `node` no

@@ -153,8 +153,11 @@ si no, `aprobado_at` → aprobado; si no, pendiente), y de paso queda registrado
   Se guarda el hash del token, nunca el token.
 - **consentimientos**: `usuario_id`, `version_politica`, `otorgado_at`, `revocado_at`. Sin un registro
   aquí no se pueden tratar los datos del estudiante.
-- **auditoria_accesos**: `usuario_id`, `accion`, `entidad`, `entidad_id`, `ip`, `created_at`. Registra
-  quién vio o descargó datos personales de otro. Exigido por la Ley 21.719.
+- **auditoria_accesos**: `usuario_id`, `accion`, `entidad`, `entidad_id`, `ip`, `user_agent`,
+  `created_at`. Registra quién vio o descargó datos personales de otro. Exigido por la Ley 21.719.
+  Append-only: `eliminarCuenta` no la toca, porque es evidencia. Su retención es en dos etapas —
+  `ip` y `user_agent` se anulan a los 12 meses y la fila se borra a los 24
+  (`specs/11-retencion-de-auditoria/`).
 
 ## Máquinas de estado
 
