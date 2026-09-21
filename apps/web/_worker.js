@@ -26,11 +26,35 @@ export default {
 
     if (url.pathname.startsWith('/api/')) {
       const destino = new URL(url.pathname + url.search, ORIGEN_API);
-      // new Request(destino, request) copia método, encabezados y cuerpo; fetch pone el Host. Las
-      // cookies viajan en el encabezado `cookie` y las Set-Cookie vuelven tal cual: al salir por
-      // este dominio, el navegador las guarda como propias. La respuesta no se toca — los
-      // encabezados de seguridad que pone helmet tienen que llegar intactos.
-      return fetch(new Request(destino, request));
+
+      // El cuerpo se lee entero antes de reenviarlo, en vez de pasar el flujo tal cual: reenviar
+      // `request.body` como flujo devolvía 502 en los POST (medido contra producción — GET pasaba,
+      // login no). Lo más grande que sube Proxi es un CV de 5 MB, que cabe de sobra en la memoria
+      // de un Worker.
+      const cuerpo = request.method === 'GET' || request.method === 'HEAD'
+        ? undefined
+        : await request.arrayBuffer();
+
+      try {
+        // Las cookies viajan en el encabezado `cookie` y las Set-Cookie vuelven tal cual: al salir
+        // por este dominio, el navegador las guarda como propias. La respuesta no se toca — los
+        // encabezados de seguridad que pone helmet tienen que llegar intactos.
+        return await fetch(destino, {
+          method: request.method,
+          headers: request.headers,
+          body: cuerpo,
+          // Una redirección de la API es decisión del navegador, no de este proxy.
+          redirect: 'manual',
+        });
+      } catch (error) {
+        // Sin esto, cualquier tropiezo sale como un 502 pelado de Cloudflare, imposible de
+        // diagnosticar. El servicio gratuito de Render duerme a los 15 minutos y la primera
+        // petición tarda ~50 s: este es el caso que más va a aparecer.
+        return new Response(
+          JSON.stringify({ error: { codigo: 'API_NO_DISPONIBLE', mensaje: `No se pudo contactar la API: ${error.message}` } }),
+          { status: 502, headers: { 'content-type': 'application/json; charset=utf-8' } },
+        );
+      }
     }
 
     // Todo lo demás lo sirve el sitio estático, con su propio manejo de rutas y 404.
