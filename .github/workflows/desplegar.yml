@@ -44,9 +44,24 @@ jobs:
         run: curl -sS --fail -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" > /dev/null
 
       - name: Esperar a que la API responda con el código nuevo
-        # Sin esto el flujo termina en verde apenas se dispara el despliegue, aunque el contenedor
-        # nuevo no arranque. --retry-all-errors cubre los 502 del rato en que Render cambia de
-        # contenedor.
+        # Espera a ver ESTE commit en /salud, no solo a que la API conteste. Mientras Render
+        # construye el contenedor nuevo —minutos— la instancia vieja sigue respondiendo 200, así que
+        # preguntar "¿responde?" daba verde de inmediato y el paso no comprobaba nada (encontrado al
+        # estrenar el despliegue: el flujo dio verde con la API vieja arriba hacía 972 segundos).
         run: |
-          curl -sS --fail --retry 20 --retry-all-errors --retry-delay 15 --max-time 60 \
-            "${{ secrets.API_URL }}/api/v1/salud"
+          esperado=$(echo "${{ github.sha }}" | cut -c1-7)
+          for intento in $(seq 1 40); do
+            version=$(curl -sS --max-time 30 "${{ secrets.API_URL }}/api/v1/salud" | node -e "
+              let d = '';
+              process.stdin.on('data', (c) => { d += c; });
+              process.stdin.on('end', () => { try { console.log(JSON.parse(d).version || ''); } catch { console.log(''); } });
+            ")
+            if [ "$version" = "$esperado" ]; then
+              echo "Desplegado y verificado: $esperado"
+              exit 0
+            fi
+            echo "intento $intento: corriendo '$version', esperando '$esperado'"
+            sleep 15
+          done
+          echo "::error::El codigo nuevo no llego a produccion en 10 minutos. Revisar los logs de Render."
+          exit 1

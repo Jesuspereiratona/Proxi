@@ -13,6 +13,16 @@ describe('GET /api/v1/salud', () => {
     assert.equal(typeof respuesta.body.baseDeDatos.ok, 'boolean');
   });
 
+  test('publica el commit desplegado, que es de lo que depende el flujo de despliegue', async () => {
+    // .github/workflows/desplegar.yml espera a ver ESTE commit acá antes de darse por terminado.
+    // Si el campo desaparece o cambia de nombre, ese paso quedaría esperando para siempre y el
+    // despliegue fallaría a los 10 minutos sin decir por qué.
+    const respuesta = await request(app).get('/api/v1/salud');
+    assert.ok('version' in respuesta.body, 'falta el campo version');
+    // Fuera de Render no hay RENDER_GIT_COMMIT: null es la respuesta honesta, no una cadena vacía.
+    assert.ok(respuesta.body.version === null || typeof respuesta.body.version === 'string');
+  });
+
   test('nunca revela detalles del error de base de datos fuera de desarrollo', async () => {
     const respuesta = await request(app).get('/api/v1/salud');
 
