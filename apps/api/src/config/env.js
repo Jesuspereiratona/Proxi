@@ -124,7 +124,6 @@ const env = {
   esProduccion,
   esDesarrollo: process.env.NODE_ENV === 'development',
   puerto,
-  apiUrl: process.env.API_URL || `http://localhost:${puerto}`,
   webUrl: process.env.WEB_URL,
   db: dbDeUrl ?? {
     host: process.env.DB_HOST,

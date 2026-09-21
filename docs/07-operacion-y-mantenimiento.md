@@ -83,6 +83,10 @@ NODE_ENV=production DATABASE_URL='<la de Neon>' CUENTAS_DEMO_CLAVE='<una tuya, 1
 Son cuentas de demostración, no de personas: **se borran en cuanto el proyecto reciba usuarios
 reales.**
 
+**`API_URL` es un secreto de GitHub, no una variable de la API.** La API no la lee (no existe en el
+código); los flujos de Actions la usan para saber a qué dirección llamar. En Render no hay que
+ponerla.
+
 **`API_URL` es el origen pelado, sin `/api/v1`** (`https://proxi-api.onrender.com`). Los flujos le
 agregan la ruta completa. Si se carga con el prefijo, los `curl` dan 404: el flujo falla ruidoso,
 pero mientras nadie lo mire, la eliminación por retención —una obligación legal— deja de correr.

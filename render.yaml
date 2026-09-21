@@ -46,8 +46,6 @@ services:
       # Lista blanca de CORS. Es el dominio de la web, no el de la API.
       - key: WEB_URL
         sync: false
-      - key: API_URL
-        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_USER
