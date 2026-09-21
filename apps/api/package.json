@@ -9,6 +9,7 @@
     "start": "node src/server.js",
     "test": "node --require ./scripts/entorno-prueba.js --test",
     "db:migrate": "sequelize-cli db:migrate",
+    "db:migrate:undo:all": "sequelize-cli db:migrate:undo:all",
     "db:seed": "sequelize-cli db:seed:all",
     "revocar-sesiones": "node scripts/revocar-todas-las-sesiones.js",
     "migrar-cv": "node scripts/migrar-cv-a-la-base.js",

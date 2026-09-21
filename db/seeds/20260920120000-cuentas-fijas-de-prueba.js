@@ -138,11 +138,9 @@ module.exports = {
       },
     ]);
 
-    /* eslint-disable no-console */
     console.log(`\n  Cuentas fijas de prueba listas. Clave para todas: ${CLAVE}`);
     CUENTAS.forEach((c) => console.log(`   ${c.correo.padEnd(40)}${c.rol.padEnd(14)}${c.nota}`));
     console.log('');
-    /* eslint-enable no-console */
   },
 
   async down(queryInterface) {

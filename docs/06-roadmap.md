@@ -277,14 +277,26 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
       propósito (es evidencia), pero el otro extremo quedó abierto. Fijar una ventana en
       `docs/03-seguridad.md` (12–24 meses cubre las 72 h de notificación y la revisión anual) y una
       tarea de purga con el patrón de `procesarRetencion`
-- [ ] CI nunca ejercita el `down` de las migraciones: un `down` roto se descubre en producción, en el
-      peor momento. Agregar `db:migrate:undo` + `db:migrate` después de `npm test` en `ci.yml`
+- [x] CI ejercita el `down` de las migraciones (`db:migrate:undo:all` + `db:migrate` después de
+      `npm test`): un `down` roto solo se descubría al revertir un despliegue, el peor momento posible
+- [x] Imagen de la API (`Dockerfile`, dos etapas, sin dependencias de desarrollo, usuario `node` no
+      root, `dumb-init` como PID 1). Verificada corriendo: `/salud` en ok contra la base real y
+      `docker stop` con código de salida 0 en 696 ms con la secuencia completa del apagado ordenado
+- [x] Despliegue descrito en el repositorio (`render.yaml` + `.github/workflows/desplegar.yml`), con
+      `autoDeploy: false` para que las migraciones corran SIEMPRE antes del código nuevo
+- [x] Las tareas nocturnas corren aunque el proceso duerma: `POST /api/v1/tareas/ejecucion` con
+      secreto compartido, disparado por `.github/workflows/tareas-nocturnas.yml`. Sin esto, en plan
+      gratuito el `node-cron` interno no se ejecuta nunca y Proxi deja de cumplir su promesa central
+- [x] Runbook de despliegue en `docs/07-operacion-y-mantenimiento.md`: qué corre dónde, por qué, y
+      qué hay que crear a mano la primera vez
 - [ ] `ofertas.area` es `z.string()` libre, así que conviven `control-gestion`, `Auditoria` y
       `marketing` en la misma vitrina. El **filtro** ya no depende de eso (pasó a `iLike` parcial el
       2026-09-20, con los comodines escapados), y `etiquetaArea` lo maquilla al mostrarlo; lo que
       falta es el fondo: una lista controlada de áreas en el backend más una migración que normalice
       lo ya guardado. Sin eso no hay agrupación ni conteo por área confiables
-- [ ] Runbook de operación en `07-operacion-y-mantenimiento.md`
+- [ ] Runbook de *incidentes* en `07-operacion-y-mantenimiento.md`: el de despliegue ya está; falta
+      el de qué hacer cuando algo se cae en producción, que solo se puede escribir con producción
+      arriba
 
 ---
 

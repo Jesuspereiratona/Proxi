@@ -29,6 +29,7 @@ const CAMPOS_CENSURADOS = [
   'req.headers.authorization',
   'req.headers.cookie',
   'req.headers["x-csrf-token"]',
+  'req.headers["x-tareas-token"]',
   'res.headers["set-cookie"]',
   ...NOMBRES_SENSIBLES,
   ...NOMBRES_SENSIBLES.map((campo) => `*.${campo}`),

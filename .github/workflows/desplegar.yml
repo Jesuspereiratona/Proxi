@@ -1,0 +1,52 @@
+# Despliegue de la API. El orden importa y por eso no se deja en manos del autodespliegue de Render:
+# primero las migraciones, después el código nuevo. Al revés, el código nuevo arranca contra un
+# esquema viejo y falla en la primera petición.
+#
+# Las migraciones corren desde acá y no dentro del contenedor porque `sequelize-cli` es dependencia
+# de desarrollo y no viaja en la imagen de producción (ver Dockerfile).
+name: Desplegar
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Un despliegue a la vez: dos corridas en paralelo podrían aplicar migraciones encimadas.
+concurrency:
+  group: despliegue-produccion
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+    # Pide el entorno `produccion` de GitHub: ahí viven los secretos y, si se configura, la
+    # aprobación manual antes de tocar la base real.
+    environment: produccion
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Migraciones
+        env:
+          NODE_ENV: production
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          WEB_URL: ${{ secrets.WEB_URL }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          RUT_CIFRADO_KEY: ${{ secrets.RUT_CIFRADO_KEY }}
+        run: npm run db:migrate -w apps/api
+
+      - name: Desplegar en Render
+        run: curl -sS --fail -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" > /dev/null
+
+      - name: Esperar a que la API responda con el código nuevo
+        # Sin esto el flujo termina en verde apenas se dispara el despliegue, aunque el contenedor
+        # nuevo no arranque. --retry-all-errors cubre los 502 del rato en que Render cambia de
+        # contenedor.
+        run: |
+          curl -sS --fail --retry 20 --retry-all-errors --retry-delay 15 --max-time 60 \
+            "${{ secrets.API_URL }}/salud"

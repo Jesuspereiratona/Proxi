@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+.git
+.github
+.env
+.env.*
+!.env.example
+almacenamiento
+docs
+specs
+apps/api/tests
+# La web es HTML estático y va a otro hosting. Su package.json sí entra: `npm ci` con workspaces
+# necesita el manifiesto de cada uno para resolver el árbol, aunque no instale sus dependencias.
+apps/web/*
+!apps/web/package.json
+*.log
+coverage

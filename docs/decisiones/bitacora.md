@@ -1,3 +1,68 @@
+## 2026-09-20 (5) · El despliegue queda escrito en el repositorio: Docker, Render, Neon y un cron externo
+
+**El problema de fondo, que no es técnico.** Proxi corre en planes gratuitos. El de Render duerme el
+proceso tras 15 minutos sin tráfico. Un `node-cron` dormido no corre nunca — y las cuatro tareas
+nocturnas son literalmente la diferencia central del proyecto: *ninguna oferta publicada sin
+vigencia, ninguna postulación sin respuesta*. Desplegar sin resolver esto habría dejado en línea una
+versión de Proxi que no hace lo que Proxi promete, y nadie se habría enterado hasta revisar la base
+semanas después.
+
+**Decisión 1 — las tareas se disparan desde afuera.** `POST /api/v1/tareas/ejecucion`, llamado por
+`.github/workflows/tareas-nocturnas.yml` a las 06:00 UTC. El flujo primero despierta la API con
+`/salud` (un servicio dormido tarda ~50 s en contestar) y recién después dispara las tareas, para
+que la petición que sí escribe no muera en el arranque.
+
+La ruta **no usa JWT**, y es la primera del proyecto que no lo usa. Quien llama es un cron: no es una
+persona, no tiene sesión y no puede refrescar un token de 15 minutos. Las alternativas eran peores:
+un rol nuevo en `usuarios` para el cron sería una cuenta con contraseña eterna. Entonces, un secreto
+compartido, con tres cuidados que no son adorno:
+- **Comparación en tiempo constante sobre el SHA-256 de cada lado.** `===` corta en el primer byte
+  distinto y filtra por tiempo cuántos caracteres se acertaron; `timingSafeEqual` a secas lanza si
+  los largos difieren, lo que filtra el largo del secreto. El hash deja ambos lados en 32 bytes fijos.
+- **404, nunca 401.** Sin secreto, con secreto equivocado, o sin `TAREAS_TOKEN` configurado, la
+  respuesta es idéntica a la de cualquier URL inventada. Un 401 confirmaría que el endpoint está ahí
+  esperando el secreto correcto. Mismo criterio que ya usa `archivos.service.js` para no confirmar la
+  existencia de un CV ajeno.
+- **El secreto va en un encabezado y queda censurado en el log.** `X-Tareas-Token` se sumó a la lista
+  de `config/logger.js`. Las URL terminan en logs de proxies y en el historial de Actions; los
+  encabezados sensibles ya tenían su lugar en ese archivo desde la Fase 1.
+
+**Decisión 2 — tres proveedores, no uno.** Render corre la API (Docker: las tareas y el pool de
+conexiones necesitan un proceso vivo, no un serverless que muere a los 10 s). La base va a **Neon**,
+no al Postgres gratuito de Render, por una razón que no admite discusión: el de Render **se borra a
+los 30 días**. Además Neon soporta `pgcrypto`, sin el cual Proxi no puede cifrar el RUT. La web es
+HTML estático y va a un hosting de archivos.
+
+La consecuencia es que la web y la API quedan en dominios distintos, y de ahí salen tres ajustes que
+parecen sueltos y son el mismo hecho: `WEB_URL` en la lista blanca de CORS, `COOKIE_SAMESITE=none`, y
+`API_EN_PRODUCCION` en `apps/web/assets/js/config.js`. Quedó escrito así en `docs/07`.
+
+**Decisión 3 — `autoDeploy: false`.** Render despliega solo en cada push por defecto. Con eso, el
+código nuevo arranca contra el esquema viejo y falla en la primera petición. El despliegue lo dispara
+`.github/workflows/desplegar.yml` **después** de correr las migraciones, y espera a que `/salud`
+conteste antes de darse por terminado — si no, el flujo quedaba verde aunque el contenedor nuevo no
+levantara. Las migraciones corren desde el flujo y no dentro del contenedor porque `sequelize-cli` es
+dependencia de desarrollo y no viaja en la imagen de producción.
+
+**De paso, dos casillas viejas de Fase 8.** CI ahora ejercita el `down` de las migraciones
+(`db:migrate:undo:all` + `db:migrate`): un `down` roto solo se descubría al revertir un despliegue,
+que es el peor momento posible. Y `dumb-init` entra como PID 1 del contenedor.
+
+**Un error propio, atrapado por las pruebas.** El `config.js` nuevo leía `window.location.hostname`
+directo. Las pruebas de `apps/web` importan esos módulos en Node, donde `window` no existe, y el
+archivo reventaba al cargarse. `globalThis.location?.hostname ?? ''` lo arregla y además cae en la
+rama local durante las pruebas, que es la correcta ahí.
+
+**Verificado en ejecución, no leído.** Imagen construida y corrida contra la base real: `/salud` en
+`ok`, la vitrina devolviendo ofertas de verdad, el disparador respondiendo 404 sin secreto y 200 con
+él (cerró 1 oferta vencida en esa misma corrida), `id` = `uid=1000(node)` — no root —, `dumb-init`
+como PID 1 con Node de hijo, y `docker stop` con **código de salida 0 en 696 ms** y la secuencia
+completa del apagado ordenado en el log. 479 pruebas de API + 59 de web, verdes.
+
+**Lo que sigue faltando para Fase 8**, y no se disimula: respaldos con restauración probada, rotación
+de secretos, DPA con cada proveedor, HTTPS forzado, monitoreo con aviso, y la retención de
+`auditoria_accesos`.
+
 ## 2026-09-20 (4) · Los CV siguen al logo: fuera del disco, dentro de la base
 
 **Contexto.** La entrada anterior mudó los logos a `archivos.contenido` por una razón de despliegue:

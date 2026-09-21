@@ -137,6 +137,11 @@ const env = {
   },
   mailFrom: process.env.MAIL_FROM || 'Proxi <no-responder@proxi.cl>',
   rutCifradoKey: process.env.RUT_CIFRADO_KEY,
+  // Secreto del disparador externo de las tareas nocturnas. Sin valor, la ruta responde 404 y las
+  // tareas corren solo con el cron interno: es la configuración correcta cuando el proceso no
+  // duerme (docs/07-operacion-y-mantenimiento.md). No tiene default a propósito — un default
+  // conocido en un repositorio público sería una llave publicada.
+  tareasToken: process.env.TAREAS_TOKEN || '',
   cookieSameSite,
   // Regla de negocio, no un secreto: default igual al de .env.example si no está seteada.
   plazoDeclararCierreDias: Number(process.env.PLAZO_DECLARAR_CIERRE_DIAS) || 7,

@@ -12,13 +12,75 @@ Un proyecto que solo corre en el computador de quien lo escribió no está termi
 Las tres se configuran solo con variables de entorno. El código es idéntico. Si hay un `if (entorno
 === 'produccion')` con lógica de negocio adentro, está mal.
 
+## Dónde corre cada cosa
+
+Tres proveedores, todos en plan gratuito. La separación no es un capricho: cada uno está donde
+está por un motivo concreto.
+
+| Pieza | Dónde | Por qué ahí |
+|---|---|---|
+| API | Render (Docker, plan free) | Corre un contenedor de verdad, no una función. Las tareas programadas y las conexiones a Postgres necesitan un proceso, no un serverless que muere a los 10 s |
+| Base de datos | Neon (plan free) | Soporta `pgcrypto`, que Proxi necesita para cifrar el RUT. El Postgres gratuito de Render **se borra a los 30 días**; el de Neon no caduca |
+| Web | Cloudflare Pages o Vercel | Es HTML estático servido tal cual. No necesita servidor |
+| Tareas nocturnas | GitHub Actions (cron) | En el plan gratuito el proceso duerme tras 15 min sin tráfico, y un `node-cron` dormido no corre nunca |
+
+**La consecuencia más importante de esto:** la web y la API quedan en dominios distintos. De ahí
+salen tres ajustes que parecen sueltos y son el mismo hecho — `WEB_URL` en la lista blanca de CORS,
+`COOKIE_SAMESITE=none` en la cookie de sesión, y `API_EN_PRODUCCION` en
+`apps/web/assets/js/config.js`.
+
+Lo que **no** está en la nube y sigue siendo trabajo manual: respaldos probados, rotación de
+secretos y el DPA con cada proveedor. Están en el roadmap de Fase 8, sin marcar.
+
 ## Despliegue
-1. Rama fusionada a `main` con CI en verde
-2. `npm ci --omit=dev`
-3. `npm run db:migrate` — **las migraciones corren antes de arrancar la app nueva**
-4. Reinicio del proceso
-5. Verificar `GET /api/v1/salud`
-6. Anotar en la bitácora qué se desplegó
+
+Automático: cada push a `main` dispara `.github/workflows/desplegar.yml`, que hace las migraciones
+**antes** de levantar el código nuevo y espera a que `/salud` responda. Por eso el blueprint lleva
+`autoDeploy: false` — con el autodespliegue de Render, el código nuevo arranca contra el esquema
+viejo y falla en la primera petición.
+
+```
+push a main → CI en verde → db:migrate → deploy hook de Render → esperar /salud
+```
+
+Si algo sale mal, revertir es en el orden inverso: primero el proceso vuelve a la versión anterior
+(Render guarda los despliegues previos), **después** `npm run db:migrate:undo -w apps/api`. El
+porqué está tres párrafos más abajo.
+
+### Primera vez: qué hay que crear a mano
+
+1. **Neon**: proyecto nuevo, copiar la cadena de conexión y correr una vez
+   `CREATE EXTENSION IF NOT EXISTS pgcrypto;`
+2. **Render**: nuevo Blueprint apuntando a este repositorio (lee `render.yaml`), cargar las
+   variables marcadas `sync: false`, y copiar el *deploy hook*.
+3. **Cloudflare Pages / Vercel**: sitio estático con raíz `apps/web`, sin paso de compilación.
+   Después, poner ese dominio en `WEB_URL` (Render) y en `API_EN_PRODUCCION`
+   (`apps/web/assets/js/config.js`).
+4. **GitHub**: en *Settings → Secrets*, entorno `produccion`, cargar `DATABASE_URL`, los dos
+   secretos JWT, `RUT_CIFRADO_KEY`, `WEB_URL`, `API_URL`, `TAREAS_TOKEN` y `RENDER_DEPLOY_HOOK`.
+
+Los secretos se generan con `openssl rand -base64 32`, uno distinto por variable y distinto del de
+desarrollo. Ver la skill `manejo-de-secretos`.
+
+### Las tareas nocturnas
+
+`.github/workflows/tareas-nocturnas.yml` corre a las 06:00 UTC: despierta la API con `/salud` (un
+servicio dormido tarda ~50 s en responder el primer pedido) y recién después llama a
+`POST /api/v1/tareas/ejecucion` con el secreto `TAREAS_TOKEN` en un encabezado, nunca en la URL.
+
+Esa ruta **no usa JWT**: la llama un cron, que no es una persona y no tiene sesión. Sin
+`TAREAS_TOKEN` configurado responde 404 —igual que cualquier URL inventada— y con un secreto
+equivocado también: quien no lo trae no tiene por qué enterarse de que acertó la dirección.
+
+El cron interno de la API sigue programado. Si algún día el proceso deja de dormir, las tareas
+corren por los dos lados sin problema: son idempotentes.
+
+### Migrar CV que quedaron en disco
+
+Solo aplica a instalaciones anteriores al 2026-09-20, cuando los CV se guardaban en
+`almacenamiento/cv`. `npm run migrar-cv -w apps/api` los sube a la base. Es idempotente y se corre a
+mano, en la máquina que todavía tiene los archivos — no es una migración de Sequelize porque
+`db:migrate` corre en el despliegue, donde ese disco no existe.
 
 Migraciones: siempre reversibles (`up` y `down`), nunca destructivas en un solo paso. Para eliminar una
 columna: primero dejar de usarla y desplegar, después borrarla en un despliegue posterior. Así un
@@ -32,7 +94,9 @@ explícita — si el proceso nuevo sigue corriendo cuando se le quita una column
 
 ## Respaldos
 - Diario automático de la base, retención 30 días.
-- Los CVs entran en el respaldo desde la fase 4.
+- **Los CV entran completos en el respaldo**: desde el 2026-09-20 los bytes viven en
+  `archivos.contenido`, no en un disco aparte. Un respaldo filtrado expone los CV enteros; tratarlo
+  con el mismo cuidado que a la base (`docs/09-procedimiento-de-brecha.md`).
 - **Restauración probada cada 3 meses.** Un respaldo que nunca se restauró no es un respaldo, es una
   esperanza. Se anota la fecha de la última prueba en la bitácora.
 

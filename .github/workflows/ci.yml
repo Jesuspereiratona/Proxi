@@ -43,5 +43,11 @@ jobs:
       - run: npm run lint --if-present
       - run: npm run db:migrate --if-present
       - run: npm test
+      - name: Las migraciones se pueden deshacer
+        # Un `down` roto solo se descubre cuando hay que revertir un despliegue, que es el peor
+        # momento posible. Deshacer todo y volver a aplicar prueba las dos direcciones.
+        run: |
+          npm run db:migrate:undo:all -w apps/api
+          npm run db:migrate -w apps/api
       - name: Auditoria de dependencias
         run: npm audit --audit-level=high

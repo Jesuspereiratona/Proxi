@@ -8,6 +8,7 @@ const postulacionesRoutes = require('./postulaciones.routes');
 const archivosRoutes = require('./archivos.routes');
 const cuentaRoutes = require('./cuenta.routes');
 const logosRoutes = require('./logos.routes');
+const tareasRoutes = require('./tareas.routes');
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/postulaciones', postulacionesRoutes);
 router.use('/archivos', archivosRoutes);
 router.use('/mi-cuenta', cuentaRoutes);
 router.use('/logos', logosRoutes);
+router.use('/tareas', tareasRoutes);
 
 module.exports = router;

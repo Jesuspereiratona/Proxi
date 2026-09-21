@@ -1,0 +1,46 @@
+# Las cuatro tareas nocturnas de Proxi, disparadas desde afuera.
+#
+# Por qué existe: en el plan gratuito de Render el proceso se duerme tras 15 minutos sin tráfico, y
+# un `node-cron` dormido no corre nunca. Las tareas son justamente lo que distingue a Proxi —ninguna
+# oferta publicada sin vigencia, ninguna postulación sin respuesta— así que no pueden depender de
+# que alguien esté usando la web a las 3 de la mañana.
+#
+# El cron interno de la API sigue programado (server.js): si algún día el proceso deja de dormir,
+# las tareas corren por los dos lados sin problema, porque son idempotentes.
+name: Tareas nocturnas
+
+on:
+  schedule:
+    # 06:00 UTC = 03:00 en Chile continental en horario de verano, 02:00 en invierno. GitHub Actions
+    # solo programa en UTC y no ajusta por zona horaria; el horario exacto no importa mientras sea
+    # de madrugada, porque las tareas son idempotentes.
+    - cron: '0 6 * * *'
+  # Para poder dispararlas a mano desde la pestaña Actions cuando haga falta.
+  workflow_dispatch:
+
+jobs:
+  ejecutar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Despertar la API
+        # El primer intento contra un servicio dormido tarda ~50 s en responder. Se despierta con
+        # /salud, que no escribe nada, para que la petición que sí dispara las tareas no muera en el
+        # arranque. --retry cubre el caso de que el arranque tarde más de lo esperado.
+        run: |
+          curl -sS --fail --retry 5 --retry-all-errors --retry-delay 15 --max-time 90 \
+            "${{ secrets.API_URL }}/salud" > /dev/null
+
+      - name: Ejecutar las tareas
+        # El secreto va en un encabezado y nunca en la URL: las URL quedan en logs de proxies y en
+        # el historial de Actions. La API lo censura en su propio log (config/logger.js).
+        run: |
+          respuesta=$(curl -sS --fail --max-time 120 -X POST \
+            -H "X-Tareas-Token: ${{ secrets.TAREAS_TOKEN }}" \
+            "${{ secrets.API_URL }}/tareas/ejecucion")
+          echo "$respuesta"
+          # La API responde 200 aunque una tarea falle por dentro (cada una atrapa su error para no
+          # arrastrar a las demás). Sin esto, una tarea rota fallaría en silencio noche tras noche.
+          if echo "$respuesta" | grep -q '"huboError":true'; then
+            echo "::error::Al menos una tarea nocturna falló. Revisar los logs de la API."
+            exit 1
+          fi

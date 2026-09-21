@@ -100,7 +100,7 @@ describe('GET /mi-cuenta/datos', () => {
 
   test('un estudiante con perfil, CV y postulaciones recibe todo en un solo JSON, con su propio RUT', async () => {
     const estudiante = await crearEstudianteConPerfil();
-    const archivo = await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
+    await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
 
     const respuesta = await request(app).get('/api/v1/mi-cuenta/datos').set('Authorization', `Bearer ${estudiante.accessToken}`);
     assert.equal(respuesta.status, 200);
@@ -180,7 +180,7 @@ describe('DELETE /mi-cuenta', () => {
 
   test('borrar la cuenta conserva el rastro de auditoría, incluido el de quién accedió a sus datos', async () => {
     const estudiante = await crearEstudianteConPerfil();
-    const archivo = await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
+    await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
 
     // Coordinación descifra el RUT: la fila queda a nombre de COORDINACIÓN, no del estudiante —
     // es la prueba de "quién accedió a los datos de esta persona", y la baja de cuenta del
@@ -257,7 +257,7 @@ describe('DELETE /mi-cuenta', () => {
 
   test('el motivo de un retiro (texto libre del propio estudiante) también se anonimiza', async () => {
     const estudiante = await crearEstudianteConPerfil();
-    const archivo = await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
+    await archivosService.subirCv(estudiante.usuario.id, { buffer: PDF_VALIDO, originalname: 'cv.pdf' });
     const empresa = await crearEmpresaValidada();
     const oferta = await crearOfertaPublicada(empresa);
     const postulacion = await request(app).post('/api/v1/postulaciones').set('Authorization', `Bearer ${estudiante.accessToken}`).send({ ofertaId: oferta.id });

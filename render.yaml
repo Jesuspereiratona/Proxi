@@ -1,0 +1,51 @@
+# Blueprint de Render. Con esto el despliegue queda descrito en el repositorio y no en clics dentro
+# de un panel: quien retome el proyecto ve acá qué corre, con qué variables y con qué plan.
+#
+# La base NO está acá a propósito: Postgres de Render en plan gratuito se borra a los 30 días. La
+# base vive en Neon (también gratis, sin fecha de caducidad y con pgcrypto, que Proxi necesita para
+# cifrar el RUT). Render solo corre la API; la web es HTML estático y va a otro hosting.
+services:
+  - type: web
+    name: proxi-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    # /salud devuelve 503 si la base no responde, así que esto detecta una caída de verdad y no solo
+    # que el proceso siga vivo (services/salud.service.js).
+    healthCheckPath: /api/v1/salud
+    # El despliegue lo dispara .github/workflows/desplegar.yml DESPUÉS de correr las migraciones. Con
+    # autoDeploy, Render levantaría el código nuevo contra un esquema viejo.
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # sync: false = el valor se carga a mano en el panel y NO viaja en el repositorio, que es
+      # público. Ver la skill `manejo-de-secretos`.
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: RUT_CIFRADO_KEY
+        sync: false
+      - key: TAREAS_TOKEN
+        sync: false
+      # La API y la web quedan en dominios distintos, así que la cookie de sesión tiene que ser
+      # SameSite=none (env.js la valida y exige producción para aceptarlo).
+      - key: COOKIE_SAMESITE
+        value: none
+      # Lista blanca de CORS. Es el dominio de la web, no el de la API.
+      - key: WEB_URL
+        sync: false
+      - key: API_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false

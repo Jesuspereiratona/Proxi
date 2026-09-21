@@ -13,6 +13,9 @@ module.exports = [
         console: 'readonly',
         Buffer: 'readonly',
         URL: 'readonly',
+        // Lo usa el apagado ordenado de server.js. Faltaba, y `npm run lint` venía fallando con
+        // no-undef desde que se agregó ese temporizador (encontrado al preparar el despliegue).
+        setTimeout: 'readonly',
       },
     },
     rules: {
