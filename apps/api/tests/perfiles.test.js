@@ -2,10 +2,8 @@ const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const app = require('../src/app');
-const { sequelize, Usuario, Estudiante, Empresa, Oferta } = require('../src/models');
+const { sequelize, Estudiante, Empresa, Oferta } = require('../src/models');
 const { borrarUsuariosDePrueba } = require('./limpiar');
-const tokensService = require('../src/services/auth/tokens');
-const passwords = require('../src/services/auth/passwords');
 const { normalizarRut } = require('../src/utils/rut');
 
 // Dominio propio, distinto del de auth.test.js: node --test corre los archivos en paralelo contra
@@ -16,9 +14,8 @@ const DOMINIO_PRUEBA = 'perfiles.uahurtado.test';
 // Los ayudantes viven en ./ayudas.js: estaban copiados verbatim en seis archivos y habian
 // empezado a divergir. Se enlazan al dominio de ESTE archivo, porque `node --test` corre los
 // archivos en paralelo contra la misma base y el borrado de limpiar.js va por dominio.
-const { CLAVE, generarRutValido } = require('./ayudas');
+const { generarRutValido } = require('./ayudas');
 const ayudas = require('./ayudas');
-const correoUnico = (prefijo) => ayudas.correoUnico(prefijo, DOMINIO_PRUEBA);
 const crearUsuarioActivo = (rol, overrides) => ayudas.crearUsuarioActivo(rol, DOMINIO_PRUEBA, overrides);
 
 // RUT inventado con dígito verificador válido (algoritmo módulo 11), nunca uno real.

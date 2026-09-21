@@ -42,6 +42,42 @@
       <div id="lista-ofertas" class="d-flex flex-column gap-3" aria-live="polite"></div>
     </section>
 
+    <section class="mb-5">
+      <h2 class="h4 mb-3">Panorama</h2>
+      <p class="small text-body-secondary">
+        Todo esto sale de lo que ya ocurrió en la plataforma. No se mide el comportamiento de
+        nadie: se cuentan postulaciones, nunca se nombran postulantes.
+      </p>
+
+      <div id="panorama-resumen" class="indicadores mb-4" aria-live="polite"></div>
+
+      <h3 class="h6 text-uppercase text-body-secondary mb-2">Necesitan atención</h3>
+      <p class="small text-body-secondary">
+        Ofertas publicadas hace tiempo sin una sola postulación. Suele significar algo arreglable:
+        requisitos muy exigentes, el área mal escrita, o que no es remunerada.
+      </p>
+      <div id="panorama-sin-postulantes" class="d-flex flex-column gap-2 mb-4" aria-live="polite"></div>
+
+      <h3 class="h6 text-uppercase text-body-secondary mb-2">Dónde están las postulaciones</h3>
+      <div id="panorama-embudo" class="mb-4"></div>
+
+      <h3 class="h6 text-uppercase text-body-secondary mb-2">Por área</h3>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th scope="col">Área</th>
+              <th scope="col" class="text-end">Ofertas</th>
+              <th scope="col" class="text-end">Cupos</th>
+              <th scope="col" class="text-end">Postulaciones</th>
+              <th scope="col" class="text-end">Por cupo</th>
+            </tr>
+          </thead>
+          <tbody id="panorama-areas"></tbody>
+        </table>
+      </div>
+    </section>
+
     <section>
       <h2 class="h4 mb-3">Indicadores</h2>
       <div class="table-responsive">

@@ -4,8 +4,6 @@ const request = require('supertest');
 const app = require('../src/app');
 const { sequelize, Usuario, Estudiante, Empresa, Postulacion, PostulacionEvento, Archivo, Sesion, AuditoriaAcceso } = require('../src/models');
 const { borrarUsuariosDePrueba } = require('./limpiar');
-const tokensService = require('../src/services/auth/tokens');
-const passwords = require('../src/services/auth/passwords');
 const estudiantesService = require('../src/services/estudiantes/estudiantes.service');
 const archivosService = require('../src/services/archivos/archivos.service');
 const cuentaService = require('../src/services/cuenta/cuenta.service');
@@ -17,9 +15,8 @@ const DOMINIO_PRUEBA = 'cuenta.uahurtado.test';
 // Los ayudantes viven en ./ayudas.js: estaban copiados verbatim en seis archivos y habian
 // empezado a divergir. Se enlazan al dominio de ESTE archivo, porque `node --test` corre los
 // archivos en paralelo contra la misma base y el borrado de limpiar.js va por dominio.
-const { CLAVE, generarRutValido } = require('./ayudas');
+const { generarRutValido } = require('./ayudas');
 const ayudas = require('./ayudas');
-const correoUnico = (prefijo) => ayudas.correoUnico(prefijo, DOMINIO_PRUEBA);
 const crearUsuarioActivo = (rol, overrides) => ayudas.crearUsuarioActivo(rol, DOMINIO_PRUEBA, overrides);
 
 

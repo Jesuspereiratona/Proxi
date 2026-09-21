@@ -180,6 +180,13 @@ Ver la especificación de la vitrina pública en `specs/04-vitrina-publica/`.
       verificación apuntaba a una URL que daba 404, y faltaba `Referrer-Policy` en la página que
       recibe el token por la URL (ver bitácora)
 
+- [x] Extra sobre lo planeado: **panorama de coordinación** (`specs/14-panorama-de-coordinacion/`).
+      Coordinación validaba y aprobaba de a una, sin poder mirar el conjunto. Ahora ve ofertas y
+      postulaciones por área, dónde se atascan las postulaciones, y —lo más accionable— qué ofertas
+      llevan semanas publicadas sin un solo postulante. Todo derivado de lo que ya ocurrió: no se
+      agregó ningún rastreo de comportamiento, que sería dato personal nuevo y contradiría la
+      minimización que el proyecto defiende en todo lo demás
+
 **Listo cuando:** los tres roles pueden usar Proxi de punta a punta sin `curl`, y cada pantalla que
 toca autenticación, permisos o datos personales pasó por `auditor-seguridad` antes de subir.
 **Cumplido el 2026-08-29** — cinco auditorías de seguridad a lo largo de la fase (vitrina, sesión,

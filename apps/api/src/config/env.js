@@ -185,6 +185,9 @@ const env = {
   // Regla de negocio, no un secreto: default igual al de .env.example si no está seteada.
   plazoDeclararCierreDias: Number(process.env.PLAZO_DECLARAR_CIERRE_DIAS) || 7,
   slaRespuestaDias: Number(process.env.SLA_RESPUESTA_DIAS) || 15,
+  // Desde cuántos días publicada sin una sola postulación una oferta entra en la lista de "algo
+  // anda mal" del panorama de coordinación. Regla de gestión, no un secreto.
+  diasSinPostulantes: Number(process.env.DIAS_SIN_POSTULANTES) || 15,
   retencionCvMeses,
   retencionAvisoDias,
   retencionAuditoriaMeses,

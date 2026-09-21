@@ -4,7 +4,9 @@ import { listarPendientesRevision, aprobar, rechazarOferta } from '../api/oferta
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { logout } from '../api/sesion.js';
 import { listarPendientes as listarLogosPendientes, aprobarLogo, retirarLogo, urlImagenParaRevision } from '../api/logos.js';
-import { etiquetaModalidad, etiquetaJornada, etiquetaRemuneracion, formatoFechaCorta, formatoRut } from '../formato.js';
+import { etiquetaModalidad, etiquetaJornada, etiquetaRemuneracion, etiquetaArea, formatoFechaCorta, formatoRut } from '../formato.js';
+import { obtenerPanorama } from '../api/panorama.js';
+import { textoEstado } from '../componentes/linea-tiempo.js';
 
 // Texto y clase de insignia van juntos a propósito (docs/08-guia-visual.md, sección "Empresa"): la
 // misma idea de "el color nunca es la única señal" que ya usan las insignias de oferta/postulación.
@@ -377,8 +379,128 @@ function iniciar() {
     }
   };
 
+
+  // --- Panorama (specs/14-panorama-de-coordinacion) ---
+
+  const resumen = document.getElementById('panorama-resumen');
+  const listaSinPostulantes = document.getElementById('panorama-sin-postulantes');
+  const embudoContenedor = document.getElementById('panorama-embudo');
+  const tablaAreas = document.getElementById('panorama-areas');
+
+  const indicador = (titulo, valor, detalle) => {
+    const div = document.createElement('div');
+    div.className = 'indicador';
+    const dl = document.createElement('dl');
+    dl.className = 'mb-0';
+    const dt = document.createElement('dt');
+    dt.textContent = titulo;
+    const dd = document.createElement('dd');
+    dd.textContent = valor;
+    dl.append(dt, dd);
+    if (detalle) {
+      const p = document.createElement('p');
+      p.className = 'small text-body-secondary mb-0 mt-1';
+      p.textContent = detalle;
+      dl.append(p);
+    }
+    div.append(dl);
+    return div;
+  };
+
+  // El embudo se dibuja con barras proporcionales y NO con un gráfico: la proporción se lee de un
+  // vistazo y el número exacto sigue ahí al lado. Un gráfico que nadie sabe leer es peor que una
+  // cifra clara (spec, fuera de alcance).
+  const filaEmbudo = (estado, cantidad, total) => {
+    const fila = document.createElement('div');
+    fila.className = 'd-flex align-items-center gap-2 mb-1';
+
+    const nombre = document.createElement('span');
+    nombre.className = 'small';
+    nombre.style.minWidth = '9rem';
+    nombre.textContent = textoEstado(estado);
+
+    const canal = document.createElement('div');
+    canal.className = 'flex-grow-1 rounded';
+    canal.style.height = '0.6rem';
+    canal.style.background = 'var(--uah-blanco-3)';
+
+    const barra = document.createElement('div');
+    barra.className = 'rounded';
+    barra.style.height = '100%';
+    barra.style.width = total > 0 ? `${Math.round((cantidad / total) * 100)}%` : '0%';
+    // Naranja solo para sin_respuesta: es el estado que la plataforma existe para evitar, y el
+    // naranja está reservado para lo que pide atención (docs/08-guia-visual.md).
+    barra.style.background = estado === 'sin_respuesta' ? 'var(--uah-naranja)' : 'var(--uah-marengo-2)';
+    canal.append(barra);
+
+    const numero = document.createElement('span');
+    numero.className = 'small text-body-secondary';
+    numero.style.minWidth = '2.5rem';
+    numero.style.textAlign = 'right';
+    numero.textContent = String(cantidad);
+
+    fila.append(nombre, canal, numero);
+    return fila;
+  };
+
+  const tarjetaSinPostulantes = (oferta) => {
+    const div = document.createElement('div');
+    div.className = 'card-oferta';
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'oferta-cuerpo';
+
+    const titulo = document.createElement('p');
+    titulo.className = 'oferta-titulo mb-1';
+    titulo.textContent = oferta.titulo;
+
+    const meta = document.createElement('p');
+    meta.className = 'oferta-meta mb-0';
+    meta.textContent = `${oferta.empresa} · ${etiquetaArea(oferta.area)} · ${oferta.diasPublicada} días publicada · cierra el ${formatoFechaCorta(oferta.fechaCierre)}`;
+
+    cuerpo.append(titulo, meta);
+    div.append(cuerpo);
+    return div;
+  };
+
+  const cargarPanorama = async () => {
+    try {
+      const datos = await obtenerPanorama();
+
+      resumen.replaceChildren(
+        indicador('Ofertas publicadas', datos.ofertas.publicada),
+        indicador('Postulaciones', datos.postulacionesTotal),
+        indicador('Sin respuesta', datos.embudo.sin_respuesta, 'La plataforma existe para que esto sea cero'),
+        indicador('Empresas por validar', datos.empresas.pendiente),
+      );
+
+      listaSinPostulantes.replaceChildren(...(datos.ofertasSinPostulantes.length
+        ? datos.ofertasSinPostulantes.map(tarjetaSinPostulantes)
+        : [document.createTextNode(`Ninguna oferta lleva más de ${datos.diasSinPostulantes} días sin postulantes.`)]));
+
+      embudoContenedor.replaceChildren(...Object.entries(datos.embudo)
+        .map(([estado, cantidad]) => filaEmbudo(estado, cantidad, datos.postulacionesTotal)));
+
+      tablaAreas.replaceChildren(...datos.porArea.map((area) => {
+        const tr = document.createElement('tr');
+        // Postulaciones por cupo: la cifra que dice de un vistazo dónde sobra gente y dónde falta.
+        const porCupo = area.cupos > 0 ? (area.postulaciones / area.cupos).toFixed(1) : '—';
+        for (const [valor, alineado] of [[etiquetaArea(area.area), false], [area.ofertas, true],
+          [area.cupos, true], [area.postulaciones, true], [porCupo, true]]) {
+          const td = document.createElement('td');
+          if (alineado) td.className = 'text-end';
+          td.textContent = String(valor);
+          tr.append(td);
+        }
+        return tr;
+      }));
+    } catch (error) {
+      mostrarMensaje(error instanceof ErrorApi ? error.message : mensajeParaCodigo());
+    }
+  };
+
   cargarEmpresas();
   cargarLogos();
   cargarOfertas();
   cargarIndicadores();
+  cargarPanorama();
 }

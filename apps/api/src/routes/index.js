@@ -9,6 +9,7 @@ const archivosRoutes = require('./archivos.routes');
 const cuentaRoutes = require('./cuenta.routes');
 const logosRoutes = require('./logos.routes');
 const tareasRoutes = require('./tareas.routes');
+const panoramaRoutes = require('./panorama.routes');
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use('/archivos', archivosRoutes);
 router.use('/mi-cuenta', cuentaRoutes);
 router.use('/logos', logosRoutes);
 router.use('/tareas', tareasRoutes);
+router.use('/panorama', panoramaRoutes);
 
 module.exports = router;

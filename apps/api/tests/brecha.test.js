@@ -1,6 +1,6 @@
 const { test, describe, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
-const { sequelize, Usuario, NotificacionBrecha, AuditoriaAcceso, Archivo, Estudiante } = require('../src/models');
+const { sequelize, NotificacionBrecha, AuditoriaAcceso, Archivo, Estudiante } = require('../src/models');
 const brechaService = require('../src/services/brecha/brecha.service');
 const correo = require('../src/services/correo/correo.service');
 const { crearUsuarioActivo } = require('./ayudas');

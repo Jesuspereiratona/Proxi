@@ -3,10 +3,8 @@ const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const request = require('supertest');
 const app = require('../src/app');
-const { sequelize, Usuario, Estudiante, Empresa, Oferta, Postulacion, PostulacionEvento, Archivo } = require('../src/models');
+const { sequelize, Estudiante, Empresa, Oferta, Postulacion, PostulacionEvento, Archivo } = require('../src/models');
 const { borrarUsuariosDePrueba } = require('./limpiar');
-const tokensService = require('../src/services/auth/tokens');
-const passwords = require('../src/services/auth/passwords');
 const recalcularIndicadores = require('../src/tareas/recalcularIndicadores');
 
 // Dominio propio: node --test corre los archivos en paralelo contra la misma base (ver
@@ -16,9 +14,8 @@ const DOMINIO_PRUEBA = 'indicadores.uahurtado.test';
 // Los ayudantes viven en ./ayudas.js: estaban copiados verbatim en seis archivos y habian
 // empezado a divergir. Se enlazan al dominio de ESTE archivo, porque `node --test` corre los
 // archivos en paralelo contra la misma base y el borrado de limpiar.js va por dominio.
-const { CLAVE, generarRutValido } = require('./ayudas');
+const { generarRutValido } = require('./ayudas');
 const ayudas = require('./ayudas');
-const correoUnico = (prefijo) => ayudas.correoUnico(prefijo, DOMINIO_PRUEBA);
 const crearUsuarioActivo = (rol, overrides) => ayudas.crearUsuarioActivo(rol, DOMINIO_PRUEBA, overrides);
 const DIA_MS = 24 * 60 * 60 * 1000;
 
