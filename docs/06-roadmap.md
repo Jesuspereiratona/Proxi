@@ -261,7 +261,8 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
       en un repo público lo descarga cualquiera, y un repo de respaldos convierte datos personales
       en historial de git, que no se puede borrar de verdad. Con datos inventados el riesgo es
       cero; antes de que haya CV reales esto exige una decisión de la FEN, probablemente con costo
-- [ ] Variables de entorno en el proveedor, secretos rotados
+- [x] Variables de entorno en el proveedor, con secretos propios de producción: los tres secretos
+      (los dos JWT y la llave de cifrado del RUT) son distintos de los de desarrollo, verificado
 - [ ] DPA (acuerdo de procesamiento de datos) con el proveedor de hosting — venía de Fase 7; se movió
       acá porque depende de qué proveedor se elija, decisión que se toma en esta fase
 - [x] Apagado ordenado del servidor (`SIGTERM` + `server.close()` con temporizador) antes de que el
@@ -275,7 +276,12 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
 - [ ] Lock distribuido para `tareas/cerrarOfertasVencidas.js` (`pg_advisory_lock` o similar) si se
       corre más de una instancia de la API — hoy el cron se programa por proceso, sin coordinación
       entre réplicas (auditoría de Fase 3; con una sola instancia no es un problema)
-- [ ] HTTPS obligatorio, redirección desde HTTP
+- [x] HTTPS obligatorio: HTTP responde 301 hacia HTTPS en la web y en la API (comprobado con
+      `curl`), y ambas mandan HSTS con `max-age` de un año. El del sitio estático faltaba —
+      Cloudflare no lo pone solo— y se agregó en `apps/web/_headers`, junto con CSP,
+      `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` y `Permissions-Policy`. Para poder
+      prohibir los estilos en línea sin excepciones, los seis `style="max-width"` pasaron a clases
+      del tema
 - [ ] Monitoreo del healthcheck con aviso ante caídas
 - [ ] Hueco 1 del simulacro: vigilancia de `auditoria_accesos` — línea base y aviso por volumen anómalo
 - [ ] Hueco 3 del simulacro: poder notificar por correo a N personas afectadas (hoy solo transaccional)
