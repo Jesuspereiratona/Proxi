@@ -1,0 +1,110 @@
+# Ensayo de restauración: se saca un respaldo de la base real, se restaura en una base vacía y se
+# comprueba que lo restaurado sirve. Al terminar, todo se descarta.
+#
+# POR QUÉ ESTO Y NO "RESPALDOS AUTOMÁTICOS": el plan gratuito de Neon guarda 6 horas de historial y
+# no ofrece respaldos programados. Guardar el volcado en algún lado sería lo natural, pero no hay
+# dónde hacerlo bien: un artefacto de GitHub en un repositorio público lo puede descargar cualquiera,
+# y un repositorio de respaldos convierte datos personales en historial de git, que no se puede
+# borrar de verdad — justo lo contrario del derecho de supresión que Proxi implementa.
+#
+# Así que esto NO reemplaza tener respaldos. Cierra la otra mitad del problema, que es la que más se
+# descuida: saber que un respaldo **se puede restaurar**. "Un respaldo que nunca se restauró no es un
+# respaldo, es una esperanza" (docs/07-operacion-y-mantenimiento.md).
+#
+# CONDICIÓN QUE HAY QUE REVISAR ANTES DE QUE ESTO LLEVE DATOS REALES: el volcado pasa por un runner
+# de GitHub. Hoy la base solo tiene datos inventados y eso es inocuo. El día que haya CV de
+# estudiantes de verdad, esto es un tratamiento de datos personales por un tercero y necesita el
+# acuerdo correspondiente (docs/06-roadmap.md, Fase 8).
+name: Ensayo de restauración
+
+on:
+  schedule:
+    # Domingos a las 07:00 UTC, después de las tareas nocturnas. Semanal y no diario a propósito:
+    # cada corrida despierta el servicio gratuito y consume cuota de ejecución.
+    - cron: '0 7 * * 0'
+  workflow_dispatch:
+
+jobs:
+  ensayar:
+    runs-on: ubuntu-latest
+    # postgres:18 porque la base de producción es 18: un pg_dump más viejo que el servidor se niega
+    # a correr. Sin actions/checkout ni actions/setup-node, así que el contenedor no necesita Node.
+    container: postgres:18-alpine
+
+    services:
+      destino:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: restaurada
+          POSTGRES_USER: proxi
+          POSTGRES_PASSWORD: ensayo_local_sin_valor
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 10
+
+    env:
+      DESTINO: postgres://proxi:ensayo_local_sin_valor@destino:5432/restaurada
+
+    steps:
+      - name: Sacar el respaldo de la base real
+        run: |
+          pg_dump --no-owner --no-acl --format=custom \
+            --file=/tmp/respaldo.dump "${{ secrets.DATABASE_URL }}"
+          echo "Tamaño del respaldo: $(du -h /tmp/respaldo.dump | cut -f1)"
+
+      - name: Restaurar en una base vacía
+        run: |
+          # pgcrypto primero: las columnas cifradas no se restauran si la extensión no existe.
+          psql "$DESTINO" -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto;'
+          pg_restore --no-owner --no-acl --dbname="$DESTINO" /tmp/respaldo.dump
+
+      - name: Comprobar que lo restaurado sirve
+        env:
+          RUT_CIFRADO_KEY: ${{ secrets.RUT_CIFRADO_KEY }}
+        run: |
+          set -e
+          fallos=0
+          comprobar() {
+            resultado=$(psql "$DESTINO" -t -A -c "$2")
+            if [ "$resultado" -ge "$3" ] 2>/dev/null; then
+              echo "OK   $1: $resultado"
+            else
+              echo "MAL  $1: $resultado (se esperaba al menos $3)"
+              fallos=$((fallos + 1))
+            fi
+          }
+
+          comprobar "tablas restauradas" \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" 13
+          comprobar "usuarios" "SELECT count(*) FROM usuarios" 1
+          comprobar "ofertas" "SELECT count(*) FROM ofertas" 1
+
+          # La prueba que de verdad importa: que los datos cifrados se puedan volver a leer con la
+          # llave. Un respaldo que restaura las filas pero deja los RUT ilegibles no sirve de nada,
+          # y eso no se nota contando tablas.
+          rut=$(psql "$DESTINO" -t -A -c \
+            "SELECT pgp_sym_decrypt(rut_cifrado, '${RUT_CIFRADO_KEY}') FROM estudiantes WHERE rut_cifrado IS NOT NULL LIMIT 1")
+          if [ -n "$rut" ]; then
+            echo "OK   un RUT cifrado se descifra tras restaurar (largo ${#rut})"
+          else
+            echo "MAL  no se pudo descifrar ningun RUT tras restaurar"
+            fallos=$((fallos + 1))
+          fi
+
+          # Integridad referencial: que las claves foráneas sigan puestas. Un pg_restore a medias
+          # deja tablas con datos y sin restricciones, y eso pasa desapercibido contando filas.
+          comprobar "claves foraneas" \
+            "SELECT count(*) FROM pg_constraint WHERE contype='f'" 10
+
+          if [ "$fallos" -gt 0 ]; then
+            echo "::error::El ensayo de restauracion fallo en $fallos comprobacion(es)."
+            exit 1
+          fi
+          echo "Ensayo superado: el respaldo se puede restaurar y los datos cifrados se leen."
+
+      - name: Borrar el respaldo
+        # `if: always()` para que se borre también cuando una comprobación falló. El runner se
+        # destruye igual al terminar, pero no se deja un volcado con datos personales en disco
+        # mientras corren los pasos siguientes.
+        if: always()
+        run: rm -f /tmp/respaldo.dump
