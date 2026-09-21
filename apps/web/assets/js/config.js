@@ -16,6 +16,10 @@ const EN_LOCAL = ['localhost', '127.0.0.1', ''].includes(HOST);
 // comodidad — la protección CSRF de doble envío exige que el JavaScript pueda leer la cookie `csrf`,
 // y `document.cookie` solo ve las del propio sitio. Apuntando directo a onrender.com, iniciar
 // sesión funcionaba y la página siguiente rebotaba al formulario con 403.
-const API_EN_PRODUCCION = '/api/v1';
+//
+// Absoluta y no '/api/v1' a secas: cliente.js hace `new URL(`${API_URL}${ruta}`)`, y `new URL()`
+// con una ruta relativa y sin base lanza TypeError. Una ruta relativa dejaba el login muerto en el
+// navegador mientras curl seguía pasando — curl no ejecuta este código.
+const API_EN_PRODUCCION = `${globalThis.location?.origin ?? ''}/api/v1`;
 
 export const API_URL = EN_LOCAL ? 'http://localhost:3000/api/v1' : API_EN_PRODUCCION;
