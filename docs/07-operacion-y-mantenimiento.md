@@ -281,6 +281,34 @@ sección de respaldos, que dice por qué y qué falta decidir.
 - Revisión semanal de logs `error` y `warn`: 401 repetidos desde una IP o picos de límite de tasa son
   señales de ataque, no ruido.
 
+## Retención de logs
+
+Dos rastros distintos, con propósitos y plazos distintos. Confundirlos es lo que hace que un
+incidente se investigue con las manos vacías.
+
+| Rastro | Dónde vive | Cuánto dura | Para qué |
+|---|---|---|---|
+| Logs de aplicación | Render | **7 días** (plan gratuito) | operar: ver por qué algo falló hoy |
+| `auditoria_accesos` | La base de datos | **24 meses** | investigar: quién accedió a datos de quién |
+
+**La consecuencia, dicha claro:** si una brecha se detecta más de una semana después, los logs de
+Render ya no existen y no hay forma de reconstruir qué peticiones hubo. Lo que sí sobrevive es
+`auditoria_accesos`, y por eso esa tabla —no el log— es la fuente de la investigación
+(`docs/09-procedimiento-de-brecha.md`). La vigilancia diaria
+(`specs/12-vigilancia-de-accesos/`) existe justamente para que una brecha no se detecte con semanas
+de retraso.
+
+**Por qué no se alarga la retención de logs.** Alargarla exige mandarlos a un servicio externo de
+registro, que es un tercero más con nuestros datos, con su contrato y su registro de tratamiento —
+para guardar un rastro que en Proxi es redundante con la auditoría. Los logs de Proxi además están
+censurados a propósito (`config/logger.js`: ni contraseñas, ni tokens, ni RUT, ni correos), así que
+lo que conservarían es poco: horas, rutas y códigos de error.
+
+**Lo que hay que hacer cuando se sospecha algo, dentro de los 7 días:** bajar los logs relevantes
+desde el panel de Render antes de que caduquen, y guardarlos junto al informe del incidente en
+`docs/incidentes/`. Es manual y es deliberado: automatizarlo significaría guardar todos los logs
+siempre, que es lo que acabamos de decidir no hacer.
+
 ## Mantenimiento periódico
 | Cada | Qué |
 |---|---|

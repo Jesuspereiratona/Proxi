@@ -294,7 +294,12 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
       ruidosa; la alerta lleva `usuarioId`, rol y números, nunca correo ni RUT
 - [ ] Hueco 3 del simulacro: poder notificar por correo a N personas afectadas (hoy solo transaccional)
 - [ ] Hueco 5 del simulacro: la llave de cifrado se respalda **separada** de la base
-- [ ] Hueco 6 del simulacro: definir retención de logs (si la brecha se detecta tarde, tiene que haber con qué investigar)
+- [x] Hueco 6 del simulacro: retención de logs definida (`docs/07-operacion-y-mantenimiento.md`).
+      Son dos rastros distintos: los logs de aplicación duran **7 días** en el plan gratuito de
+      Render y sirven para operar; `auditoria_accesos` dura **24 meses** y es la fuente de una
+      investigación. No se alarga la de los logs a propósito: exigiría un servicio externo —un
+      tercero más con nuestros datos— para guardar un rastro que ya está censurado (ni RUT ni
+      correos) y es redundante con la auditoría
 - [x] Retención de `auditoria_accesos` en dos etapas (`specs/11-retencion-de-auditoria/`): a los 12
       meses se anulan `ip` y `user_agent`, a los 24 se borra la fila. No es un borrado a secas
       porque la fila tiene dos partes con vida útil distinta: "quién accedió a qué y cuándo" es
