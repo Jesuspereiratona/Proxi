@@ -8,6 +8,7 @@ const {
   AUTH_CUENTA_BLOQUEADA,
   AUTH_EMAIL_NO_VERIFICADO,
   CONSENTIMIENTO_REQUERIDO,
+  REGISTRO_NO_DISPONIBLE,
 } = require('@proxi/errores');
 const passwords = require('./passwords');
 const tokens = require('./tokens');
@@ -31,6 +32,21 @@ const TTL_RESTABLECER_MS = 60 * 60 * 1000; // 1h, fija por docs/03-seguridad.md
 const VERSION_POLITICA = '2026-08-30-borrador';
 
 const registrar = async ({ email, clave, rol, aceptaPolitica }) => {
+  // Sin SMTP configurado, correo.service.js cae en Ethereal: una casilla falsa de desarrollo. La
+  // cuenta se crearía, el registro devolvería 201, y la persona NUNCA recibiría el enlace — no
+  // podría verificar su correo ni entrar, y encima ese email quedaría ocupado, así que tampoco
+  // podría volver a intentarlo. Se corta ANTES de crear nada y se dice por qué.
+  //
+  // Se comprueba acá y no al arrancar a propósito: el resto de Proxi (vitrina, sesiones, paneles)
+  // funciona perfectamente sin correo, y negarse a arrancar impedía desplegar para mostrar la
+  // plataforma. Lo único que depende del correo es esto.
+  if (env.esProduccion && !env.smtp.host) {
+    throw new ReglaDeNegocio(
+      REGISTRO_NO_DISPONIBLE,
+      'El registro no está disponible: falta configurar el envío de correo. Escríbenos para que te creemos la cuenta.',
+    );
+  }
+
   if (!aceptaPolitica) {
     throw new ReglaDeNegocio(CONSENTIMIENTO_REQUERIDO, 'Debes aceptar la política de datos para registrarte.');
   }

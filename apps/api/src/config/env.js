@@ -42,11 +42,6 @@ const REQUERIDAS = [
   'JWT_REFRESH_SECRET',
   'RUT_CIFRADO_KEY',
   ...(dbDeUrl ? [] : ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']),
-  // En producción, SMTP es obligatorio. Sin SMTP_HOST, correo.service.js cae en Ethereal —una
-  // casilla falsa de desarrollo— y el correo de verificación se manda ahí. La cuenta se crea, el
-  // registro devuelve 201, y la persona NUNCA recibe el enlace: no puede verificar su correo ni
-  // entrar. Falla en silencio y hacia el lado abierto, que es la peor combinación. Mejor no arrancar.
-  ...(process.env.NODE_ENV === 'production' ? ['SMTP_HOST', 'MAIL_FROM'] : []),
 ];
 
 const faltantes = REQUERIDAS.filter((clave) => !process.env[clave]);

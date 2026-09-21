@@ -7,10 +7,14 @@
 // cierra la terminal. Estas cuentas existen para lo contrario — entrar rápido a los tres roles sin
 // tener que buscar nada.
 //
-// LA CLAVE ESTÁ ESCRITA ACÁ Y ESTE REPOSITORIO ES PÚBLICO. Por eso el seed se niega a correr salvo
-// en desarrollo o prueba: no alcanza con "no es producción", porque un entorno de staging accesible
-// desde internet tampoco puede tener cuentas con una clave conocida. Si algún día hay staging,
-// estas cuentas no van ahí.
+// LA CLAVE ESCRITA ACÁ SOLO VALE EN DESARROLLO, porque este repositorio es público. Fuera de
+// desarrollo/prueba el seed exige `CUENTAS_DEMO_CLAVE`, que solo conoce quien despliega: no alcanza
+// con "no es producción", porque un entorno de staging accesible desde internet tampoco puede tener
+// cuentas con una clave que cualquiera lee en GitHub.
+//
+// Estas cuentas existen en un entorno público por una razón concreta: mostrar Proxi funcionando a
+// la FEN sin depender de que el envío de correo esté configurado. No son cuentas de personas
+// reales; cuando el proyecto reciba usuarios de verdad, se borran.
 //
 // Los RUT usan el algoritmo de dígito verificador real (para que pasen la validación) pero con
 // cuerpos que empiezan en 99, rango que el Registro Civil no asigna a personas naturales. El
@@ -21,7 +25,29 @@ const bcrypt = require('bcryptjs');
 const { QueryTypes } = require('sequelize');
 const env = require('../../apps/api/src/config/env');
 
-const CLAVE = 'ProxiFEN2026'; // 12 caracteres, el mínimo que exige services/auth/passwords.js
+const CLAVE_PUBLICA = 'ProxiFEN2026'; // 12 caracteres, el mínimo que exige services/auth/passwords.js
+
+// En producción la clave NO puede ser la de arriba: está escrita en un repositorio público. Se toma
+// de CUENTAS_DEMO_CLAVE, que solo conoce quien despliega. Sin esa variable, el seed se sigue
+// negando a correr fuera de desarrollo, igual que antes.
+const claveParaEsteEntorno = () => {
+  if (env.nodeEnv === 'development' || env.nodeEnv === 'test') return CLAVE_PUBLICA;
+
+  const propia = process.env.CUENTAS_DEMO_CLAVE;
+  if (!propia) {
+    throw new Error(
+      `Con NODE_ENV=${env.nodeEnv} hay que pasar CUENTAS_DEMO_CLAVE: la clave escrita en este archivo `
+      + 'está en un repositorio público y no puede usarse en un entorno accesible desde internet.',
+    );
+  }
+  if (propia.length < 12) {
+    throw new Error('CUENTAS_DEMO_CLAVE debe tener al menos 12 caracteres.');
+  }
+  if (propia === CLAVE_PUBLICA) {
+    throw new Error('CUENTAS_DEMO_CLAVE no puede ser la clave que está escrita en el repositorio.');
+  }
+  return propia;
+};
 const DOMINIO = 'cuentas-proxi.test';
 
 const CUENTAS = [
@@ -61,12 +87,7 @@ const borrarCuentas = async (queryInterface) => {
 
 module.exports = {
   async up(queryInterface) {
-    if (env.nodeEnv !== 'development' && env.nodeEnv !== 'test') {
-      throw new Error(
-        `Las cuentas fijas de prueba solo se crean con NODE_ENV=development o test (actual: ${env.nodeEnv}). `
-        + 'Su clave está escrita en el repositorio, que es público.',
-      );
-    }
+    const CLAVE = claveParaEsteEntorno();
 
     await borrarCuentas(queryInterface);
 
@@ -138,7 +159,10 @@ module.exports = {
       },
     ]);
 
-    console.log(`\n  Cuentas fijas de prueba listas. Clave para todas: ${CLAVE}`);
+    // La clave se imprime solo cuando es la pública, que ya está en el repositorio. La de
+    // producción la pasó quien corrió esto y no tiene por qué quedar en el log del despliegue.
+    const claveMostrada = CLAVE === CLAVE_PUBLICA ? CLAVE : 'la que pasaste en CUENTAS_DEMO_CLAVE';
+    console.log(`\n  Cuentas fijas de prueba listas. Clave para todas: ${claveMostrada}`);
     CUENTAS.forEach((c) => console.log(`   ${c.correo.padEnd(40)}${c.rol.padEnd(14)}${c.nota}`));
     console.log('');
   },

@@ -59,11 +59,29 @@ porqué está tres párrafos más abajo.
 4. **GitHub**: en *Settings → Secrets*, entorno `produccion`, cargar `DATABASE_URL`, los dos
    secretos JWT, `RUT_CIFRADO_KEY`, `WEB_URL`, `API_URL`, `TAREAS_TOKEN` y `RENDER_DEPLOY_HOOK`.
 
-**SMTP es obligatorio en producción y la API se niega a arrancar sin él.** No es rigidez: sin
-`SMTP_HOST`, `correo.service.js` cae en Ethereal —una casilla falsa de desarrollo— y el correo de
-verificación se manda ahí. El registro devuelve 201, la cuenta se crea, y la persona nunca recibe el
-enlace: no puede verificar su correo ni entrar nunca. Falla en silencio y hacia el lado abierto.
-Cualquier proveedor gratuito sirve (Brevo, Resend, o Gmail con contraseña de aplicación).
+**El correo se puede dejar para después, y el registro queda explícitamente apagado mientras
+tanto.** Sin `SMTP_HOST`, `correo.service.js` cae en Ethereal —una casilla falsa de desarrollo— y el
+enlace de verificación se manda ahí: la cuenta se crearía, el registro devolvería 201, y la persona
+no podría entrar NI volver a registrarse, porque su correo quedaría ocupado. Por eso
+`POST /auth/registro` responde `REGISTRO_NO_DISPONIBLE` mientras falte SMTP, y no crea nada.
+
+Todo lo demás —vitrina, sesiones, los tres paneles, postulaciones— funciona sin correo. Para mostrar
+Proxi a la FEN alcanza con las cuentas de demostración (abajo). Cuando haya SMTP (Brevo, Resend o
+Gmail con contraseña de aplicación), el registro se enciende solo: no hay que tocar código.
+
+### Cuentas de demostración en un entorno público
+
+`npm run db:seed:cuentas -w apps/api` crea las seis cuentas de los tres roles, ya verificadas. Fuera
+de desarrollo **exige `CUENTAS_DEMO_CLAVE`**: la clave escrita en el seed está en un repositorio
+público y no puede usarse en algo accesible desde internet. Se corre desde tu máquina apuntando a la
+base real:
+
+```bash
+NODE_ENV=production DATABASE_URL='<la de Neon>' CUENTAS_DEMO_CLAVE='<una tuya, 12+>' WEB_URL='<la de la web>' JWT_ACCESS_SECRET='<...>' JWT_REFRESH_SECRET='<...>' RUT_CIFRADO_KEY='<...>' npm run db:seed:cuentas -w apps/api
+```
+
+Son cuentas de demostración, no de personas: **se borran en cuanto el proyecto reciba usuarios
+reales.**
 
 **`API_URL` es el origen pelado, sin `/api/v1`** (`https://proxi-api.onrender.com`). Los flujos le
 agregan la ruta completa. Si se carga con el prefijo, los `curl` dan 404: el flujo falla ruidoso,
