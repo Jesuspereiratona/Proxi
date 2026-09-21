@@ -1,5 +1,6 @@
 import { listarPublicas } from '../api/ofertas.js';
 import { crearTarjetaOferta } from '../componentes/tarjeta-oferta.js';
+import { esqueletoDeLista } from '../componentes/esqueleto.js';
 import { ErrorApi, mensajeParaCodigo, usuarioActual } from '../api/cliente.js';
 import { iniciarSesion, logout } from '../api/sesion.js';
 
@@ -77,24 +78,46 @@ const mensajeSinResultados = (filtros) => {
 // de Fase 6).
 let peticionActual = 0;
 
+// A los 4 segundos se explica la espera en vez de dejar a la persona mirando una página quieta.
+// No es un detalle cosmético: el plan gratuito duerme el servidor a los 15 minutos y despertarlo
+// tarda hasta 50 segundos. Sin esto, la primera visita del día parece una plataforma rota — y la
+// primera visita del día es, justamente, la de alguien que abrió el enlace por primera vez.
+const MS_HASTA_EXPLICAR = 4000;
+let avisoDeEspera;
+
 const cargar = async () => {
   const numeroPeticion = ++peticionActual;
   const filtros = leerFiltros();
-  listado.replaceChildren();
   contador.textContent = '';
-  mostrarMensaje('Cargando…');
+  // El esqueleto va en el listado, no un texto suelto: la página conserva su forma y se entiende
+  // que algo va a aparecer ahí.
+  listado.replaceChildren(...esqueletoDeLista());
+  mostrarMensaje('Buscando ofertas…');
+
+  clearTimeout(avisoDeEspera);
+  avisoDeEspera = setTimeout(() => {
+    if (numeroPeticion !== peticionActual) return;
+    mostrarMensaje('Buscando ofertas… El servidor está despertando, la primera visita del día puede tardar hasta un minuto.');
+  }, MS_HASTA_EXPLICAR);
+
   try {
     const { ofertas, total } = await listarPublicas(filtros);
     if (numeroPeticion !== peticionActual) return;
+    clearTimeout(avisoDeEspera);
     if (ofertas.length === 0) {
+      listado.replaceChildren();
       mostrarMensaje(mensajeSinResultados(filtros));
       return;
     }
     mostrarMensaje('');
     contador.textContent = total === 1 ? '1 oferta encontrada' : `${total} ofertas encontradas`;
-    listado.append(...ofertas.map((oferta) => crearTarjetaOferta(oferta)));
+    // replaceChildren y no append: el listado trae las tarjetas fantasma de la carga, y un append
+    // las dejaría arriba con las ofertas reales colgando debajo.
+    listado.replaceChildren(...ofertas.map((oferta) => crearTarjetaOferta(oferta)));
   } catch (error) {
     if (numeroPeticion !== peticionActual) return;
+    clearTimeout(avisoDeEspera);
+    listado.replaceChildren();
     mostrarMensaje(error instanceof ErrorApi ? error.message : mensajeParaCodigo());
   }
 };

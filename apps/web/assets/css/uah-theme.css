@@ -415,3 +415,26 @@ h1, h2, .titular {
 .ancho-panel { max-width: 600px; }
 .ancho-panel-ancho { max-width: 640px; }
 .ancho-lectura { max-width: 700px; }
+
+/* Tarjetas fantasma de carga (assets/js/componentes/esqueleto.js). */
+.esqueleto {
+  /* Sin sombra ni hover: no es un elemento con el que se pueda interactuar. */
+  box-shadow: none;
+  pointer-events: none;
+}
+.esqueleto-bloque {
+  background: var(--uah-blanco-3);
+  border-radius: var(--bs-border-radius);
+  /* Solo la opacidad cambia. Mover, escalar y cambiar color a la vez es uno de los tics de
+     interfaz generada por IA que la guía visual prohíbe explícitamente. */
+  animation: esqueleto-latido 1.4s ease-in-out infinite;
+}
+@keyframes esqueleto-latido {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto-bloque {
+    animation: none;
+  }
+}
