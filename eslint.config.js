@@ -24,10 +24,10 @@ module.exports = [
     },
   },
   {
-    // apps/web/functions no corre en el navegador ni en Node: son Cloudflare Pages Functions, que
-    // corren en el borde con la API de Workers (Request, Response, fetch, URL). Bloque propio para
-    // no meter `Request`/`Response` en los globales del navegador, donde no se usan.
-    files: ['apps/web/functions/**/*.js'],
+    // _worker.js no corre en el navegador ni en Node: corre en el borde de Cloudflare, con la API
+    // de Workers (Request, fetch, URL). Bloque propio para no meter `Request` en los globales del
+    // navegador, donde no se usa.
+    files: ['apps/web/_worker.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
