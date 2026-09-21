@@ -143,7 +143,27 @@ explícita — si el proceso nuevo sigue corriendo cuando se le quita una column
 (encontrado por `revisor-migraciones` al revisar la migración de retención de Fase 7).
 
 ## Respaldos
-- Diario automático de la base, retención 30 días.
+
+**Estado real, sin adornos:** el plan gratuito de Neon guarda **6 horas** de historial
+(point-in-time restore) y no ofrece respaldos programados. Eso alcanza para deshacer un error que se
+note en el momento, y para nada más. Un `DROP TABLE` descubierto al día siguiente es irrecuperable.
+
+Lo que sí está automatizado es el **ensayo de restauración**
+(`.github/workflows/ensayo-de-restauracion.yml`, domingos): saca el volcado de la base real, lo
+restaura en una base vacía, y comprueba tablas, filas, claves foráneas y que un RUT cifrado se
+vuelva a descifrar. No guarda el volcado en ninguna parte, a propósito — ver el comentario del
+propio flujo. Prueba que el respaldo **sirve**, no que exista uno guardado.
+
+Para sacar una copia a mano, desde una máquina de confianza:
+
+```bash
+pg_dump --no-owner --no-acl --format=custom --file=proxi-$(date +%F).dump "$DATABASE_URL"
+```
+
+Ese archivo tiene los CV y los RUT cifrados de todo el mundo. Tratarlo como el dato más sensible del
+proyecto: cifrado en reposo, y borrado en cuanto deje de hacer falta.
+
+- Diario automático de la base, retención 30 días. **Pendiente**: hoy no existe (ver arriba).
 - **Los CV entran completos en el respaldo**: desde el 2026-09-20 los bytes viven en
   `archivos.contenido`, no en un disco aparte. Un respaldo filtrado expone los CV enteros; tratarlo
   con el mismo cuidado que a la base (`docs/09-procedimiento-de-brecha.md`).

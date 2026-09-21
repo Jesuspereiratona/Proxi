@@ -251,7 +251,16 @@ donde puede llegar un desarrollador. Lo que queda espera a la facultad — con l
 de las diez decisiones legales bloquean código, así que la Fase 8 no debería cerrarse sin ellas.
 
 ## Fase 8 · Despliegue
-- [ ] Base gestionada con respaldos automáticos y restauración **probada**
+- [x] Restauración **probada**, automática y semanal (`.github/workflows/ensayo-de-restauracion.yml`):
+      saca el volcado de la base real, lo restaura en una base vacía y comprueba tablas, filas,
+      claves foráneas y que un RUT cifrado se vuelva a descifrar. Primera corrida: 13 tablas, 18
+      claves foráneas, RUT descifrado
+- [ ] **Respaldos que se guarden en algún lado.** Neon gratis da 6 h de historial y ningún respaldo
+      programado, así que un error descubierto al día siguiente es irrecuperable. No se resolvió
+      sola porque no hay dónde guardar bien un volcado con datos personales: un artefacto de GitHub
+      en un repo público lo descarga cualquiera, y un repo de respaldos convierte datos personales
+      en historial de git, que no se puede borrar de verdad. Con datos inventados el riesgo es
+      cero; antes de que haya CV reales esto exige una decisión de la FEN, probablemente con costo
 - [ ] Variables de entorno en el proveedor, secretos rotados
 - [ ] DPA (acuerdo de procesamiento de datos) con el proveedor de hosting — venía de Fase 7; se movió
       acá porque depende de qué proveedor se elija, decisión que se toma en esta fase
