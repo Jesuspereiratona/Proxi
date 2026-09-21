@@ -11,8 +11,11 @@
 const HOST = globalThis.location?.hostname ?? '';
 const EN_LOCAL = ['localhost', '127.0.0.1', ''].includes(HOST);
 
-// Cambiar por el dominio real de la API al crear el servicio en Render. Es la ÚNICA línea que hay
-// que tocar para apuntar la web a otro backend.
-const API_EN_PRODUCCION = 'https://proxi-api.onrender.com/api/v1';
+// Ruta relativa, no el dominio de Render: en producción la API entra por el MISMO dominio que la
+// web, a través del proxy de Cloudflare (functions/api/[[ruta]].js). Eso no es un detalle de
+// comodidad — la protección CSRF de doble envío exige que el JavaScript pueda leer la cookie `csrf`,
+// y `document.cookie` solo ve las del propio sitio. Apuntando directo a onrender.com, iniciar
+// sesión funcionaba y la página siguiente rebotaba al formulario con 403.
+const API_EN_PRODUCCION = '/api/v1';
 
 export const API_URL = EN_LOCAL ? 'http://localhost:3000/api/v1' : API_EN_PRODUCCION;
