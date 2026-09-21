@@ -13,6 +13,7 @@
     "db:seed": "sequelize-cli db:seed:all",
     "revocar-sesiones": "node scripts/revocar-todas-las-sesiones.js",
     "migrar-cv": "node scripts/migrar-cv-a-la-base.js",
+    "comprobar-base": "node scripts/comprobar-base.js",
     "db:seed:cuentas": "sequelize-cli db:seed --seed 20260920120000-cuentas-fijas-de-prueba.js"
   },
   "dependencies": {
