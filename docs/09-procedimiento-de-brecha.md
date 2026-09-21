@@ -72,7 +72,26 @@ y qué se va a notificar. La decisión de notificar no se toma en solitario.
 **A la Agencia de Protección de Datos Personales.** Qué ocurrió, cuándo se detectó, qué categorías de
 datos, cuántas personas aproximadamente, qué medidas se tomaron, qué se hará.
 
-**A las personas afectadas**, en lenguaje claro y sin tecnicismos:
+**A las personas afectadas.** Esto ya no se improvisa: hay una herramienta.
+
+```bash
+# 1. Proponer a quien avisar, a partir de lo que hizo la cuenta comprometida. No manda nada.
+npm run notificar-brecha -w apps/api -- --proponer <usuarioId> <desdeISO> <hastaISO>
+
+# 2. Guardar esos ids en un archivo, revisarlos CON COORDINACION FEN (paso 3), y recien ahi:
+npm run notificar-brecha -w apps/api -- --notificar 2026-09-21-nombre-del-caso afectados.txt
+```
+
+Los cuatro textos que cambian en cada incidente van por variable de entorno:
+`BRECHA_QUE_OCURRIO`, `BRECHA_QUE_DATOS`, `BRECHA_QUE_HACER`, `BRECHA_CONTACTO`.
+
+Es **reanudable**: si se corta, se vuelve a correr el mismo comando y continúa donde quedó, sin
+escribirle dos veces a nadie. Tiene un tope por corrida porque el plan gratuito de correo permite
+300 al día: con más afectados, la notificación abarca más de un día y el script lo dice. Cada aviso
+queda en la tabla `notificaciones_brecha`, y **esa fila es la prueba** de a quién se notificó y
+cuándo.
+
+El texto que reciben, en lenguaje claro y sin tecnicismos:
 
 > Asunto: Aviso importante sobre tus datos en Proxi
 >

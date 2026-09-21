@@ -12,9 +12,13 @@ const Postulacion = require('./Postulacion');
 const PostulacionEvento = require('./PostulacionEvento');
 const AuditoriaAcceso = require('./AuditoriaAcceso');
 const EmpresaIndicador = require('./EmpresaIndicador');
+const NotificacionBrecha = require('./NotificacionBrecha');
 
 Usuario.hasMany(Sesion, { foreignKey: 'usuarioId' });
 Sesion.belongsTo(Usuario, { foreignKey: 'usuarioId' });
+
+Usuario.hasMany(NotificacionBrecha, { foreignKey: 'usuarioId' });
+NotificacionBrecha.belongsTo(Usuario, { foreignKey: 'usuarioId' });
 
 Usuario.hasMany(Consentimiento, { foreignKey: 'usuarioId' });
 Consentimiento.belongsTo(Usuario, { foreignKey: 'usuarioId' });
@@ -77,4 +81,5 @@ module.exports = {
   PostulacionEvento,
   AuditoriaAcceso,
   EmpresaIndicador,
+  NotificacionBrecha,
 };

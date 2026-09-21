@@ -295,7 +295,13 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
       mañana normal. Más un piso absoluto, para que un sistema recién estrenado —sin historia— no
       alerte por cualquier cosa. El aviso sale por el flujo de GitHub Actions, que falla de forma
       ruidosa; la alerta lleva `usuarioId`, rol y números, nunca correo ni RUT
-- [ ] Hueco 3 del simulacro: poder notificar por correo a N personas afectadas (hoy solo transaccional)
+- [x] Hueco 3 del simulacro: notificación a N personas afectadas
+      (`specs/13-notificacion-de-brecha/`, `npm run notificar-brecha -w apps/api`). Script de rotura
+      de vidrio, no endpoint. Reanudable —una notificación a 300 personas se corta en la 150 y bajo
+      el reloj de 72 h volver a empezar significa escribirle dos veces a media lista—, con tope por
+      corrida porque el correo gratuito da 300 al día, y cada aviso queda registrado en
+      `notificaciones_brecha`: esa fila **es** la prueba ante la Agencia. Propone a quién avisar
+      leyendo `auditoria_accesos`, pero no decide: eso lo decide la FEN (`docs/09`, paso 3)
 - [ ] Hueco 5 del simulacro: la llave de cifrado se respalda **separada** de la base
 - [x] Hueco 6 del simulacro: retención de logs definida (`docs/07-operacion-y-mantenimiento.md`).
       Son dos rastros distintos: los logs de aplicación duran **7 días** en el plan gratuito de

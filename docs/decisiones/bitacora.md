@@ -1,3 +1,44 @@
+## 2026-09-21 (4) · Notificar una brecha deja de ser un documento y pasa a ser un comando
+
+Hueco 3 del simulacro. El procedimiento del paso 4 estaba escrito desde hace semanas, con la carta
+redactada y todo — y **no se podía ejecutar**: `correo.service.js` solo sabe mandar un correo a una
+persona. El día que haya que avisarle a 300 estudiantes en menos de 72 horas, alguien tendría que
+improvisar un script bajo presión, de noche, llevando a mano la cuenta de a quién ya le avisó. Es
+exactamente el momento en que nadie debería estar escribiendo código.
+
+**Lo difícil no era mandar correos.** Fue lo otro:
+
+- **Se corta.** Un envío a 300 personas puede morir en la 150. Volver a empezar significa
+  escribirle dos veces a media lista, en el peor momento posible para verse desprolijo. Por eso cada
+  aviso se registra y el script **reanuda**: la restricción única `(incidente, usuario_id)` lo hace
+  seguro incluso si alguien nervioso abre dos terminales.
+- **Hay que poder demostrarlo.** La Agencia puede preguntar a quién se notificó. "Mandamos los
+  correos" no es prueba; la fila en `notificaciones_brecha` sí. Por eso es una tabla y no un log.
+- **El proveedor corta.** Brevo gratis da 300 diarios, y los correos normales de Proxi consumen de
+  la misma cuota. El tope por corrida es 200 para dejar margen: con más afectados, la notificación
+  abarca más de un día **por diseño**, y el script lo dice en vez de que se descubra a mitad.
+- **Un rebote no puede dejar sin avisar a los otros 299.** Si un envío falla, la fila se escribe
+  igual con el error dentro: el reintento sabe que ya se intentó y por qué, en vez de volver a
+  chocar contra el mismo rebote.
+
+**Dos decisiones deliberadas:**
+
+Es un **script de rotura de vidrio, no un endpoint**. Una ruta HTTP capaz de escribirle a todos los
+usuarios es un arma si las credenciales se filtran — mismo criterio que
+`revocar-todas-las-sesiones.js`.
+
+Y **propone, no decide**. `afectadosPorActor` lee `auditoria_accesos` y resuelve quién es el dueño
+de cada CV descargado y a qué estudiante se le descifró el RUT, pero la lista se pasa a mano en un
+archivo. `docs/09` paso 3 dice que la decisión de notificar no se toma en solitario, y el código no
+debería poder saltarse eso. Se deja fuera `ver_postulantes` a propósito: apunta a una oferta, no a
+una persona, y sus afectados son un juicio caso a caso.
+
+Una cuenta ya suprimida no recibe nada: su correo es un marcador `@proxi.invalid`, y escribirle
+sería mandar un correo al vacío **y registrar que se le avisó**, que es peor que no avisar.
+
+511 pruebas de API + 63 de web. Nueve nuevas, una por criterio de la spec. La migración se probó en
+las dos direcciones antes de subirla.
+
 ## 2026-09-21 (3) · Vigilancia de accesos: la tabla de auditoría deja de ser solo evidencia
 
 Hueco 1 del simulacro de brecha, cerrado. El diagnóstico de entonces seguía siendo exacto: Proxi
