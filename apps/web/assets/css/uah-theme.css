@@ -406,3 +406,12 @@ h1, h2, .titular {
   object-fit: contain;
   border-radius: inherit;
 }
+
+/* Anchos de columna de lectura. Estaban como `style="max-width: …"` en seis páginas; se mueven acá
+   para que la política de seguridad del sitio (apps/web/_headers) pueda prohibir los estilos en
+   línea sin excepciones. Un `style=` permitido es una rendija por la que también entra el estilo
+   que inyecte un atacante. Los valores son los que ya estaban, no unos nuevos. */
+.ancho-formulario { max-width: 420px; }
+.ancho-panel { max-width: 600px; }
+.ancho-panel-ancho { max-width: 640px; }
+.ancho-lectura { max-width: 700px; }

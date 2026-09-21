@@ -1,0 +1,24 @@
+# Encabezados de seguridad del sitio estático. La API ya pone los suyos con helmet; esto es para las
+# páginas, que las sirve Cloudflare y no pasan por Express.
+#
+# El que faltaba de verdad es HSTS. Sin él, alguien que teclea "proxi-88x.pages.dev" hace UNA
+# petición en HTTP antes de que la redirección lo mande a HTTPS, y en una red hostil esa petición se
+# puede interceptar. Con HSTS el navegador ni siquiera lo intenta a partir de la primera visita.
+
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  # El sitio no se embebe en ningún lado; que nadie pueda ponerlo dentro de un iframe para
+  # superponerle algo encima y robar clics sobre "postular" o "aprobar".
+  X-Frame-Options: DENY
+  # La URL de verificación de correo lleva el token en la query: sin esto, al hacer clic en
+  # cualquier enlace desde esa página el token viajaría en el Referer a un tercero.
+  Referrer-Policy: no-referrer
+  # Proxi no usa cámara, micrófono ni ubicación. Declararlo cierra la puerta por si alguna
+  # dependencia futura lo intenta.
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  # CSP acotada a lo que el sitio realmente carga: su propio JS y CSS, Bootstrap desde jsDelivr y
+  # las fuentes de Google. `connect-src` incluye 'self' porque la API entra por el mismo dominio a
+  # través del proxy del borde (_worker.js) — si algún día dejara de pasar por ahí, esto la
+  # bloquearía, y sería correcto que lo hiciera.
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
