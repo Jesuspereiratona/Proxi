@@ -282,8 +282,16 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
       `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` y `Permissions-Policy`. Para poder
       prohibir los estilos en línea sin excepciones, los seis `style="max-width"` pasaron a clases
       del tema
-- [ ] Monitoreo del healthcheck con aviso ante caídas
-- [ ] Hueco 1 del simulacro: vigilancia de `auditoria_accesos` — línea base y aviso por volumen anómalo
+- [ ] Monitoreo del healthcheck con aviso ante caídas. Parcial: el flujo **Tareas nocturnas** ya
+      despierta la API cada día y falla ruidosamente si no responde, así que una caída que dure más
+      de 24 h se nota. Falta detección más fina, que en un plan donde el servicio duerme por diseño
+      vale poco: "está caído" y "está durmiendo" se ven igual desde afuera
+- [x] Hueco 1 del simulacro: vigilancia de `auditoria_accesos` (`specs/12-vigilancia-de-accesos/`).
+      Línea base por usuario calculada de su propia historia, no un umbral fijo: con 6 cuentas de
+      prueba 50 accesos serían un escándalo, y con 400 estudiantes coordinación pasa de 50 en una
+      mañana normal. Más un piso absoluto, para que un sistema recién estrenado —sin historia— no
+      alerte por cualquier cosa. El aviso sale por el flujo de GitHub Actions, que falla de forma
+      ruidosa; la alerta lleva `usuarioId`, rol y números, nunca correo ni RUT
 - [ ] Hueco 3 del simulacro: poder notificar por correo a N personas afectadas (hoy solo transaccional)
 - [ ] Hueco 5 del simulacro: la llave de cifrado se respalda **separada** de la base
 - [ ] Hueco 6 del simulacro: definir retención de logs (si la brecha se detecta tarde, tiene que haber con qué investigar)

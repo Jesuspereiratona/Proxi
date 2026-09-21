@@ -1,3 +1,42 @@
+## 2026-09-21 (3) · Vigilancia de accesos: la tabla de auditoría deja de ser solo evidencia
+
+Hueco 1 del simulacro de brecha, cerrado. El diagnóstico de entonces seguía siendo exacto: Proxi
+registra cada `descargar_cv`, `ver_rut`, `ver_postulantes` y `exportar_datos`, y esa tabla es
+evidencia impecable **después** de que alguien avise. Lo que no existía es lo de antes — **nadie la
+miraba**. Si la cuenta de coordinación quedaba comprometida y alguien bajaba 300 CV en una tarde,
+las 300 filas se escribían correctamente y no pasaba nada. La Ley 21.719 da 72 horas desde que se
+**detecta** una brecha; un control que solo reconstruye los hechos no ayuda a detectarla.
+
+**Por qué no es un umbral fijo.** "Más de 50 al día" falla en los dos extremos: hoy, con seis
+cuentas de prueba, 50 accesos serían un escándalo y no dispararían nada; el día que la FEN tenga 400
+estudiantes, coordinación revisando postulaciones pasa de 50 en una mañana normal. La línea base se
+calcula de la historia de **cada usuario**: se alerta cuando alguien se sale de su propio patrón, no
+del de otro. Hay una prueba dedicada a ese caso — 200 accesos hoy con 180 de línea base **no**
+alertan.
+
+**Más un piso absoluto.** En un sistema recién estrenado la historia está casi vacía y cualquier
+cosa parece un pico. Sin piso, la alerta se vuelve ruido, y una alerta que nadie mira es peor que
+ninguna: da la sensación de tener un control.
+
+**Tres decisiones que no son obvias:**
+
+- **No bloquea a nadie.** Avisa. Cortarle el acceso a coordinación por un falso positivo, en plena
+  temporada de prácticas, haría más daño que el ataque que busca prevenir.
+- **La alerta no sale por `/salud`.** Ese endpoint es público y sin autenticación, y anunciar en
+  abierto "hoy detectamos un acceso anómalo" es información útil justo para quien lo esté haciendo.
+  Sale por `POST /tareas/ejecucion`, que exige el secreto.
+- **La alerta lleva `usuarioId`, rol y números, nunca correo ni RUT.** La regla dura de `CLAUDE.md`
+  sobre qué no entra a un log no tiene una excepción para las alertas, y esto termina en un log y en
+  la salida de un flujo de CI. Hay una prueba que afirma el conjunto exacto de claves y otra que
+  comprueba que no aparezca nada con forma de correo.
+
+**El canal de aviso es el que existe hoy**: el flujo de GitHub Actions falla de forma ruidosa y
+GitHub manda correo. Cuando haya SMTP configurado se suma el aviso por correo; mientras tanto, esto
+es lo que hay y funciona. El log del flujo dice qué usuario, cuántos accesos, cuál es su normal, y
+apunta a `docs/09-procedimiento-de-brecha.md`.
+
+502 pruebas de API + 63 de web, verdes. Diez nuevas, una por criterio de la spec.
+
 ## 2026-09-21 (2) · Respaldos, retención de auditoría y una vulnerabilidad grave en el correo
 
 Tres cosas de la Fase 8 cerradas en el mismo bloque, y una cuarta que apareció sola.

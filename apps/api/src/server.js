@@ -7,6 +7,7 @@ const marcarSinRespuesta = require('./tareas/marcarSinRespuesta');
 const recalcularIndicadores = require('./tareas/recalcularIndicadores');
 const procesarRetencionCv = require('./tareas/procesarRetencionCv');
 const procesarRetencionAuditoria = require('./tareas/procesarRetencionAuditoria');
+const vigilarAccesos = require('./tareas/vigilarAccesos');
 
 process.on('unhandledRejection', (error) => {
   logger.fatal(error, 'unhandledRejection');
@@ -21,7 +22,7 @@ const servidor = app.listen(env.puerto, () => {
   logger.info(`Proxi API escuchando en el puerto ${env.puerto}`);
 });
 
-const tareas = [cerrarOfertasVencidas, marcarSinRespuesta, recalcularIndicadores, procesarRetencionCv, procesarRetencionAuditoria];
+const tareas = [cerrarOfertasVencidas, marcarSinRespuesta, recalcularIndicadores, procesarRetencionCv, procesarRetencionAuditoria, vigilarAccesos];
 tareas.forEach((tarea) => tarea.programar());
 
 // Apagado ordenado. El supervisor del proveedor (Render, Fly, systemd, Kubernetes) manda SIGTERM y

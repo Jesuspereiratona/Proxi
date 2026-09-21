@@ -5,6 +5,7 @@ const marcarSinRespuesta = require('../tareas/marcarSinRespuesta');
 const recalcularIndicadores = require('../tareas/recalcularIndicadores');
 const procesarRetencionCv = require('../tareas/procesarRetencionCv');
 const procesarRetencionAuditoria = require('../tareas/procesarRetencionAuditoria');
+const vigilarAccesos = require('../tareas/vigilarAccesos');
 
 const INICIO = Date.now();
 
@@ -50,6 +51,7 @@ const verificarSalud = async () => {
       recalcularIndicadores: estadoPublico(recalcularIndicadores),
       procesarRetencionCv: estadoPublico(procesarRetencionCv),
       procesarRetencionAuditoria: estadoPublico(procesarRetencionAuditoria),
+      vigilarAccesos: estadoPublico(vigilarAccesos),
     },
   };
   cache = { momento: Date.now(), resultado };

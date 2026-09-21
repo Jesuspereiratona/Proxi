@@ -56,7 +56,7 @@ describe('POST /tareas/ejecucion', () => {
       Object.keys(respuesta.body.tareas).sort(),
       // Lista exacta a propósito: una tarea nueva que no se sume acá al disparador externo no
       // correría nunca en el plan gratuito, donde el cron interno duerme con el proceso.
-      ['cerrarOfertasVencidas', 'marcarSinRespuesta', 'procesarRetencionAuditoria', 'procesarRetencionCv', 'recalcularIndicadores'],
+      ['cerrarOfertasVencidas', 'marcarSinRespuesta', 'procesarRetencionAuditoria', 'procesarRetencionCv', 'recalcularIndicadores', 'vigilarAccesos'],
     );
     for (const [nombre, estado] of Object.entries(respuesta.body.tareas)) {
       assert.equal(estado.huboError, false, `${nombre} dejó huboError en true`);

@@ -6,6 +6,7 @@ const marcarSinRespuesta = require('../tareas/marcarSinRespuesta');
 const recalcularIndicadores = require('../tareas/recalcularIndicadores');
 const procesarRetencionCv = require('../tareas/procesarRetencionCv');
 const procesarRetencionAuditoria = require('../tareas/procesarRetencionAuditoria');
+const vigilarAccesos = require('../tareas/vigilarAccesos');
 
 // Mismo orden que en server.js. Una por una y no en paralelo: comparten la base y una de ellas
 // (retención) borra cuentas — no conviene que corra mientras otra está leyendo esas mismas filas.
@@ -15,6 +16,7 @@ const TAREAS = {
   recalcularIndicadores,
   procesarRetencionCv,
   procesarRetencionAuditoria,
+  vigilarAccesos,
 };
 
 // El disparador externo existe porque en un plan gratuito el proceso duerme, y un `node-cron`

@@ -37,10 +37,38 @@ jobs:
           respuesta=$(curl -sS --fail --max-time 120 -X POST \
             -H "X-Tareas-Token: ${{ secrets.TAREAS_TOKEN }}" \
             "${{ secrets.API_URL }}/api/v1/tareas/ejecucion")
-          echo "$respuesta"
-          # La API responde 200 aunque una tarea falle por dentro (cada una atrapa su error para no
-          # arrastrar a las demás). Sin esto, una tarea rota fallaría en silencio noche tras noche.
-          if echo "$respuesta" | grep -q '"huboError":true'; then
-            echo "::error::Al menos una tarea nocturna falló. Revisar los logs de la API."
-            exit 1
-          fi
+          echo "$respuesta" | node -e "
+            let d = '';
+            process.stdin.on('data', (c) => { d += c; });
+            process.stdin.on('end', () => {
+              const tareas = JSON.parse(d).tareas;
+              let problemas = 0;
+
+              for (const [nombre, estado] of Object.entries(tareas)) {
+                // La API responde 200 aunque una tarea falle por dentro: cada una atrapa su error
+                // para no arrastrar a las demas. Sin esto, una tarea rota fallaria en silencio
+                // noche tras noche.
+                if (estado.huboError) {
+                  console.log('::error::La tarea ' + nombre + ' fallo. Revisar los logs de la API.');
+                  problemas += 1;
+                } else {
+                  console.log('ok: ' + nombre);
+                }
+              }
+
+              // Este es el canal de aviso de la vigilancia de accesos: el flujo falla y GitHub
+              // manda correo. Las alertas traen solo usuarioId, rol y numeros — nunca correo, RUT
+              // ni nombre (specs/12-vigilancia-de-accesos).
+              const alertas = tareas.vigilarAccesos?.alertas ?? [];
+              if (alertas.length > 0) {
+                console.log('::error::Volumen de accesos a datos personales fuera de lo normal en ' + alertas.length + ' cuenta(s).');
+                for (const a of alertas) {
+                  console.log('  usuario ' + a.usuarioId + ' (' + a.rol + '): ' + a.accesos + ' accesos, su normal es ' + a.lineaBase + ' al dia');
+                }
+                console.log('Que hacer: docs/09-procedimiento-de-brecha.md. La ley da 72 h desde la deteccion.');
+                problemas += 1;
+              }
+
+              if (problemas > 0) process.exit(1);
+            });
+          "
