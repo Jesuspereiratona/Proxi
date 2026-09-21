@@ -9,7 +9,14 @@ services:
     name: proxi-api
     runtime: docker
     plan: free
-    region: oregon
+    # Virginia y no Oregon: Render no tiene región en Sudamérica (verificado en su documentación,
+    # son cinco: oregon, ohio, virginia, frankfurt, singapore). De las cinco, la costa este de EE.UU.
+    # es por donde sale el tráfico de Chile hacia el norte, así que es la más cercana en la práctica.
+    #
+    # La base tiene que estar en ESTA MISMA región. No es lo mismo que estar cerca de quien navega:
+    # una persona hace una petición por pantalla, pero la API hace varias consultas por petición. Con
+    # la base en otro continente, cada pantalla paga esa distancia multiplicada por cada consulta.
+    region: virginia
     dockerfilePath: ./Dockerfile
     # /salud devuelve 503 si la base no responde, así que esto detecta una caída de verdad y no solo
     # que el proceso siga vivo (services/salud.service.js).
