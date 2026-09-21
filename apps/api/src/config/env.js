@@ -59,6 +59,19 @@ if (process.env.RUT_CIFRADO_KEY.length < 32) {
   throw new Error('RUT_CIFRADO_KEY debe tener al menos 32 caracteres.');
 }
 
+// TAREAS_TOKEN es opcional (sin él la ruta no existe), pero si está, tiene que ser un secreto de
+// verdad: esa ruta ejecuta borrado de cuentas. El rango !-~ es ASCII imprimible sin espacios,
+// que es lo que produce `openssl rand -base64 32`.
+//
+// Lo de ASCII no es purismo: Node decodifica los valores de encabezado como latin1, mientras que
+// dotenv lee el .env como UTF-8. Con una "ñ" en el token, los dos lados producen digests distintos
+// y el cron queda en 404 todas las noches — y falla distinto según el sistema operativo desde el
+// que se llame, que es peor que fallar siempre (auditoría de seguridad, demostrado con un socket
+// crudo). Falla cerrada, nunca abierta, pero silenciosa: mejor no arrancar.
+if (process.env.TAREAS_TOKEN && !/^[!-~]{32,}$/.test(process.env.TAREAS_TOKEN)) {
+  throw new Error('TAREAS_TOKEN debe tener al menos 32 caracteres ASCII imprimibles sin espacios (openssl rand -base64 32).');
+}
+
 const puerto = Number(process.env.PORT) || 3000;
 const esProduccion = process.env.NODE_ENV === 'production';
 

@@ -1,3 +1,72 @@
+## 2026-09-20 (6) · La auditoría del despliegue: un agujero de supresión que yo mismo abrí
+
+`auditor-seguridad` sobre los dos commits del día. Los dos puntos de máxima prioridad quedaron
+limpios y **verificados en ejecución, no leídos**: no hay forma de disparar las tareas sin el
+secreto, y los bytes de un CV no salen por ninguna respuesta JSON. El hallazgo importante está en
+otro lado.
+
+**[Media] El script de migración dejaba una copia en claro de todos los CV en disco, para siempre.**
+Al mover los bytes a la base quité el `fs.unlink` de `eliminarCuenta` —correcto, ya no hay nada que
+borrar ahí— pero el script que sube los archivos viejos **nunca borraba el original**. El
+procedimiento que yo mismo escribí en `docs/07` decía "correrlo en la máquina que todavía tiene los
+archivos": esa máquina quedaba con los CV duplicados, en la columna BYTEA y en claro en el disco. El
+auditor lo midió: de 16 archivos locales, **8 correspondían a filas cuyo `contenido` ya no era nulo**,
+uno de ellos de 4,1 MB.
+
+Lo grave no es la duplicación, es lo que pasa después: cuando esa persona ejerce su derecho de
+supresión, `eliminarCuenta` anula los bytes dentro de la transacción y **la copia en disco
+sobrevive** — fuera de todo control de acceso, fuera de `auditoria_accesos`, y fuera de lo que la
+Ley 21.719 entiende por suprimir. No es explotable por HTTP (la descarga ya no toca el sistema de
+archivos), es dato personal residual en reposo. Es exactamente el tipo de hueco que un cambio de
+almacenamiento abre sin que nadie lo note: el borrado viejo se va con el código viejo.
+
+Arreglado: el script borra cada archivo **en cuanto los bytes están guardados**, y al terminar
+elimina el directorio si quedó vacío. Corrido de verdad acá: 8 archivos borrados, incluido el de
+4,1 MB. Los 8 restantes **no tienen fila en `archivos`** (restos de corridas de prueba viejas) y el
+script no los toca a propósito — recorre filas, no archivos: borrar lo no referenciado es cómo se
+pierden datos. Los lista por nombre para que alguien los mire.
+
+**[Baja] El disparador de tareas no tenía exclusión mutua.** Comprobado con 8 POST simultáneos con el
+secreto correcto: ocho 200, las cuatro tareas corriendo en paralelo consigo mismas. No es DoS anónimo
+—sin el secreto la petición cuesta dos SHA-256 y el límite global se aplica igual, con
+`ratelimit-remaining` decrementando— pero con el secreto sí hay amplificación: la pasada de retención
+hace hasta 50 `eliminarCuenta`, cada uno con un bcrypt de costo 12. Ahora una bandera en memoria
+devuelve 409 `TAREAS_EN_CURSO` al segundo disparo, en un `finally` para que un fallo inesperado no
+deje la ruta trabada para siempre. Basta una bandera porque el plan gratuito corre un solo proceso;
+el día que haya réplicas necesita el mismo `pg_advisory_lock` que el roadmap ya pide para el cron.
+
+Lo que el auditor comprobó que **no** se rompe: la concurrencia no burlaba
+`LIMITE_ELIMINACIONES_POR_CORRIDA = 50`. El cortacircuito aborta la pasada entera cuando el conteo
+supera el límite, así que N llamadas concurrentes abortaban juntas en vez de borrar 50×N.
+
+**[Baja] `TAREAS_TOKEN` era el único secreto sin validación de largo**, y esa ruta ejecuta borrado de
+cuentas. Ahora `env.js` exige 32 caracteres ASCII imprimibles sin espacios. Lo de ASCII no es
+purismo: Node decodifica los encabezados como **latin1** y dotenv lee el `.env` como **UTF-8**, así
+que un token con "ñ" produce digests distintos en cada lado y el cron queda en 404 todas las noches
+— y falla distinto según el sistema operativo desde el que se llame, que es peor que fallar siempre.
+El auditor lo demostró con un socket crudo. Falla cerrada, nunca abierta; pero silenciosa.
+
+**[Baja] El flujo de las tareas llamaba a `<API_URL>/salud`, sin `/api/v1`.** `render.yaml` y
+`docs/07` tratan `API_URL` como el origen pelado, así que ambos `curl` habrían dado 404. Falla
+ruidosa (el job se cae), pero el precio de equivocarse es que la eliminación por retención deje de
+correr. Corregido en los dos flujos y fijado por escrito el formato del secreto.
+
+**[Menor] `findAll` sin `attributes` en `eliminarCuenta`** se traía al heap todos los CV de la
+persona —hasta 5 MB cada uno— para quedarse solo con los ids. `attributes: ['id']` es gratis y baja
+la superficie de datos personales en memoria. Lo mismo en el `findByPk` de `obtenerDatos`.
+
+**Además quedó comprobado en ejecución, y vale anotarlo porque son las defensas que uno cree tener:**
+el encabezado repetido no burla la comparación (Node une los duplicados con `", "`, así que
+`req.get()` nunca devuelve un arreglo); el cuerpo del 404 es **byte a byte idéntico** al de una ruta
+inventada; el secreto aparece **0 veces** en el log real, censurado por `config/logger.js`; y el
+control de acceso a la descarga sobrevivió intacto al cambio de almacenamiento — empresa sin
+postulación recibe 404 y no 403, id de otro estudiante 404, sin autenticar 401.
+
+Pendiente de los hallazgos, anotado y no disimulado: no hay comprobación automática de que no queden
+CV vigentes sin bytes tras migrar. Por ahora es una consulta SQL en el runbook, no una alarma.
+
+481 pruebas de API + 59 de web, verdes. `npm run lint` limpio.
+
 ## 2026-09-20 (5) · El despliegue queda escrito en el repositorio: Docker, Render, Neon y un cron externo
 
 **El problema de fondo, que no es técnico.** Proxi corre en planes gratuitos. El de Render duerme el

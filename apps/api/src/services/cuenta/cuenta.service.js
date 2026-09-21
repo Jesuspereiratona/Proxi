@@ -57,7 +57,9 @@ const obtenerDatos = async (usuarioId, ip, userAgent) => {
     };
 
     if (estudiante.cvArchivoId) {
-      const archivo = await Archivo.findByPk(estudiante.cvArchivoId);
+      const archivo = await Archivo.findByPk(estudiante.cvArchivoId, {
+        attributes: ['nombreOriginal', 'tamanoBytes', 'createdAt'],
+      });
       if (archivo) cv = { nombreOriginal: archivo.nombreOriginal, tamanoBytes: archivo.tamanoBytes, subidoAt: archivo.createdAt };
     }
 
@@ -131,7 +133,12 @@ const eliminarCuenta = async (usuarioId, ip, userAgent) => {
   if (usuario.anonimizadoAt) return;
 
   const estudiante = await Estudiante.findOne({ where: { usuarioId } });
-  const archivos = estudiante ? await Archivo.findAll({ where: { propietarioUsuarioId: usuarioId, tipo: 'cv' } }) : [];
+  // attributes: ['id'] y no la fila entera: lo único que se usa de acá son los ids, y sin esto un
+  // DELETE /mi-cuenta se traía al heap todos los CV de la persona —hasta 5 MB cada uno— sin motivo
+  // (auditoría de seguridad). Menos datos personales en memoria, gratis.
+  const archivos = estudiante
+    ? await Archivo.findAll({ where: { propietarioUsuarioId: usuarioId, tipo: 'cv' }, attributes: ['id'] })
+    : [];
 
   await sequelize.transaction(async (t) => {
     if (estudiante) {

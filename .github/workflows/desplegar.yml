@@ -49,4 +49,4 @@ jobs:
         # contenedor.
         run: |
           curl -sS --fail --retry 20 --retry-all-errors --retry-delay 15 --max-time 60 \
-            "${{ secrets.API_URL }}/salud"
+            "${{ secrets.API_URL }}/api/v1/salud"

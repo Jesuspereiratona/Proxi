@@ -68,6 +68,24 @@ describe('POST /tareas/ejecucion', () => {
     assert.equal(segunda.body.tareas.cerrarOfertasVencidas.huboError, false);
   });
 
+  test('dos disparos simultáneos: uno corre y el otro recibe 409, no se ejecutan en paralelo', async () => {
+    // Con el secreto en mano, N llamadas a la vez ejecutaban las cuatro tareas en paralelo consigo
+    // mismas (auditoría de seguridad: 8 POST simultáneos, ocho 200). La pasada de retención hace
+    // hasta 50 eliminarCuenta, cada uno con un bcrypt de costo 12.
+    const respuestas = await Promise.all(
+      Array.from({ length: 4 }, () => request(app).post(RUTA).set('X-Tareas-Token', SECRETO)),
+    );
+    const codigos = respuestas.map((r) => r.status).sort();
+    assert.equal(codigos.filter((c) => c === 200).length, 1, `se ejecutaron varias a la vez: ${codigos}`);
+    assert.equal(codigos.filter((c) => c === 409).length, 3);
+    assert.equal(respuestas.find((r) => r.status === 409).body.error.codigo, 'TAREAS_EN_CURSO');
+  });
+
+  test('después de un 409 la ruta vuelve a funcionar: la bandera no queda trabada', async () => {
+    const respuesta = await request(app).post(RUTA).set('X-Tareas-Token', SECRETO);
+    assert.equal(respuesta.status, 200);
+  });
+
   test('sin TAREAS_TOKEN configurado la ruta no existe para nadie, ni con el secreto', async () => {
     env.tareasToken = '';
     try {

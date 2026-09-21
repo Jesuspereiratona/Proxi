@@ -59,6 +59,10 @@ porqué está tres párrafos más abajo.
 4. **GitHub**: en *Settings → Secrets*, entorno `produccion`, cargar `DATABASE_URL`, los dos
    secretos JWT, `RUT_CIFRADO_KEY`, `WEB_URL`, `API_URL`, `TAREAS_TOKEN` y `RENDER_DEPLOY_HOOK`.
 
+**`API_URL` es el origen pelado, sin `/api/v1`** (`https://proxi-api.onrender.com`). Los flujos le
+agregan la ruta completa. Si se carga con el prefijo, los `curl` dan 404: el flujo falla ruidoso,
+pero mientras nadie lo mire, la eliminación por retención —una obligación legal— deja de correr.
+
 Los secretos se generan con `openssl rand -base64 32`, uno distinto por variable y distinto del de
 desarrollo. Ver la skill `manejo-de-secretos`.
 
@@ -78,9 +82,27 @@ corren por los dos lados sin problema: son idempotentes.
 ### Migrar CV que quedaron en disco
 
 Solo aplica a instalaciones anteriores al 2026-09-20, cuando los CV se guardaban en
-`almacenamiento/cv`. `npm run migrar-cv -w apps/api` los sube a la base. Es idempotente y se corre a
-mano, en la máquina que todavía tiene los archivos — no es una migración de Sequelize porque
-`db:migrate` corre en el despliegue, donde ese disco no existe.
+`almacenamiento/cv`. `npm run migrar-cv -w apps/api` los sube a la base **y borra el archivo de
+disco** en cuanto los bytes están guardados. Es idempotente y se corre a mano, en la máquina que
+todavía tiene los archivos — no es una migración de Sequelize porque `db:migrate` corre en el
+despliegue, donde ese disco no existe.
+
+El borrado no es opcional: sin él, esa máquina queda con una copia en claro de todos los CV para
+siempre, fuera de todo control de acceso y de `auditoria_accesos`. Cuando después esa persona ejerce
+su derecho de supresión, la base se limpia y **la copia en disco sobrevive** — lo contrario de
+suprimir (auditoría de seguridad del 2026-09-20). El script no toca archivos que no tengan fila en
+`archivos`: los lista por nombre para que alguien los mire, porque borrar lo no referenciado es cómo
+se pierden datos.
+
+Antes de dar por terminada la migración, comprobar que no quedó ningún CV vigente sin bytes:
+
+```sql
+SELECT count(*) FROM archivos WHERE tipo = 'cv' AND contenido IS NULL AND expira_at IS NULL;
+```
+
+Si no da cero, esos CV responden 404 aunque el estudiante los vea listados en su panel (el nombre y
+el tamaño salen de la fila, no de los bytes), y una empresa que abra una postulación anterior al
+cambio no puede descargar el CV que sí recibió en su momento.
 
 Migraciones: siempre reversibles (`up` y `down`), nunca destructivas en un solo paso. Para eliminar una
 columna: primero dejar de usarla y desplegar, después borrarla en un despliegue posterior. Así un
