@@ -116,13 +116,30 @@ Ninguna decide sobre la selección de un estudiante. **Proxi no evalúa, no punt
 candidatos**: eso lo hace la empresa, fuera del sistema.
 
 ## Encargados de tratamiento (terceros)
-| Encargado | Qué trata | Estado |
-|---|---|---|
-| Proveedor de hosting y base de datos | Todo | **Sin decidir.** Requiere contrato de encargo (DPA) |
-| Proveedor de correo | Correos y direcciones | **Sin decidir.** Requiere contrato de encargo |
+Ya no están "sin decidir": el despliegue del 2026-09-21 los eligió. Los tres están **fuera de
+Chile**, así que los tres son transferencia internacional.
 
-**Si el proveedor está fuera de Chile hay transferencia internacional**, que debe informarse con sus
-garantías. Ver punto 5 del documento del abogado.
+| Encargado | Qué trata | Dónde | Estado |
+|---|---|---|---|
+| **Neon** (base de datos) | Todo: cuentas, perfiles, RUT cifrado, CV completos, auditoría | EE.UU. (Virginia) | En uso. **Falta DPA** |
+| **Render** (API) | Todo, en tránsito y en memoria mientras procesa | EE.UU. (Virginia) | En uso. **Falta DPA** |
+| **Cloudflare** (web y proxy) | Todo lo que pasa entre el navegador y la API | Red global | En uso. **Falta DPA** |
+| **GitHub Actions** (tareas y ensayo de restauración) | El volcado completo de la base pasa por su runner una vez por semana | EE.UU. | En uso. **Falta DPA** |
+| Proveedor de correo | Correos y direcciones | Sin decidir | Sin configurar; el registro está apagado mientras tanto |
+
+**Hoy esto es inocuo y mañana no.** La base solo tiene datos inventados: seis cuentas de prueba y
+ofertas de mentira. Ninguna de esas transferencias toca a una persona real. El día que un estudiante
+de la FEN suba su CV, las cuatro filas de arriba pasan a ser tratamiento de datos personales por
+terceros fuera de Chile, y **eso no se puede regularizar después**: hay que tener el contrato antes
+del primer dato real.
+
+Por qué están fuera de Chile, para que quede en el registro y no en la memoria de alguien: ningún
+proveedor gratuito de los evaluados tiene región en Chile. Render no tiene Sudamérica (cinco
+regiones, ninguna). Se eligió la costa este de EE.UU. porque es por donde sale el tráfico chileno
+hacia el norte, y la base se puso en la misma región que la API porque una petición hace varias
+consultas. La alternativa —base en São Paulo— no evitaba la salida del país, solo agregaba latencia.
+
+Ver punto 5 del documento del abogado.
 
 ## Medidas de seguridad
 Detalle en `../03-seguridad.md`. Resumen: contraseñas con bcrypt costo 12; RUT cifrado en reposo; TLS

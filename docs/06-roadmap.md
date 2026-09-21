@@ -263,8 +263,11 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
       cero; antes de que haya CV reales esto exige una decisión de la FEN, probablemente con costo
 - [x] Variables de entorno en el proveedor, con secretos propios de producción: los tres secretos
       (los dos JWT y la llave de cifrado del RUT) son distintos de los de desarrollo, verificado
-- [ ] DPA (acuerdo de procesamiento de datos) con el proveedor de hosting — venía de Fase 7; se movió
-      acá porque depende de qué proveedor se elija, decisión que se toma en esta fase
+- [ ] DPA con cada proveedor. Ya no depende de elegir: los cuatro están elegidos y anotados en
+      `docs/legal/registro-actividades-tratamiento.md` con qué trata cada uno y dónde está (Neon,
+      Render, Cloudflare y GitHub Actions, los cuatro fuera de Chile). Lo que falta es firmar, y
+      **tiene que estar antes del primer dato real**: con datos inventados es inocuo, después no se
+      regulariza hacia atrás
 - [x] Apagado ordenado del servidor (`SIGTERM` + `server.close()` con temporizador) antes de que el
       supervisor del proveedor mate el proceso. Verificado en un contenedor `node:20-alpine` real,
       no en Windows, que no tiene SIGTERM de verdad: salida 0 en 380 ms con la secuencia completa
