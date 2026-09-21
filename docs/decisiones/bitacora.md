@@ -1,3 +1,39 @@
+## 2026-09-21 (2) · Respaldos, retención de auditoría y una vulnerabilidad grave en el correo
+
+Tres cosas de la Fase 8 cerradas en el mismo bloque, y una cuarta que apareció sola.
+
+**La CI llevaba dos corridas en rojo y nadie lo estaba mirando.** No era el código: era
+`npm audit --audit-level=high`, que es exactamente para lo que está puesto. **nodemailer ≤9.1.0**
+con cuatro advertencias, una de ellas entrega de correo a un dominio controlado por un atacante vía
+mal parseo de comentarios RFC 5322. Proxi manda correos de verificación de cuenta, así que eso no es
+teórico. Subido a 9.1.1 y `qs` a 6.16.0, sin cambios de API y con las 555 pruebas verdes.
+
+Quedan **tres moderadas de `uuid`**, transitivas de `node-cron` y `sequelize`. No se tocan hoy a
+propósito: arreglarlas exige `node-cron` 4, que es un cambio mayor sobre las cinco tareas
+programadas, y la vulnerabilidad pide llamar a uuid v3/v5/v6 pasando un `buf` — algo que el código
+de Proxi no hace nunca, porque no usa `uuid` en absoluto (usa `crypto.randomUUID` de Node). Se deja
+anotado en vez de disimulado: el umbral de la CI es `high`, así que esto no la vuelve a romper, pero
+tampoco desaparece solo.
+
+**Respaldos: se cerró la mitad que se puede, y se dice cuál es la otra.** El plan gratuito de Neon
+guarda 6 horas de historial y no ofrece respaldos programados (verificado en su documentación, no de
+memoria). El ensayo de restauración ya es automático y semanal: saca el volcado de la base real, lo
+restaura en una base vacía y comprueba tablas, filas, claves foráneas y —la que de verdad importa—
+que un RUT cifrado **se vuelva a descifrar** tras restaurar. Un respaldo que repone las filas pero
+deja los RUT ilegibles no sirve de nada, y eso no se nota contando tablas. Primera corrida: 13
+tablas, 18 claves foráneas, RUT descifrado.
+
+El volcado **no se guarda en ninguna parte**, y esa es la decisión: un artefacto de GitHub en un
+repositorio público lo descarga cualquiera, y un repositorio de respaldos convierte datos personales
+en historial de git, que no se puede borrar de verdad — lo contrario del derecho de supresión que
+Proxi implementa. Con datos inventados el riesgo es cero; antes de que haya CV reales, tener
+respaldos guardados es una decisión de la FEN, probablemente con costo. Queda sin marcar en el
+roadmap.
+
+**Los cinco archivos de prueba que faltaban pasan a `tests/ayudas.js`.** Ya habían divergido: cinco
+devolvían el RUT con guion y `ayudas.js` sin él. Da igual para la app —`normalizarRut` los deja
+iguales— pero es exactamente como empieza una divergencia que sí importa. 113 líneas menos.
+
 ## 2026-09-21 · Retención de `auditoria_accesos`: anonimizar primero, borrar mucho después
 
 La casilla decía "fijar una ventana y una tarea de purga". La decisión real era otra, y aparece al
