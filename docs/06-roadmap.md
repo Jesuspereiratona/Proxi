@@ -302,9 +302,10 @@ de las diez decisiones legales bloquean código, así que la Fase 8 no debería 
       2026-09-20, con los comodines escapados), y `etiquetaArea` lo maquilla al mostrarlo; lo que
       falta es el fondo: una lista controlada de áreas en el backend más una migración que normalice
       lo ya guardado. Sin eso no hay agrupación ni conteo por área confiables
-- [ ] Runbook de *incidentes* en `07-operacion-y-mantenimiento.md`: el de despliegue ya está; falta
-      el de qué hacer cuando algo se cae en producción, que solo se puede escribir con producción
-      arriba
+- [x] Runbook de incidentes en `07-operacion-y-mantenimiento.md`: qué mirar y en qué orden cuando
+      algo se cae. Escrito con los fallos que de verdad ocurrieron al estrenar el despliegue —API
+      dormida, JavaScript en caché, proxy del borde devolviendo HTML, límite de intentos confundido
+      con una falla, y el orden correcto para revertir— no con casos imaginarios
 
 ---
 

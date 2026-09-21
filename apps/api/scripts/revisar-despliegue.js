@@ -216,7 +216,7 @@ const revisarDespliegue = async () => {
     if (!s.baseDeDatos.ok) throw new Error('la base no responde');
     return `version ${s.version}`;
   });
-  await revisar('las cuatro tareas nocturnas, sin errores', async () => {
+  await revisar('las tareas nocturnas, sin errores', async () => {
     const s = await pedir('GET', '/salud');
     const conError = Object.entries(s.tareas).filter(([, t]) => t.huboError).map(([n]) => n);
     if (conError.length) throw new Error(`con error: ${conError.join(', ')}`);
@@ -224,7 +224,7 @@ const revisarDespliegue = async () => {
     // (tareas/cerrarOfertasVencidas.js). Tras un despliegue esta vacio y eso NO es un fallo: que
     // corran de verdad se comprueba en el flujo de GitHub Actions, no aca.
     const corridas = Object.values(s.tareas).filter((t) => t.ultimaEjecucionAt).length;
-    return `las cuatro declaradas, ${corridas} con corrida en esta instancia`;
+    return `${Object.keys(s.tareas).length} declaradas, ${corridas} con corrida en esta instancia`;
   });
   await revisar('el disparador de tareas rechaza sin secreto', () => pedir('POST', '/tareas/ejecucion', { esperado: 404 }));
   await revisar('encabezados de seguridad', async () => {

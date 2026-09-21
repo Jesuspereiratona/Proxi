@@ -170,6 +170,110 @@ proyecto: cifrado en reposo, y borrado en cuanto deje de hacer falta.
 - **Restauración probada cada 3 meses.** Un respaldo que nunca se restauró no es un respaldo, es una
   esperanza. Se anota la fecha de la última prueba en la bitácora.
 
+## Cuando algo se cae: qué mirar y en qué orden
+
+Escrito con los fallos que de verdad ocurrieron al estrenar el despliegue, no con casos
+imaginarios. Los tres primeros son el 90% de lo que va a pasar.
+
+**Lo primero, siempre:**
+
+```bash
+npm run revisar-despliegue -w apps/api -- https://proxi-88x.pages.dev <clave-demo>
+```
+
+39 comprobaciones por el mismo camino que usa el navegador. Dice qué funciona y qué no antes de que
+empieces a adivinar.
+
+### "Tarda como un minuto en cargar la primera vez"
+
+**No está roto.** El plan gratuito de Render duerme el proceso tras 15 minutos sin tráfico, y
+despertarlo tarda ~50 s. La segunda carga es instantánea. Se nota sobre todo en la primera visita
+del día. Si molesta para una demostración, entra tú diez minutos antes.
+
+### "Sale el error genérico al iniciar sesión"
+
+Mira `/api/v1/salud` primero:
+
+| Lo que dice | Qué pasa |
+|---|---|
+| no responde en 90 s | la API está caída o muy dormida; revisar los logs en Render |
+| `"baseDeDatos":{"ok":false}` | Neon no responde o `DATABASE_URL` quedó mal |
+| `"estado":"ok"` | el problema está en el navegador, sigue abajo |
+
+Con `/salud` en `ok`, casi siempre es una de dos:
+
+1. **JavaScript viejo en caché.** `Ctrl + Shift + R`. Pasa después de cada despliegue.
+2. **`version` no coincide con el último commit.** El despliegue no llegó; ver abajo.
+
+### "El despliegue dice que terminó pero los cambios no están"
+
+Compara lo que corre con lo que subiste:
+
+```bash
+curl -s https://proxi-api.onrender.com/api/v1/salud | grep -o '"version":"[^"]*"'
+git rev-parse --short=7 HEAD
+```
+
+Si no coinciden, el contenedor nuevo no levantó. El flujo `Desplegar` espera hasta ver ese commit,
+así que si terminó en verde y no coincide, el que falló fue un despliegue posterior. Revisar los
+logs de Render.
+
+### La API responde pero la web no la alcanza
+
+Síntoma: las páginas cargan, iniciar sesión da el error genérico, y `/salud` desde `curl` está en
+`ok`. Casi siempre es el camino entre las dos, que pasa por el proxy del borde
+(`apps/web/_worker.js`):
+
+```bash
+# ¿Devuelve JSON o el HTML del sitio?
+curl -s https://proxi-88x.pages.dev/api/v1/salud | head -c 40
+```
+
+- Devuelve **HTML** → el proxy no está activo. El `_worker.js` tiene que quedar en la raíz de la
+  carpeta publicada (`apps/web`), no en `functions/`.
+- Devuelve **502 con `API_NO_DISPONIBLE`** → el proxy no alcanzó la API. Suele ser la API dormida:
+  reintentar.
+- Devuelve **JSON** → el proxy está bien; el problema es del cliente (caché, o `config.js`).
+
+### Una cuenta no puede entrar
+
+Antes de tocar nada, mira si es el límite de intentos:
+
+```bash
+curl -s -D - -o /dev/null -X POST https://proxi-88x.pages.dev/api/v1/auth/login \
+  -H 'Content-Type: application/json' -d '{"email":"...","clave":"..."}' | grep -i ratelimit
+```
+
+Un `429` con `ratelimit-remaining: 0` **es la protección funcionando**, no una falla. El encabezado
+`ratelimit-reset` dice cuántos segundos faltan.
+
+### Las tareas nocturnas no corrieron
+
+`ultimaEjecucionAt` en `/salud` **vuelve a null en cada reinicio del proceso**, a propósito: el
+estado vive en memoria. Tras un despliegue está vacío y eso no significa nada. Dónde mirar de
+verdad: la pestaña *Actions* del repositorio, flujo **Tareas nocturnas**. Si falló, el log dice
+cuál tarea y por qué. Se puede disparar a mano con *Run workflow*.
+
+Si el flujo da 404, `API_URL` en los secretos de GitHub tiene el prefijo `/api/v1` de más: debe ser
+el origen pelado.
+
+### Hay que revertir un despliegue
+
+**El orden importa y es al revés que al desplegar.** Primero el código, después la base:
+
+1. En Render, *Deploys* → buscar el despliegue anterior → **Rollback**.
+2. Solo si el problema era una migración: `npm run db:migrate:undo -w apps/api` con
+   `DATABASE_URL` apuntando a producción.
+
+Al revés, el proceso nuevo sigue corriendo contra una base que ya perdió una columna, y cualquier
+consulta a esa tabla falla con 500 hasta que también se revierte el código.
+
+### Se perdieron datos
+
+El plan gratuito de Neon guarda **6 horas** de historial. Dentro de esa ventana, *Restore* en el
+panel de Neon vuelve a un punto anterior. Fuera de ella, **no hay de dónde recuperar**: ver la
+sección de respaldos, que dice por qué y qué falta decidir.
+
 ## Monitoreo
 - `GET /api/v1/salud` devuelve: estado de la app, de la base, y última ejecución exitosa de cada tarea
   programada.
