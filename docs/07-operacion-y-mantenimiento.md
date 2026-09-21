@@ -59,6 +59,12 @@ porqué está tres párrafos más abajo.
 4. **GitHub**: en *Settings → Secrets*, entorno `produccion`, cargar `DATABASE_URL`, los dos
    secretos JWT, `RUT_CIFRADO_KEY`, `WEB_URL`, `API_URL`, `TAREAS_TOKEN` y `RENDER_DEPLOY_HOOK`.
 
+**SMTP es obligatorio en producción y la API se niega a arrancar sin él.** No es rigidez: sin
+`SMTP_HOST`, `correo.service.js` cae en Ethereal —una casilla falsa de desarrollo— y el correo de
+verificación se manda ahí. El registro devuelve 201, la cuenta se crea, y la persona nunca recibe el
+enlace: no puede verificar su correo ni entrar nunca. Falla en silencio y hacia el lado abierto.
+Cualquier proveedor gratuito sirve (Brevo, Resend, o Gmail con contraseña de aplicación).
+
 **`API_URL` es el origen pelado, sin `/api/v1`** (`https://proxi-api.onrender.com`). Los flujos le
 agregan la ruta completa. Si se carga con el prefijo, los `curl` dan 404: el flujo falla ruidoso,
 pero mientras nadie lo mire, la eliminación por retención —una obligación legal— deja de correr.
