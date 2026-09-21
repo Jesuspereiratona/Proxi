@@ -12,32 +12,19 @@ const { normalizarRut } = require('../src/utils/rut');
 // la misma base, así que si dos archivos comparten dominio, el after() de uno borra a mitad de
 // prueba los usuarios que el otro todavía está usando.
 const DOMINIO_PRUEBA = 'perfiles.uahurtado.test';
-let contador = 0;
-const correoUnico = (prefijo) => `${prefijo}.${Date.now()}.${contador++}@${DOMINIO_PRUEBA}`;
+
+// Los ayudantes viven en ./ayudas.js: estaban copiados verbatim en seis archivos y habian
+// empezado a divergir. Se enlazan al dominio de ESTE archivo, porque `node --test` corre los
+// archivos en paralelo contra la misma base y el borrado de limpiar.js va por dominio.
+const { CLAVE, generarRutValido } = require('./ayudas');
+const ayudas = require('./ayudas');
+const correoUnico = (prefijo) => ayudas.correoUnico(prefijo, DOMINIO_PRUEBA);
+const crearUsuarioActivo = (rol, overrides) => ayudas.crearUsuarioActivo(rol, DOMINIO_PRUEBA, overrides);
 
 // RUT inventado con dígito verificador válido (algoritmo módulo 11), nunca uno real.
 // Aleatorio, no un contador: un contador que reinicia en cada corrida repite los mismos RUT que una
 // corrida anterior haya dejado en la base (si su after() no alcanzó a limpiar), y choca contra ellos.
-const generarRutValido = () => {
-  const cuerpo = String(10000000 + Math.floor(Math.random() * 89999999));
-  let suma = 0;
-  let mult = 2;
-  for (let i = cuerpo.length - 1; i >= 0; i--) {
-    suma += Number(cuerpo[i]) * mult;
-    mult = mult === 7 ? 2 : mult + 1;
-  }
-  const resto = 11 - (suma % 11);
-  const dv = resto === 11 ? '0' : resto === 10 ? 'K' : String(resto);
-  return `${cuerpo}-${dv}`;
-};
 
-const crearUsuarioActivo = async (rol) => {
-  const email = correoUnico(rol);
-  const passwordHash = await passwords.hashear('claveDePrueba123456');
-  const usuario = await Usuario.create({ email, passwordHash, rol, estado: 'activo', emailVerificadoAt: new Date() });
-  const accessToken = tokensService.firmarAcceso({ sub: String(usuario.id), rol });
-  return { usuario, accessToken };
-};
 
 const datosEstudiante = (overrides = {}) => ({
   nombres: 'Ana',

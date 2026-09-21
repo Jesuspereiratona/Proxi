@@ -30,12 +30,18 @@ const generarRutValido = () => {
   return `${cuerpo}${dv}`;
 };
 
-const crearUsuarioActivo = async (rol, dominio) => {
+// `overrides` lo usa cuenta.test.js para crear un usuario que ya nace con algún campo distinto
+// (por ejemplo anonimizadoAt). `emailOriginal` también sale de ahí: el borrado de cuenta reescribe
+// usuario.email con un marcador, así que después no hay forma de recuperar el correo con el que se
+// creó, y varias pruebas lo necesitan para comprobar que ese correo ya no sirve para entrar.
+const crearUsuarioActivo = async (rol, dominio, overrides = {}) => {
   const email = correoUnico(rol, dominio);
   const passwordHash = await passwords.hashear(CLAVE);
-  const usuario = await Usuario.create({ email, passwordHash, rol, estado: 'activo', emailVerificadoAt: new Date() });
+  const usuario = await Usuario.create({
+    email, passwordHash, rol, estado: 'activo', emailVerificadoAt: new Date(), ...overrides,
+  });
   const accessToken = tokensService.firmarAcceso({ sub: String(usuario.id), rol });
-  return { usuario, accessToken };
+  return { usuario, accessToken, emailOriginal: email };
 };
 
 module.exports = { CLAVE, correoUnico, generarRutValido, crearUsuarioActivo };
