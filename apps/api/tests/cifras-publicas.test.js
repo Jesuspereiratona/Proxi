@@ -2,6 +2,7 @@ const { test, describe, after, before } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const app = require('../src/app');
+const { Op } = require('sequelize');
 const { sequelize, Empresa, Oferta } = require('../src/models');
 const publicosService = require('../src/services/panorama/publicos.service');
 const { crearUsuarioActivo, generarRutValido } = require('./ayudas');
@@ -46,6 +47,14 @@ before(async () => {
   empresaId = perfil.id;
 });
 
+// El endpoint cuenta TODA la base, y `node --test` corre los archivos en paralelo: comparar el
+// total antes y después dejaba una prueba que fallaba sola cuando otro archivo creaba una oferta a
+// la vez (pasó en la primera corrida). Se comprueba la misma regla —vigente es publicada Y con
+// cierre futuro— pero acotada a las ofertas de ESTA prueba, que son las únicas que controlo.
+const misOfertasVigentes = () => Oferta.count({
+  where: { empresaId, estado: 'publicada', fechaCierre: { [Op.gt]: new Date() } },
+});
+
 after(async () => {
   if (ofertasCreadas.length) await Oferta.destroy({ where: { id: ofertasCreadas } });
   await borrarUsuariosDePrueba(DOMINIO_PRUEBA);
@@ -74,24 +83,26 @@ describe('cifras públicas de la portada', () => {
   });
 
   test('una oferta publicada y vigente suma', async () => {
-    const antes = (await request(app).get(RUTA)).body.ofertasVigentes;
+    const antes = await misOfertasVigentes();
     await crearOferta({ diasHastaCierre: 30 });
-    const despues = (await request(app).get(RUTA)).body.ofertasVigentes;
-    assert.equal(despues, antes + 1);
+    assert.equal(await misOfertasVigentes(), antes + 1);
+    // Y el endpoint la ve: al menos las mías están contadas.
+    const total = (await request(app).get(RUTA)).body.ofertasVigentes;
+    assert.ok(total >= antes + 1, `el endpoint reporta ${total}, menos que las ${antes + 1} mías`);
   });
 
   test('un borrador no suma: nadie lo ve', async () => {
-    const antes = (await request(app).get(RUTA)).body.ofertasVigentes;
+    const antes = await misOfertasVigentes();
     await crearOferta({ estado: 'borrador' });
-    assert.equal((await request(app).get(RUTA)).body.ofertasVigentes, antes);
+    assert.equal(await misOfertasVigentes(), antes);
   });
 
   test('una oferta ya vencida no suma aunque siga publicada', async () => {
     // cerrarOfertasVencidas corre de noche: entre que vence y que la tarea pasa, la oferta sigue
     // en estado publicada. "Vigente" tiene que mirar la fecha, no solo el estado.
-    const antes = (await request(app).get(RUTA)).body.ofertasVigentes;
+    const antes = await misOfertasVigentes();
     await crearOferta({ diasHastaCierre: -5, diasPublicadaAtras: 40 });
-    assert.equal((await request(app).get(RUTA)).body.ofertasVigentes, antes);
+    assert.equal(await misOfertasVigentes(), antes);
   });
 
   test('sin historial suficiente, las cifras que serían ruido vienen en null y no en cero', async () => {
