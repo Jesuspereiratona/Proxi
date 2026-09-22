@@ -15,7 +15,22 @@
   <nav class="navbar navbar-expand-lg border-bottom bg-white">
     <div class="container">
       <a class="navbar-brand titular" href="index.html">Proxi</a>
-      <div id="nav-sesion" class="d-flex gap-3 align-items-center"></div>
+      <span class="marca-facultad d-none d-lg-inline">FEN UAH</span>
+
+      <!-- Navegación del sitio. Todos los destinos existen: no hay enlaces de adorno.
+           `activo` marca la página en la que estás, en naranja — que la guía visual sí admite
+           para enlaces activos, a diferencia del adorno. -->
+      <div class="enlaces-nav d-none d-md-flex gap-4 ms-4">
+        <a class="enlace-nav" href="index.html">Inicio</a>
+        <a class="enlace-nav activo" href="ofertas.html">Ofertas</a>
+        <a class="enlace-nav" href="index.html#como-funciona">Cómo funciona</a>
+        <a class="enlace-nav" href="index.html#metricas">Métricas</a>
+      </div>
+
+      <div class="d-flex gap-3 align-items-center ms-auto">
+        <a class="enlace-nav d-none d-lg-inline" href="registro.html">Soy una empresa</a>
+        <div id="nav-sesion" class="d-flex gap-3 align-items-center"></div>
+      </div>
     </div>
   </nav>
 

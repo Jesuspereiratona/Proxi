@@ -1,32 +1,15 @@
-import { obtener, usuarioActual } from '../api/cliente.js';
-import { iniciarSesion } from '../api/sesion.js';
+import { obtener } from '../api/cliente.js';
 import { icono } from '../componentes/iconos.js';
+import { pintarNavSesion } from '../componentes/nav-sesion.js';
 
 // Portada pública: explica qué es Proxi a alguien que llega sin contexto. Antes, el enlace que
 // circulaba llevaba directo a una lista de ofertas y quien no supiera qué era Proxi tenía que
 // deducirlo de la lista.
 
-const PANEL_POR_ROL = {
-  estudiante: { href: 'panel-estudiante.html', texto: 'Mi panel' },
-  empresa: { href: 'panel-empresa.html', texto: 'Mi panel' },
-  coordinacion: { href: 'panel-coordinacion.html', texto: 'Coordinación' },
-};
-
 const navSesion = document.getElementById('nav-sesion');
 const contenedorCifras = document.getElementById('cifras');
 
 document.getElementById('icono-revision').append(icono('revisado'));
-
-// Mismo criterio no bloqueante que la vitrina: la portada es pública, reponer la sesión solo
-// decide qué dice el menú.
-const pintarNav = async () => {
-  const usuario = (await iniciarSesion()) ? usuarioActual() : null;
-  const destino = usuario && PANEL_POR_ROL[usuario.rol];
-  const enlace = document.createElement('a');
-  enlace.href = destino ? destino.href : 'login.html';
-  enlace.textContent = destino ? destino.texto : 'Iniciar sesión';
-  navSesion.replaceChildren(enlace);
-};
 
 const cifra = (numero, etiqueta) => {
   const div = document.createElement('div');
@@ -62,5 +45,5 @@ const pintarCifras = async () => {
   }
 };
 
-pintarNav();
+pintarNavSesion(navSesion);
 pintarCifras();

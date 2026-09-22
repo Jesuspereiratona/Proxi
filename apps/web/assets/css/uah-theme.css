@@ -590,3 +590,15 @@ html {
     scroll-behavior: smooth;
   }
 }
+
+/* Enlace activo de la navegación: naranja, que es uno de los usos que la guía visual le da
+   ("acciones principales, enlaces activos"). Es una marca, no adorno: solo uno a la vez. */
+.enlace-nav.activo {
+  color: var(--uah-marengo-1);
+  font-weight: 500;
+  border-bottom: 2px solid var(--uah-naranja);
+  padding-bottom: 0.15rem;
+}
+.enlaces-nav {
+  font-size: 0.95rem;
+}

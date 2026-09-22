@@ -20,6 +20,8 @@ const TRAZOS = {
   // Escudo con visto: acompania a "coordinacion revisa cada oferta antes de publicarla" en la
   // portada. Revision previa, no aprobacion generica — por eso escudo y no solo un visto.
   revisado: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10ZM9 11.5l2 2 4-4',
+  // Candado del boton de iniciar sesion: refuerza que ahi se entra a algo privado.
+  candado: 'M7 11V7a5 5 0 0 1 10 0v4M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z',
 };
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
