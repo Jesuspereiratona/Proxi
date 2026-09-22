@@ -602,3 +602,84 @@ html {
 .enlaces-nav {
   font-size: 0.95rem;
 }
+
+/* Confirmación de registro ("Revisa tu correo"). Es una pantalla de espera, no de éxito: la cuenta
+   existe pero no sirve hasta abrir el correo. Por eso todo el bloque es neutro — sin verde de
+   "listo" y sin naranja, que acá reservamos para urgencia y para la acción principal, y esperar un
+   correo no es ninguna de las dos (docs/08-guia-visual.md). */
+.confirmacion {
+  text-align: center;
+  padding: 2.25rem 1.5rem;
+}
+.confirmacion-marca {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  margin-bottom: 1.1rem;
+  border-radius: 50%;
+  background: var(--uah-blanco-3);
+  font-size: 1.5rem;
+  color: var(--uah-gris-2);
+}
+.confirmacion-titulo {
+  font-size: 1.75rem;
+  margin-bottom: 0.9rem;
+}
+.confirmacion-correo {
+  margin-bottom: 0.9rem;
+  font-weight: 500;
+  /* El correo se corta por caracteres si hace falta: en 320px un correo institucional largo
+     desbordaba la tarjeta, y acá es el dato que la persona vino a comprobar. */
+  overflow-wrap: anywhere;
+}
+.confirmacion-nota {
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--uah-gris-1);
+}
+/* Los tres pasos. La numeración la pone el contador de la lista y no un <span> escrito a mano:
+   así el lector de pantalla los anuncia como lista ordenada y el número no se puede desincronizar
+   del orden visual. */
+.confirmacion-pasos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+  counter-reset: paso;
+  margin: 0 0 1.5rem;
+  padding: 0.85rem 1rem;
+  list-style: none;
+  background: var(--uah-blanco-3);
+  border: 1px solid var(--uah-borde);
+  border-radius: var(--bs-border-radius);
+  font-size: 0.9rem;
+  color: var(--uah-gris-2);
+}
+.confirmacion-pasos li {
+  counter-increment: paso;
+}
+.confirmacion-pasos li::before {
+  content: counter(paso) ' ';
+  font-weight: 500;
+  color: var(--uah-marengo-1);
+}
+.confirmacion-ayuda {
+  margin: 1.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--uah-gris-1);
+}
+
+/* Cuando aparece la confirmación, el <main> deja de ser un formulario angosto. Dos razones: el
+   título "Crear cuenta" contradice a la pantalla que lo sigue (la cuenta YA se creó), y con 420px
+   los tres pasos se partían 2+1, que se lee como si el tercero fuera otra cosa.
+   Se hace con :has() y no con una clase puesta desde JS porque el estado ya está en el DOM
+   (`#confirmacion[hidden]`): una clase paralela es un segundo lugar donde el mismo dato se puede
+   desincronizar. */
+main:has(#confirmacion:not([hidden])) {
+  max-width: 560px;
+}
+main:has(#confirmacion:not([hidden])) > h1 {
+  display: none;
+}

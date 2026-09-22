@@ -1,5 +1,6 @@
 import { registrar } from '../api/auth.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
+import { icono } from '../componentes/iconos.js';
 
 // Mismo mínimo que apps/api/src/services/auth/passwords.js LARGO_MINIMO: no hay forma de
 // importarlo del backend sin un paquete compartido nuevo solo para un número, así que se duplica
@@ -8,8 +9,13 @@ const LARGO_MINIMO_CLAVE = 12;
 
 const formulario = document.getElementById('formulario-registro');
 const mensajeError = document.getElementById('mensaje-error');
-const mensajeExito = document.getElementById('mensaje-exito');
+const panelFormulario = document.getElementById('panel-formulario');
+const confirmacion = document.getElementById('confirmacion');
+const confirmacionCorreo = document.getElementById('confirmacion-correo');
+const yaTienesCuenta = document.getElementById('ya-tienes-cuenta');
 const boton = formulario.querySelector('button[type="submit"]');
+
+document.getElementById('confirmacion-icono').append(icono('sobre'));
 
 const mostrarError = (texto) => {
   mensajeError.textContent = texto;
@@ -38,16 +44,24 @@ formulario.addEventListener('submit', async (evento) => {
   }
 
   boton.disabled = true;
+  const email = datos.get('email');
   try {
     await registrar({
-      email: datos.get('email'),
+      email,
       clave,
       rol: datos.get('rol'),
       aceptaPolitica: true,
     });
-    formulario.hidden = true;
-    mensajeExito.textContent = 'Cuenta creada. Revisa tu correo para verificarla antes de iniciar sesión.';
-    mensajeExito.hidden = false;
+    // Se oculta el PANEL entero, no solo el <form>: el panel tiene relleno propio, así que ocultar
+    // el formulario dentro dejaba una tarjeta blanca vacía flotando sobre el mensaje.
+    panelFormulario.hidden = true;
+    yaTienesCuenta.hidden = true;
+    confirmacionCorreo.textContent = email;
+    confirmacion.hidden = false;
+    // Sin esto el foco se queda en el botón que ya no está en pantalla y quien navega con teclado o
+    // lector de pantalla no recibe nada: el `role="status"` anuncia, pero no mueve el foco.
+    confirmacion.setAttribute('tabindex', '-1');
+    confirmacion.focus();
   } catch (error) {
     mostrarError(error instanceof ErrorApi ? error.message : mensajeParaCodigo());
     boton.disabled = false;

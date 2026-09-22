@@ -2050,3 +2050,39 @@ volver a registrarse. Es seguro borrarla: recién creada no tiene sesiones, perf
 tras el fallo no queda usuario, y que **la persona puede volver a registrarse con el mismo correo**.
 446 pruebas de API + 41 de web, verdes. Verificado además contra el servidor real, no solo con
 pruebas: registro 201 y correo efectivamente enviado.
+
+## 2026-09-22 — La confirmación de registro deja de ser un `alert` verde
+
+**Problema real, visible en pantalla:** al crear la cuenta el JS ocultaba el `<form>` pero no el
+`<section class="panel">` que lo envuelve. El panel tiene relleno propio, así que quedaba **una
+tarjeta blanca vacía flotando sobre el mensaje** — se veía como una página a medio cargar.
+
+**Lo que se cambió, y por qué no fue solo tapar el hueco:**
+- Se oculta el panel completo y la confirmación lo **reemplaza** en vez de apilarse debajo.
+- Deja de ser `alert-success` verde. Crear la cuenta no terminó el trámite: falta abrir el correo, y
+  hasta entonces la cuenta no sirve para iniciar sesión. El verde de "listo" decía lo contrario.
+  Tampoco lleva naranja: acá reservamos ese color para urgencia y acción principal
+  (`docs/08-guia-visual.md`), y esperar un correo no es ninguna de las dos.
+- Se muestra **el correo al que se envió**. Es el dato que la persona vino a comprobar, y un error de
+  tipeo en el correo era hasta ahora invisible: la cuenta quedaba inalcanzable sin ninguna pista.
+- Tres pasos de qué viene después, numerados por `counter-reset` de la lista y no por `<span>`
+  escritos a mano, para que el lector de pantalla los anuncie como lista ordenada y el número no se
+  pueda desincronizar del orden visual.
+
+**No se implementó el botón "Reenviar correo"** que pedía el diseño: no existe endpoint de reenvío
+(`auth.routes.js`). En su lugar va la dirección de contacto, que sí funciona. Un botón que no hace
+nada es peor que no tenerlo.
+
+**Decisión no obvia:** el ensanche del contenedor y el ocultamiento del `<h1>` "Crear cuenta" se
+hacen con `main:has(#confirmacion:not([hidden]))` en CSS, no con una clase puesta desde JS. El estado
+ya vive en el DOM (`[hidden]`); una clase paralela sería un segundo lugar donde el mismo dato se
+puede desincronizar.
+
+**Datos personales:** la confirmación muestra el correo que la propia persona acaba de escribir. No
+se pide al servidor, no se guarda en `localStorage` y no se registra en ningún log — solo vive en el
+DOM de esa pestaña.
+
+**Verificación:** no por lectura de código. Se levantó `apps/web`, se interceptó `fetch` por CDP para
+recorrer la rama real de éxito del formulario y se midió en el navegador: `cajasBlancasVacias: 0`,
+`desborde: 0` en 1280px y en 390px, y el foco queda en la confirmación (sin eso, quien navega con
+teclado se queda con el foco en un botón que ya no está). 89 pruebas de web verdes, lint limpio.

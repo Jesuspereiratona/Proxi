@@ -21,7 +21,7 @@
   <main class="container py-4 ancho-formulario">
     <h1 class="titular mb-4">Crear cuenta</h1>
 
-    <section class="panel">
+    <section id="panel-formulario" class="panel">
     <form id="formulario-registro" method="post" novalidate>
       <div class="mb-3">
         <label for="email" class="form-label">Correo</label>
@@ -54,9 +54,30 @@
     </form>
     </section>
 
-    <div id="mensaje-exito" class="alert alert-success mt-3" role="status" hidden></div>
+    <!-- Confirmación. Reemplaza al formulario en vez de apilarse debajo: antes se ocultaba solo el
+         <form> y el .panel quedaba con su relleno a la vista, o sea una caja blanca vacía encima
+         del mensaje. Tampoco es un .alert verde: crear la cuenta no terminó el trámite, falta
+         abrir el correo — el verde de "listo" diría lo contrario. -->
+    <section id="confirmacion" class="panel confirmacion" role="status" hidden>
+      <span id="confirmacion-icono" class="confirmacion-marca" aria-hidden="true"></span>
+      <h1 class="titular confirmacion-titulo">Revisa tu correo</h1>
+      <p class="mb-1">Te enviamos un enlace de verificación a</p>
+      <p id="confirmacion-correo" class="confirmacion-correo"></p>
+      <p class="confirmacion-nota">El enlace vence en 24 horas. Si no lo ves, revisa la carpeta de spam.</p>
 
-    <p class="mt-3 small">¿Ya tienes cuenta? <a href="login.html">Inicia sesión</a></p>
+      <ol class="confirmacion-pasos">
+        <li>Abres el enlace</li>
+        <li>Inicias sesión</li>
+        <li>Completas tu perfil</li>
+      </ol>
+
+      <a class="btn btn-outline-secondary" href="login.html">Ir a iniciar sesión</a>
+      <p class="confirmacion-ayuda">
+        ¿No te llega? Escríbenos a <a href="mailto:uahmarketcl@gmail.com">uahmarketcl@gmail.com</a>
+      </p>
+    </section>
+
+    <p id="ya-tienes-cuenta" class="mt-3 small">¿Ya tienes cuenta? <a href="login.html">Inicia sesión</a></p>
   </main>
 
   <footer class="border-top py-3 mt-5 text-center small text-body-secondary">
