@@ -13,6 +13,14 @@ const obtenerTransporte = () => {
           host: env.smtp.host,
           port: env.smtp.port,
           auth: env.smtp.usuario ? { user: env.smtp.usuario, pass: env.smtp.password } : undefined,
+          // Sin esto, nodemailer espera por defecto hasta 10 minutos al socket. El envío ocurre
+          // DENTRO de la petición de registro, así que un SMTP lento dejaba a la persona mirando un
+          // botón congelado sin ningún mensaje (visto al estrenar el correo en producción). Con
+          // tiempos acotados, un proveedor que no responde falla rápido, la compensación borra la
+          // cuenta a medias y quien se registra ve un error en vez de esperar sin saber.
+          connectionTimeout: 10_000,
+          greetingTimeout: 10_000,
+          socketTimeout: 20_000,
         }),
       )
     : nodemailer.createTestAccount().then((cuenta) =>
