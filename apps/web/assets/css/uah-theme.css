@@ -566,3 +566,27 @@ h1, h2, .titular {
   text-align: center;
   color: var(--uah-gris-2);
 }
+
+/* Enlaces de sección en la cabecera de la portada. Neutros, no naranjas: navegar no es urgente,
+   y el naranja está reservado (ver "Semántica de estado"). El subrayado aparece al pasar el mouse
+   y también con el foco de teclado, no solo con el mouse. */
+.enlace-nav {
+  color: var(--uah-gris-2);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+.enlace-nav:hover,
+.enlace-nav:focus-visible {
+  color: var(--uah-marengo-1);
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+}
+/* El salto a una sección no debe dejar el título pegado al borde de arriba. */
+html {
+  scroll-padding-top: 1.5rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
