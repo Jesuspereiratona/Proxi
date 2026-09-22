@@ -1,5 +1,5 @@
-import { obtener } from '../api/cliente.js';
-import { iniciarSesion, usuarioActual } from '../api/sesion.js';
+import { obtener, usuarioActual } from '../api/cliente.js';
+import { iniciarSesion } from '../api/sesion.js';
 import { icono } from '../componentes/iconos.js';
 
 // Portada pública: explica qué es Proxi a alguien que llega sin contexto. Antes, el enlace que
