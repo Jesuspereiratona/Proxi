@@ -17,6 +17,9 @@ const TRAZOS = {
   moneda: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 6v12M14.5 9.5a2.5 2.5 0 0 0-2.5-1.5c-1.4 0-2.5.9-2.5 2s1.1 2 2.5 2 2.5.9 2.5 2-1.1 2-2.5 2a2.5 2.5 0 0 1-2.5-1.5',
   lupa: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3',
   edificio: 'M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M4 21h16M8 7h4M8 11h4M8 15h4',
+  // Escudo con visto: acompania a "coordinacion revisa cada oferta antes de publicarla" en la
+  // portada. Revision previa, no aprobacion generica — por eso escudo y no solo un visto.
+  revisado: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10ZM9 11.5l2 2 4-4',
 };
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

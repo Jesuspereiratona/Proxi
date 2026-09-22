@@ -8,6 +8,9 @@ const router = Router();
 // Solo coordinación: es una vista de gestión de la facultad, no información pública. Los conteos
 // por área o el embudo de postulaciones dirían a una empresa cuánta competencia tiene, y a nadie
 // más le corresponde.
+// Antes de la ruta con sesión: las tres cifras de la portada no la exigen.
+router.get('/publico', controller.obtenerPublicos);
+
 router.get('/', autenticar, autorizar('coordinacion'), controller.obtener);
 
 module.exports = router;

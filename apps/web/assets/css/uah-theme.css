@@ -438,3 +438,131 @@ h1, h2, .titular {
     animation: none;
   }
 }
+
+/* ---- Portada (index.html) ---------------------------------------------------------------- */
+/* El naranja NO aparece acá salvo en el botón principal. La regla de la sección "Semántica de
+   estado" no es solo para las tarjetas: si la portada gasta naranja en números y adornos, cuando
+   la persona llegue a la vitrina el naranja ya no significa "esta oferta cierra pronto". */
+
+.marca-facultad {
+  margin-left: 0.85rem;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--uah-borde);
+  font-size: 0.875rem;
+  color: var(--uah-gris-1);
+}
+
+.portada-heroe {
+  padding: 4rem 0 3rem;
+}
+.sello {
+  display: inline-block;
+  margin-bottom: 1.25rem;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid var(--uah-borde);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--uah-gris-1);
+}
+.portada-titular {
+  /* clamp y no un tamaño fijo: el titular es lo primero que se lee y en 390px un 3.25rem parte
+     "fantasma" en dos líneas feas. */
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  line-height: 1.15;
+  max-width: 18ch;
+  margin: 0 auto 1rem;
+}
+.portada-bajada {
+  max-width: 46ch;
+  margin: 0 auto 2rem;
+  font-size: 1.1rem;
+  color: var(--uah-gris-2);
+}
+
+.portada-seccion {
+  padding: 2.5rem 0;
+}
+
+.paso {
+  background: #fff;
+  border: 1px solid var(--uah-borde);
+  border-radius: var(--bs-border-radius-lg);
+  padding: 1.5rem;
+}
+.paso-numero {
+  /* Número en un cuadro neutro, no en naranja: es orden, no urgencia. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin-bottom: 0.85rem;
+  border-radius: var(--bs-border-radius);
+  background: var(--uah-blanco-3);
+  font-family: 'Frank Ruhl Libre', serif;
+  font-size: 1.1rem;
+  color: var(--uah-marengo-1);
+}
+.paso-titulo {
+  font-family: 'Frank Ruhl Libre', serif;
+  font-size: 1.25rem;
+  margin-bottom: 0.4rem;
+}
+.paso-texto {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--uah-gris-2);
+}
+
+.cifras {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem 3rem;
+}
+.cifra {
+  flex: 1 1 12rem;
+  text-align: center;
+  padding: 0.5rem 0;
+}
+/* Separador solo entre cifras, no al costado de la primera. Con flex-wrap, en móvil las cifras se
+   apilan y el borde izquierdo quedaría colgando: se apaga bajo 576px. */
+.cifra + .cifra {
+  border-left: 1px solid var(--uah-borde);
+}
+@media (max-width: 575.98px) {
+  .cifra + .cifra {
+    border-left: none;
+    border-top: 1px solid var(--uah-borde);
+  }
+}
+.cifra-valor {
+  font-size: 3rem;
+  line-height: 1;
+  margin: 0 0 0.35rem;
+  color: var(--uah-marengo-1);
+  font-variant-numeric: tabular-nums;
+}
+.cifra-etiqueta {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--uah-gris-1);
+}
+
+.franja-revision {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 1.15rem 1.25rem;
+  background: var(--uah-blanco-3);
+  border: 1px solid var(--uah-borde);
+  border-radius: var(--bs-border-radius-lg);
+  text-align: center;
+  color: var(--uah-gris-2);
+}
