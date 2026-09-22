@@ -1,18 +1,24 @@
 const cron = require('node-cron');
 const auditoriaService = require('../services/auditoria/auditoria.service');
+const sesionesRetencion = require('../services/auth/sesiones-retencion');
 const logger = require('../config/logger');
 
 // Mismo patrón que las otras cuatro tareas: estado en memoria, expuesto en GET /salud.
-const estado = { ultimaEjecucionAt: null, cantidadAnonimizadas: null, cantidadBorradas: null, huboError: false };
+const estado = { ultimaEjecucionAt: null, cantidadAnonimizadas: null, cantidadBorradas: null, cantidadSesionesPurgadas: null, huboError: false };
 
 const ejecutar = async () => {
   try {
     const { anonimizadas, borradas } = await auditoriaService.procesarRetencion();
+    // Las sesiones agotadas van en la misma tarea: las dos son retención del mismo tipo de dato de
+    // red (ip, user_agent), corren a diario y no tiene sentido programar dos crons para eso.
+    const sesionesPurgadas = await sesionesRetencion.purgarAgotadas();
+
     estado.ultimaEjecucionAt = new Date();
     estado.cantidadAnonimizadas = anonimizadas;
     estado.cantidadBorradas = borradas;
+    estado.cantidadSesionesPurgadas = sesionesPurgadas;
     estado.huboError = false;
-    logger.info({ anonimizadas, borradas }, 'procesarRetencionAuditoria: ejecutada');
+    logger.info({ anonimizadas, borradas, sesionesPurgadas }, 'procesarRetencionAuditoria: ejecutada');
   } catch (error) {
     estado.huboError = true;
     logger.error({ err: error.message }, 'procesarRetencionAuditoria: falló');

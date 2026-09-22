@@ -97,6 +97,7 @@ Vigente desde el **1 de diciembre de 2026**. Aplica de lleno: tratamos datos per
 | Supresión | `DELETE /api/v1/mi-cuenta`: anula los bytes del CV (`archivos.contenido`), anonimiza postulaciones (se conserva el evento estadístico sin identidad). Todo en una transacción |
 | Seguridad proporcional | Cifrado en tránsito (TLS), RUT cifrado en reposo, control de acceso por rol y pertenencia, respaldos verificados |
 | Registro de accesos | Tabla `auditoria_accesos`: cada vez que alguien descarga un CV o ve datos de un estudiante |
+| Retención de sesiones | `sesiones` guarda `ip` y `user_agent`: una sesión vencida o revocada se **borra a los 90 días**. No es evidencia de acceso a datos personales —eso es `auditoria_accesos`— así que no necesita los 24 meses |
 | Retención de esa auditoría | Dos etapas: a los **12 meses** se anulan `ip` y `user_agent`; a los **24 meses** se borra la fila. La tarea `procesarRetencionAuditoria` corre a diario (`specs/11-retencion-de-auditoria/`) |
 | Notificación de brechas | Procedimiento escrito en `07-operacion-y-mantenimiento.md`. Plazo: 72 horas a la Agencia y a los afectados |
 | Retención | CV y perfil se eliminan tras `RETENCION_CV_MESES` sin actividad, con aviso previo por correo |

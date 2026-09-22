@@ -82,8 +82,13 @@ jobs:
           # La prueba que de verdad importa: que los datos cifrados se puedan volver a leer con la
           # llave. Un respaldo que restaura las filas pero deja los RUT ilegibles no sirve de nada,
           # y eso no se nota contando tablas.
+          # El error se descarta a propósito: cuando una consulta falla, Postgres devuelve el
+          # mensaje CON la consulta incluida — y esta lleva la llave de cifrado dentro. Los
+          # registros de un repositorio público los lee cualquiera. GitHub enmascara los secretos
+          # que tiene registrados, pero eso es una red de seguridad, no una razón para exponerlo.
+          # Si la consulta falla, `rut` queda vacío y la comprobación de abajo lo reporta igual.
           rut=$(psql "$DESTINO" -t -A -c \
-            "SELECT pgp_sym_decrypt(rut_cifrado, '${RUT_CIFRADO_KEY}') FROM estudiantes WHERE rut_cifrado IS NOT NULL LIMIT 1")
+            "SELECT pgp_sym_decrypt(rut_cifrado, '${RUT_CIFRADO_KEY}') FROM estudiantes WHERE rut_cifrado IS NOT NULL LIMIT 1" 2>/dev/null)
           if [ -n "$rut" ]; then
             echo "OK   un RUT cifrado se descifra tras restaurar (largo ${#rut})"
           else

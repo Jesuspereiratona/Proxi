@@ -131,6 +131,14 @@ if (retencionAvisoDias >= retencionCvMeses * 28) {
 // de auditoría tiene dos partes con vida útil distinta: quién accedió a qué y cuándo sirve de
 // evidencia durante años; la IP y el navegador solo sirven para investigar una brecha reciente.
 // Por eso primero se anula el dato de red y mucho después se borra la fila.
+// Cuánto se conserva una sesión ya vencida o revocada. Guarda ip y user_agent, así que es el mismo
+// dato de red que la auditoría; 90 días alcanza para investigar un incidente reciente y es mucho
+// menos que los 24 meses de la auditoría, que sí es evidencia legal.
+const retencionSesionesDias = leerPlazo('RETENCION_SESIONES_DIAS', 90);
+if (!Number.isInteger(retencionSesionesDias) || retencionSesionesDias <= 0) {
+  throw new Error('RETENCION_SESIONES_DIAS debe ser un entero positivo.');
+}
+
 const retencionAuditoriaMeses = leerPlazo('RETENCION_AUDITORIA_MESES', 12);
 const borradoAuditoriaMeses = leerPlazo('RETENCION_AUDITORIA_BORRADO_MESES', 24);
 
@@ -190,6 +198,7 @@ const env = {
   diasSinPostulantes: Number(process.env.DIAS_SIN_POSTULANTES) || 15,
   retencionCvMeses,
   retencionAvisoDias,
+  retencionSesionesDias,
   retencionAuditoriaMeses,
   borradoAuditoriaMeses,
   // Ya NO se escribe nada acá: los CV viven en archivos.contenido desde la bitácora 2026-09-20.

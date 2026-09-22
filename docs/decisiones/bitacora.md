@@ -1,3 +1,51 @@
+## 2026-09-22 · Revisión de seguridad a fondo: dos huecos propios, ambos de retención
+
+Revisión completa pedida por el usuario: APIs sueltas, secretos, usuarios, registros, qué proteger.
+Los agentes fueron cayendo por límite de cuenta, así que buena parte la hice a mano — incluida la
+parte que ellos no pueden hacer, que es mirar la base de producción.
+
+**Lo que está limpio, con el método usado, porque un "no encontré nada" sin método no sirve:**
+
+- **Secretos en el repositorio, que es público.** 104 commits revisados con `git log -S` sobre
+  patrones de credencial (cadenas de conexión, claves privadas, tokens de GitHub/OpenAI/Slack/Google,
+  el gancho de despliegue de Render). `.env` y `.env.produccion` **nunca estuvieron versionados**: 0
+  commits. Los tres `postgres://` que aparecen son plantillas (`usuario:clave@host`), un mensaje de
+  error, y la contraseña de un contenedor efímero que solo existe dentro del runner.
+- **Las seis rutas públicas**, probadas contra producción una por una: `/salud`, `/ofertas`,
+  `/ofertas/:id`, `/empresas/:id`, `/empresas/:id/indicadores` y `/panorama/publico`. Ninguna
+  devuelve correo, RUT, teléfono, nombres ni identificadores de CV.
+- **Inventario de las 42 rutas**: las públicas son exactamente las que deben serlo. Ninguna quedó
+  abierta por descuido.
+- **Producción no tiene un solo usuario real**: 6 cuentas, todas del dominio de demostración. 2 CV y
+  2 RUT cifrados, todos inventados.
+- **Ningún flujo de CI imprime un secreto.**
+
+**Hueco 1 — `sesiones` guardaba IP y navegador para siempre.** Le acabábamos de poner un plazo de
+dos etapas a `auditoria_accesos` justamente porque la IP es dato personal con vida útil corta… y la
+tabla de al lado guardaba lo mismo, sin ninguna regla. En producción ya había 85 sesiones sin
+revocar para 6 cuentas. Ahora se borran a los **90 días** de vencidas o revocadas.
+
+El borrado es de **una sola etapa**, a diferencia de la auditoría, y la razón importa: una sesión
+**no es evidencia** de acceso a datos personales. Lo que hay que poder demostrar —quién vio el CV de
+quién— vive en `auditoria_accesos` con sus 24 meses. Una sesión vencida solo sirve para investigar un
+incidente reciente; pasada esa ventana es dato de red sin propósito. Se conserva la revocada de ayer
+—sirve para "me robaron la cuenta el martes"— y se borra la vencida hace medio año. Va en la misma
+tarea diaria que la retención de auditoría: mismo tipo de dato, misma cadencia, un solo cron.
+
+**Hueco 2 — la llave de cifrado del RUT podía terminar en un registro público.** El ensayo de
+restauración la interpola dentro de una consulta SQL. Cuando una consulta falla, Postgres devuelve
+el mensaje **con la consulta incluida**, y los registros de Actions en un repositorio público los lee
+cualquiera. GitHub enmascara los secretos que tiene registrados, pero eso es una red de seguridad, no
+una razón para exponerlo. El error de esa consulta ahora se descarta; si falla, la comprobación lo
+reporta igual porque el resultado queda vacío.
+
+**Anotado y no disimulado:** el ensayo de restauración es el único momento en que el volcado completo
+de la base y la llave de cifrado conviven en la misma máquina, que además es de un tercero. Hoy es
+inocuo porque los datos son inventados. El día que haya CV reales, esa coexistencia hay que
+revisarla de nuevo — está en la lista de encargados de tratamiento junto con el DPA pendiente.
+
+538 pruebas de API + 89 de web.
+
 ## 2026-09-21 (4) · Notificar una brecha deja de ser un documento y pasa a ser un comando
 
 Hueco 3 del simulacro. El procedimiento del paso 4 estaba escrito desde hace semanas, con la carta
