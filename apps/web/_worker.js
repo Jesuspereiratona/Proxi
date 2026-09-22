@@ -20,6 +20,13 @@
 // el index.html del sitio.
 const ORIGEN_API = 'https://proxi-api.onrender.com';
 
+// Tope del cuerpo que el proxy acepta antes de buffearlo. Un CV son 5 MB y es lo más grande que
+// sube la interfaz; se dejan 6 para no rechazar una subida válida por el borde de los multipart.
+// Sin esto, alguien podía hacer POST a cualquier /api/* con un cuerpo enorme y forzar al Worker a
+// cargarlo entero en memoria —el tope real de multer se aplica recién en la API, después— hasta
+// degradar el servicio (revisión de seguridad, 2026-09-22).
+const MAXIMO_CUERPO = 6 * 1024 * 1024;
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -31,6 +38,18 @@ export default {
       // `request.body` como flujo devolvía 502 en los POST (medido contra producción — GET pasaba,
       // login no). Lo más grande que sube Proxi es un CV de 5 MB, que cabe de sobra en la memoria
       // de un Worker.
+      // El content-length se comprueba ANTES de leer el cuerpo: rechazar en el borde con 413 es lo
+      // que evita buffear decenas de MB. Es un encabezado que el cliente controla, así que la API
+      // vuelve a validar el tamaño real sobre el buffer —un tope de transporte y una regla de
+      // negocio no dependen uno del otro— pero acotar acá corta el abuso antes de gastar memoria.
+      const largo = Number(request.headers.get('content-length'));
+      if (largo > MAXIMO_CUERPO) {
+        return new Response(
+          JSON.stringify({ error: { codigo: 'CUERPO_DEMASIADO_GRANDE', mensaje: 'El archivo supera el tamaño permitido.' } }),
+          { status: 413, headers: { 'content-type': 'application/json; charset=utf-8' } },
+        );
+      }
+
       const cuerpo = request.method === 'GET' || request.method === 'HEAD'
         ? undefined
         : await request.arrayBuffer();
