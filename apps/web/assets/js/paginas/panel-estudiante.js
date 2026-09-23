@@ -1,6 +1,7 @@
 import { protegerPagina } from '../componentes/proteger-pagina.js';
 import { obtenerPerfil, crearPerfil, actualizarPerfil, subirCv } from '../api/estudiantes.js';
 import { descargarArchivo, ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
+import { icono } from '../componentes/iconos.js';
 import { logout } from '../api/sesion.js';
 
 const usuario = await protegerPagina('estudiante');
@@ -14,6 +15,7 @@ function iniciar() {
   const botonDescargarCv = document.getElementById('boton-descargar-cv');
   const inputArchivoCv = document.getElementById('archivo-cv');
   const botonSubirCv = document.getElementById('boton-subir-cv');
+  const cvMensaje = document.getElementById('cv-mensaje');
   const botonCerrarSesion = document.getElementById('boton-cerrar-sesion');
 
   let perfilExiste = false;
@@ -22,6 +24,20 @@ function iniciar() {
   const mostrarMensaje = (texto) => {
     mensajeEstado.textContent = texto;
     mensajeEstado.hidden = !texto;
+  };
+
+  const enKb = (bytes) => `${Math.round(bytes / 1024)} kB`;
+
+  // El resultado de subir, junto al botón que lo provocó. `tipo` puede ser 'ok', 'error' o nada
+  // (el aviso neutro de "subiendo"). Cada uno lleva SU icono además del color: quien no distingue
+  // verde de rojo tiene que poder separar "guardado" de "falló" igual (docs/08-guia-visual.md).
+  const mostrarMensajeCv = (texto, tipo) => {
+    cvMensaje.replaceChildren();
+    cvMensaje.className = `mensaje mt-3${tipo ? ` mensaje-${tipo}` : ''}`;
+    cvMensaje.hidden = !texto;
+    if (!texto) return;
+    if (tipo) cvMensaje.append(icono(tipo === 'ok' ? 'visto' : 'alerta'));
+    cvMensaje.append(texto);
   };
 
   const pintarCv = () => {
@@ -94,18 +110,27 @@ function iniciar() {
   botonSubirCv.addEventListener('click', async () => {
     const archivo = inputArchivoCv.files[0];
     if (!archivo) {
-      mostrarMensaje('Elige un archivo PDF primero.');
+      mostrarMensajeCv('Elige un archivo PDF primero.', 'error');
       return;
     }
-    mostrarMensaje('');
+    // Subir un PDF de varios MB por una conexión del campus no es instantáneo. Sin este aviso la
+    // página se ve igual que antes de apretar y la gente vuelve a apretar, que sube el archivo dos
+    // veces. El botón se bloquea por lo mismo.
+    botonSubirCv.disabled = true;
+    mostrarMensajeCv('Subiendo…');
     try {
       const nuevoArchivo = await subirCv(archivo);
       cvArchivoId = nuevoArchivo.id;
       pintarCv();
       inputArchivoCv.value = '';
-      mostrarMensaje('CV actualizado.');
+      // Se nombra el archivo que quedó guardado, no un "listo" a secas: es la única forma de que
+      // alguien note que subió el PDF equivocado, y el nombre viene del servidor, o sea es el que
+      // de verdad se almacenó y no el que eligió en el selector.
+      mostrarMensajeCv(`CV guardado: ${nuevoArchivo.nombreOriginal} (${enKb(nuevoArchivo.tamanoBytes)}).`, 'ok');
     } catch (error) {
-      mostrarMensaje(error instanceof ErrorApi ? error.message : mensajeParaCodigo());
+      mostrarMensajeCv(error instanceof ErrorApi ? error.message : mensajeParaCodigo(), 'error');
+    } finally {
+      botonSubirCv.disabled = false;
     }
   });
 

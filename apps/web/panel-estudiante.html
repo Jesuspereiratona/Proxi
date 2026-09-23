@@ -69,6 +69,10 @@
       <label for="archivo-cv" class="form-label">Subir o reemplazar CV (PDF)</label>
       <input type="file" id="archivo-cv" accept="application/pdf" class="form-control">
       <button id="boton-subir-cv" type="button" class="btn btn-secondary btn-sm mt-2">Subir</button>
+      <!-- El resultado de subir va AQUÍ, junto al botón. Antes reusaba #mensaje-estado, que está
+           arriba del todo: en un panel largo el aviso aparecía fuera de la pantalla y parecía que
+           no había pasado nada. -->
+      <p id="cv-mensaje" class="mensaje mt-3" role="status" hidden></p>
     </div>
     </section>
   </main>
