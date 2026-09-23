@@ -2,7 +2,6 @@ import { protegerPagina } from '../componentes/proteger-pagina.js';
 import { listarTodas, validar, rechazar as rechazarEmpresa, suspender, listarTodosLosIndicadores } from '../api/empresas.js';
 import { listarPendientesRevision, aprobar, rechazarOferta } from '../api/ofertas.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
-import { logout } from '../api/sesion.js';
 import { listarPendientes as listarLogosPendientes, aprobarLogo, retirarLogo, urlImagenParaRevision } from '../api/logos.js';
 import { etiquetaModalidad, etiquetaJornada, etiquetaRemuneracion, etiquetaArea, formatoFechaCorta, formatoRut } from '../formato.js';
 import { obtenerPanorama } from '../api/panorama.js';
@@ -26,7 +25,6 @@ function iniciar() {
   const listaLogos = document.getElementById('lista-logos');
   const tablaIndicadores = document.getElementById('tabla-indicadores');
   const mensajeEstado = document.getElementById('mensaje-estado');
-  const botonCerrarSesion = document.getElementById('boton-cerrar-sesion');
 
   const mostrarMensaje = (texto) => {
     mensajeEstado.textContent = texto;
@@ -283,10 +281,6 @@ function iniciar() {
     }
   };
 
-  botonCerrarSesion.addEventListener('click', async () => {
-    await logout();
-    window.location.href = 'index.html';
-  });
 
   // Las URLs de objeto de los logos que se están mostrando. Se revocan antes de repintar: sin esto
   // cada recarga de la lista deja los blobs anteriores retenidos por toda la vida de la pestaña.

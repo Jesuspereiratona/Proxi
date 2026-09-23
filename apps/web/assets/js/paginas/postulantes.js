@@ -3,7 +3,6 @@ import { obtenerDetallePropio } from '../api/ofertas.js';
 import { listarDeOferta, obtenerDetalle, marcarEnRevision, marcarEntrevista, seleccionar, rechazar } from '../api/postulaciones.js';
 import { textoEstado, claseEstadoPostulacion, formatoLineaTiempo } from '../componentes/linea-tiempo.js';
 import { descargarArchivo, ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
-import { logout } from '../api/sesion.js';
 import { formatoFechaHora } from '../formato.js';
 
 // Qué transición ofrecer desde cada estado, reflejo de services/postulaciones/estados.js para el
@@ -24,7 +23,6 @@ function iniciar() {
   const tituloOferta = document.getElementById('titulo-oferta');
   const lista = document.getElementById('lista');
   const mensajeEstado = document.getElementById('mensaje-estado');
-  const botonCerrarSesion = document.getElementById('boton-cerrar-sesion');
 
   const mostrarMensaje = (texto) => {
     mensajeEstado.textContent = texto;
@@ -163,10 +161,6 @@ function iniciar() {
     }
   };
 
-  botonCerrarSesion.addEventListener('click', async () => {
-    await logout();
-    window.location.href = 'index.html';
-  });
 
   if (!ofertaId) {
     mostrarMensaje('Falta indicar la oferta.');

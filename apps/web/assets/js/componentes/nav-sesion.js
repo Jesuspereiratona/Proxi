@@ -8,10 +8,23 @@ import { icono } from './iconos.js';
 // A dónde manda el enlace de sesión según el rol. Los destinos y los textos son los que ya usaba
 // la vitrina: al extraer este componente estuve a punto de cambiarlos sin darme cuenta, y mandar a
 // una empresa a su perfil en vez de a sus ofertas es un cambio de comportamiento, no un detalle.
-const PANEL_POR_ROL = {
-  estudiante: { href: 'panel-estudiante.html', texto: 'Mi perfil' },
-  empresa: { href: 'mis-ofertas.html', texto: 'Mis ofertas' },
-  coordinacion: { href: 'panel-coordinacion.html', texto: 'Panel de coordinación' },
+//
+// Son listas y no un enlace suelto porque cada rol tiene DOS áreas, y hasta ahora cada página
+// enlazaba a mano solo la otra: desde "Mis postulaciones" se llegaba al perfil, pero desde la
+// vitrina no se llegaba a las postulaciones. El primero de cada lista es el que ya se mostraba,
+// para no cambiar a dónde va quien viene de la portada.
+const PANELES_POR_ROL = {
+  estudiante: [
+    { href: 'panel-estudiante.html', texto: 'Mi perfil' },
+    { href: 'postulaciones.html', texto: 'Mis postulaciones' },
+  ],
+  empresa: [
+    { href: 'mis-ofertas.html', texto: 'Mis ofertas' },
+    { href: 'panel-empresa.html', texto: 'Mi empresa' },
+  ],
+  coordinacion: [
+    { href: 'panel-coordinacion.html', texto: 'Panel de coordinación' },
+  ],
 };
 
 const botonEntrar = () => {
@@ -31,18 +44,20 @@ export const pintarNavSesion = async (contenedor) => {
 
   if (!usuario) {
     contenedor.replaceChildren(botonEntrar());
-    return;
+    return null;
   }
 
-  const partes = [];
-  const panel = PANEL_POR_ROL[usuario.rol];
-  if (panel) {
-    const enlace = document.createElement('a');
-    enlace.className = 'enlace-nav';
-    enlace.href = panel.href;
-    enlace.textContent = panel.texto;
-    partes.push(enlace);
-  }
+  // La página en la que ya estás no se repite en su propia cabecera.
+  const aqui = window.location.pathname.split('/').pop() || 'index.html';
+  const partes = (PANELES_POR_ROL[usuario.rol] ?? [])
+    .filter((panel) => panel.href !== aqui)
+    .map((panel) => {
+      const enlace = document.createElement('a');
+      enlace.className = 'enlace-nav';
+      enlace.href = panel.href;
+      enlace.textContent = panel.texto;
+      return enlace;
+    });
 
   const boton = document.createElement('button');
   boton.type = 'button';
@@ -55,4 +70,6 @@ export const pintarNavSesion = async (contenedor) => {
   partes.push(boton);
 
   contenedor.replaceChildren(...partes);
+  // Devuelve quién es para que la cabecera decida qué más mostrar.
+  return usuario;
 };

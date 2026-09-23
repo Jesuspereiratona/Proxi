@@ -1,12 +1,10 @@
 import { obtener } from '../api/cliente.js';
 import { icono } from '../componentes/iconos.js';
-import { pintarNavSesion } from '../componentes/nav-sesion.js';
 
 // Portada pública: explica qué es Proxi a alguien que llega sin contexto. Antes, el enlace que
 // circulaba llevaba directo a una lista de ofertas y quien no supiera qué era Proxi tenía que
 // deducirlo de la lista.
 
-const navSesion = document.getElementById('nav-sesion');
 const contenedorCifras = document.getElementById('cifras');
 
 document.getElementById('icono-revision').append(icono('revisado'));
@@ -45,5 +43,4 @@ const pintarCifras = async () => {
   }
 };
 
-pintarNavSesion(navSesion);
 pintarCifras();

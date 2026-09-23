@@ -2,7 +2,6 @@ import { protegerPagina } from '../componentes/proteger-pagina.js';
 import { obtenerPerfil, crearPerfil, actualizarPerfil, subirCv } from '../api/estudiantes.js';
 import { descargarArchivo, ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { icono } from '../componentes/iconos.js';
-import { logout } from '../api/sesion.js';
 
 const usuario = await protegerPagina('estudiante');
 if (usuario) iniciar();
@@ -16,7 +15,6 @@ function iniciar() {
   const inputArchivoCv = document.getElementById('archivo-cv');
   const botonSubirCv = document.getElementById('boton-subir-cv');
   const cvMensaje = document.getElementById('cv-mensaje');
-  const botonCerrarSesion = document.getElementById('boton-cerrar-sesion');
 
   let perfilExiste = false;
   let cvArchivoId = null;
@@ -134,10 +132,6 @@ function iniciar() {
     }
   });
 
-  botonCerrarSesion.addEventListener('click', async () => {
-    await logout();
-    window.location.href = 'index.html';
-  });
 
   cargar();
 }

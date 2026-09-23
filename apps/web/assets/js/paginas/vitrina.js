@@ -2,12 +2,10 @@ import { listarPublicas } from '../api/ofertas.js';
 import { crearTarjetaOferta } from '../componentes/tarjeta-oferta.js';
 import { esqueletoDeLista } from '../componentes/esqueleto.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
-import { pintarNavSesion } from '../componentes/nav-sesion.js';
 
 const formulario = document.getElementById('filtros');
 const listado = document.getElementById('listado');
 const mensajeEstado = document.getElementById('mensaje-estado');
-const navSesion = document.getElementById('nav-sesion');
 const contador = document.getElementById('contador');
 const botonLimpiar = document.getElementById('limpiar-filtros');
 
@@ -108,4 +106,3 @@ botonLimpiar.addEventListener('click', () => {
 });
 
 cargar();
-pintarNavSesion(navSesion);

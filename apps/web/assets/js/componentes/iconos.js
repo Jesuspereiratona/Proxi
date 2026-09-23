@@ -29,6 +29,9 @@ const TRAZOS = {
   // lo unico que distingue "se subio" de "fallo" (docs/08-guia-visual.md, semantica de estado).
   visto: 'M20 6 9 17l-5-5',
   alerta: 'M12 3 2 20h20L12 3ZM12 10v4M12 17.5v.01',
+  // Abre la navegacion en celular. Unico icono del sitio que va sin texto al lado, por eso el boton
+  // que lo usa lleva aria-label.
+  menu: 'M4 7h16M4 12h16M4 17h16',
 };
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

@@ -2,7 +2,6 @@ import { protegerPagina } from '../componentes/proteger-pagina.js';
 import { listarMias, obtenerDetalle, retirar } from '../api/postulaciones.js';
 import { textoEstado, claseEstadoPostulacion, formatoLineaTiempo } from '../componentes/linea-tiempo.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
-import { logout } from '../api/sesion.js';
 import { formatoFechaHora } from '../formato.js';
 
 const ESTADOS_TERMINALES = ['seleccionada', 'no_seleccionada', 'sin_respuesta', 'retirada'];
@@ -13,7 +12,6 @@ if (usuario) iniciar();
 function iniciar() {
   const lista = document.getElementById('lista');
   const mensajeEstado = document.getElementById('mensaje-estado');
-  const botonCerrarSesion = document.getElementById('boton-cerrar-sesion');
 
   const mostrarMensaje = (texto) => {
     mensajeEstado.textContent = texto;
@@ -123,10 +121,6 @@ function iniciar() {
     }
   };
 
-  botonCerrarSesion.addEventListener('click', async () => {
-    await logout();
-    window.location.href = 'index.html';
-  });
 
   cargar();
 }

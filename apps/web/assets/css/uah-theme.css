@@ -483,8 +483,13 @@ h1, h2, .titular {
   color: var(--uah-gris-2);
 }
 
+/* Solo el relleno vertical. Con `padding: 2.5rem 0` se anulaba también el horizontal, y estas
+   secciones son además `.container`: sin su relleno lateral, los márgenes negativos de `.row` de
+   Bootstrap se salen de la pantalla. En 390px eso daba 8px de desplazamiento horizontal en toda la
+   portada (medido en el navegador, no a ojo). */
 .portada-seccion {
-  padding: 2.5rem 0;
+  padding-top: 2.5rem;
+  padding-bottom: 2.5rem;
 }
 
 .paso {
@@ -716,4 +721,50 @@ main:has(#confirmacion:not([hidden])) > h1 {
   border-left-color: #b3261e;
   background: #fdf3f2;
   color: #8c1d18;
+}
+
+/* Cabecera del sitio. En escritorio es una fila; bajo 768px los enlaces se pliegan detrás del
+   botón de menú. Antes de esto el sitio no tenía NINGUNA navegación en celular: los enlaces
+   colgaban de `d-none d-md-flex` y el botón que debía desplegarlos nunca existió. */
+.menu-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-left: 1.5rem;
+}
+.boton-menu {
+  margin-left: auto;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--uah-borde);
+  border-radius: var(--bs-border-radius);
+  background: #fff;
+  color: var(--uah-marengo-1);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+.boton-menu:hover {
+  background: var(--uah-blanco-3);
+}
+
+@media (max-width: 767.98px) {
+  /* `display: none` y no `visibility`/altura cero: un enlace oculto pero enfocable es una trampa
+     para quien navega con teclado — el foco desaparece de la pantalla. */
+  .menu-cabecera {
+    display: none;
+    width: 100%;
+    margin: 0.75rem 0 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--uah-borde);
+    /* En columna y alineado a la izquierda: en un teléfono los enlaces centrados obligan a buscar
+       dónde empieza cada uno. */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.9rem;
+  }
+  .menu-cabecera.abierto {
+    display: flex;
+  }
+  .navbar > .container {
+    flex-wrap: wrap;
+  }
 }

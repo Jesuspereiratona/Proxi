@@ -2122,3 +2122,39 @@ salen por Brevo no alinean SPF ni DKIM con el dominio del remitente, así que **
 probabilidad a spam**; el propio panel de Brevo lo advierte. La solución real es un dominio propio
 con SPF y DKIM de Brevo, o un subdominio que autorice la FEN. Hasta entonces, la pantalla de
 confirmación del registro avisa explícitamente que hay que revisar spam.
+
+## 2026-09-22 — Una sola cabecera, y navegación en celular
+
+**Dos síntomas, una causa.** La cabecera estaba copiada a mano en las catorce páginas, así que había
+divergido: **dos** tenían la versión con navegación y **doce** se habían quedado con una barra que
+solo decía "Proxi". Y en teléfono no aparecía ninguna — los enlaces colgaban de `d-none d-md-flex`
+y el botón que debía desplegarlos **nunca existió**. O sea, en celular el sitio no tenía navegación
+en absoluto, solo el logo.
+
+**Se arma desde JS** (`componentes/cabecera.js`) y no se copia en el HTML, precisamente para que no
+vuelva a divergir: cada página trae `<header id="cabecera" data-activo="…">` y nada más. La
+alternativa —pegar la cabecera buena en doce archivos— eran ~240 líneas duplicadas destinadas a
+separarse otra vez.
+
+**El menú plegable es vanilla, sin el JS de Bootstrap.** Traer el paquete completo por un `collapse`
+eran ~80 KB para diez líneas de `classList.toggle`. `aria-expanded` se mantiene sincronizado a mano
+porque la clase `abierto` no le comunica el estado a ningún lector de pantalla.
+
+**Los enlaces de sesión pasaron a ser listas por rol.** Cada página enlazaba a mano solo *la otra*
+área de su rol: desde "Mis postulaciones" se llegaba al perfil, pero desde la vitrina no se llegaba
+a las postulaciones. Ahora el rol declara sus destinos y se omite aquel en el que ya estás. El
+primero de cada lista es el que ya se mostraba, para no cambiar a dónde llega quien viene de la
+portada.
+
+**Tres cosas que se rompieron al unificar y hubo que arreglar en el mismo bloque:**
+1. Seis páginas cableaban su propio `#boton-cerrar-sesion`. Al desaparecer del DOM,
+   `getElementById` devolvía `null` y `.addEventListener` **mataba el módulo entero** de esa página.
+2. `portada.js` y `vitrina.js` seguían pintando la sesión por su cuenta sobre un `#nav-sesion` que
+   ya no existe. Mismo `TypeError`.
+3. **Un desbordamiento horizontal de 8px en toda la portada en 390px**, que resultó ser anterior a
+   este cambio: `.portada-seccion` usaba `padding: 2.5rem 0`, y eso anula también el relleno lateral
+   del `.container` de Bootstrap. Sin él, los márgenes negativos de `.row` se salen de la pantalla.
+
+Los tres los encontró el navegador, no la lectura del código: se midió cada página a 390px y a
+1280px con CDP, comprobando `scrollWidth - clientWidth` y las excepciones de consola. Ninguno
+aparecía en las pruebas ni en el lint.

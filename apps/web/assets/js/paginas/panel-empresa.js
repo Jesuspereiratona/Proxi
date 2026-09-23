@@ -1,7 +1,6 @@
 import { protegerPagina } from '../componentes/proteger-pagina.js';
 import { obtenerPropio, crearPerfil, actualizarPerfil } from '../api/empresas.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
-import { logout } from '../api/sesion.js';
 import { subirLogo, obtenerMiLogo, quitarMiLogo, urlLogo } from '../api/logos.js';
 
 // Campos que, si cambian en una empresa ya validada, la mandan de vuelta a "pendiente" y cierran
@@ -23,7 +22,6 @@ function iniciar() {
   const formulario = document.getElementById('formulario-perfil');
   const mensajeEstado = document.getElementById('mensaje-estado');
   const estadoValidacionEl = document.getElementById('estado-validacion');
-  const botonCerrarSesion = document.getElementById('boton-cerrar-sesion');
 
   let perfilExiste = false;
   let perfilActual = null;
@@ -96,10 +94,6 @@ function iniciar() {
     }
   });
 
-  botonCerrarSesion.addEventListener('click', async () => {
-    await logout();
-    window.location.href = 'index.html';
-  });
 
   // --- Logo -------------------------------------------------------------------------------
   const vistaLogo = document.getElementById('logo-vista');

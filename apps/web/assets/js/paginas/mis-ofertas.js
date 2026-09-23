@@ -3,7 +3,6 @@ import { obtenerPropio as obtenerPerfilEmpresa } from '../api/empresas.js';
 import { listarMias, crear, editar, enviarARevision, cerrar } from '../api/ofertas.js';
 import { textoEstadoOferta } from '../componentes/estado-oferta.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
-import { logout } from '../api/sesion.js';
 import { etiquetaModalidad, etiquetaRemuneracion, formatoFechaCorta } from '../formato.js';
 
 // Tocar cualquiera de estos en una oferta en_revision o publicada la manda de vuelta a borrador
@@ -37,7 +36,6 @@ function iniciar() {
   const lista = document.getElementById('lista');
   const mensajeEstado = document.getElementById('mensaje-estado');
   const avisoNoValidada = document.getElementById('aviso-no-validada');
-  const botonCerrarSesion = document.getElementById('boton-cerrar-sesion');
   const botonNueva = document.getElementById('boton-nueva');
   const seccionFormulario = document.getElementById('seccion-formulario');
   const tituloFormulario = document.getElementById('titulo-formulario');
@@ -315,10 +313,6 @@ function iniciar() {
     }
   };
 
-  botonCerrarSesion.addEventListener('click', async () => {
-    await logout();
-    window.location.href = 'index.html';
-  });
 
   (async () => {
     try {
