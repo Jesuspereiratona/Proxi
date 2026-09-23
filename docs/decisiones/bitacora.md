@@ -2086,3 +2086,39 @@ DOM de esa pestaña.
 recorrer la rama real de éxito del formulario y se midió en el navegador: `cajasBlancasVacias: 0`,
 `desborde: 0` en 1280px y en 390px, y el foco queda en la confirmación (sin eso, quien navega con
 teclado se queda con el foco en un botón que ya no está). 89 pruebas de web verdes, lint limpio.
+
+## 2026-09-22 — Por qué el correo de verificación no salía en producción
+
+Tres trampas encadenadas, ninguna en el código de Proxi y ninguna documentada en las guías de los
+proveedores. Queda escrito porque quien retome esto las va a pisar igual.
+
+**1. El plan gratuito de Render bloquea los puertos SMTP de salida 25, 465 y 587.** El síntoma no es
+un error claro: el botón de registro se quedaba pegado. Primero hubo que ponerle tiempos límite al
+transporte (`correo.service.js`, commit 7d82ab3) para que fallara en 10s en vez de colgarse — sin
+eso el problema ni siquiera era diagnosticable. **El puerto 2525 sí pasa**, y Brevo lo ofrece.
+`SMTP_PORT=2525` no es un capricho: es la única opción en este plan.
+
+**2. Brevo trae activada una restricción por IP de origen para las claves SMTP.** Con eso puesto
+devuelve `525 5.7.1 Unauthorized IP address`. Render no da IP de salida fija en el plan gratuito, así
+que la restricción hay que apagarla (`app.brevo.com/security/authorised_ips`). Es un control de
+seguridad real que estamos renunciando a usar; el reemplazo es que la clave SMTP vive solo en las
+variables de entorno de Render y nunca en el repositorio.
+
+**3. Brevo rechaza cualquier remitente que no esté dado de alta y verificado.** Esta fue la de
+verdad, y costó encontrarla porque **el SMTP responde `250 OK: queued`**: acepta el mensaje y recién
+después lo descarta. En el registro de Brevo se ve como dos eventos, `Enviado` y luego `Error`, con
+el texto "the sender you used ... is not valid". Desde el lado de la aplicación es indistinguible de
+un envío exitoso. `uahmarketcl@gmail.com` no estaba en la lista de remitentes; agregarlo y confirmar
+el enlace lo resolvió.
+
+**Camino de diagnóstico que sí sirvió**, por si vuelve a pasar: un script directo de nodemailer con
+`logger: true, debug: true` contra las mismas variables de entorno. Muestra el diálogo SMTP completo
+y ahí aparecen los códigos reales (`525`, `235`, `250`). Leer el código no habría encontrado ninguna
+de las tres.
+
+**Deuda conocida, no un error:** se envía desde una dirección `@gmail.com`. El SPF de `gmail.com` es
+`v=spf1 redirect=_spf.google.com` — solo autoriza a Google, y no se puede modificar. Los correos que
+salen por Brevo no alinean SPF ni DKIM con el dominio del remitente, así que **llegan, pero con alta
+probabilidad a spam**; el propio panel de Brevo lo advierte. La solución real es un dominio propio
+con SPF y DKIM de Brevo, o un subdominio que autorice la FEN. Hasta entonces, la pantalla de
+confirmación del registro avisa explícitamente que hay que revisar spam.
