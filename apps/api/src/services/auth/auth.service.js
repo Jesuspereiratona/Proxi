@@ -89,7 +89,19 @@ const registrar = async ({ email, clave, rol, aceptaPolitica }) => {
       // .html: apps/web/scripts/servidor-dev.js sirve por path exacto, no agrega la extensión
       // (auditoría de seguridad — sin esto el enlace del correo daba 404 y no había forma de
       // verificar la cuenta salvo activarla a mano desde la base).
-      texto: `Confirma tu correo entrando a ${env.webUrl}/verificar-correo.html?token=${plano}`,
+      texto: `Hola:
+
+Se creó una cuenta en Proxi con este correo. Proxi es el portal donde las empresas publican ofertas
+de práctica y los estudiantes de la FEN UAH postulan.
+
+Para activarla, entra a:
+${env.webUrl}/verificar-correo.html?token=${plano}
+
+El enlace vence en 24 horas y sirve una sola vez.
+
+Si no fuiste tú, no tienes que hacer nada: sin ese clic la cuenta nunca se activa, y nadie puede
+entrar con ella.
+${correo.FIRMA}`,
     });
   } catch (error) {
     // Sin el correo la cuenta no sirve para nada — no hay reenvío de verificación — y encima deja
@@ -236,7 +248,22 @@ const pedirRecuperacion = async ({ email }) => {
   await correo.enviarCorreo({
     para: email,
     asunto: 'Restablece tu contraseña en Proxi',
-    texto: `Restablece tu contraseña entrando a ${env.webUrl}/restablecer-clave?token=${plano}`,
+    // Faltaba el `.html` que el correo de verificación sí tenía: el servidor de desarrollo sirve por
+    // path exacto, así que el enlace daba 404 en local. En producción Cloudflare redirige igual, y
+    // por eso el error no se notaba donde más se mira.
+    texto: `Hola:
+
+Alguien pidió restablecer la contraseña de esta cuenta en Proxi, el portal de prácticas de la
+FEN UAH.
+
+Para elegir una nueva, entra a:
+${env.webUrl}/restablecer-clave.html?token=${plano}
+
+El enlace vence en 1 hora y sirve una sola vez.
+
+Si no lo pediste tú, no tienes que hacer nada: tu contraseña actual sigue funcionando y no se puede
+cambiar sin este enlace.
+${correo.FIRMA}`,
   });
 };
 

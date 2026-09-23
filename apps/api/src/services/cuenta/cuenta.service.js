@@ -226,7 +226,19 @@ const procesarRetencion = async (ahora = new Date()) => {
       await correoService.enviarCorreo({
         para: estudiante.Usuario.email,
         asunto: 'Tu cuenta en Proxi se eliminará por inactividad',
-        texto: `No hemos visto actividad en tu cuenta en mucho tiempo. Si no vuelves a iniciar sesión en los próximos ${env.retencionAvisoDias} días, tu perfil y tu CV se eliminarán automáticamente, según la política de retención de datos.`,
+        texto: `Hola:
+
+Te escribimos desde Proxi, el portal de prácticas de la FEN UAH.
+
+No hemos visto actividad en tu cuenta en mucho tiempo. Si no vuelves a iniciar sesión en los
+próximos ${env.retencionAvisoDias} días, tu perfil y tu CV se eliminarán automáticamente, según nuestra política de
+retención de datos.
+
+Para conservarlos basta con que entres una vez:
+${env.webUrl}/login.html
+
+Si ya no quieres usar Proxi, no hagas nada: tus datos se eliminan solos y no guardamos copia.
+${correoService.FIRMA}`,
       });
       await estudiante.update({ avisoRetencionEnviadoAt: ahora });
       avisadas += 1;

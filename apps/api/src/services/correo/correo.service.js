@@ -41,6 +41,17 @@ const obtenerTransporte = () => {
   return transportePromesa;
 };
 
+// Cierre común de los tres correos que manda Proxi. Existe por una razón concreta y no por
+// prolijidad: Brevo reescribe el remitente a un dominio suyo con números (`@1223....brevosend.com`)
+// porque el nuestro no está autenticado, así que quien recibe ve una dirección desconocida
+// pidiéndole que haga clic en un enlace — la forma exacta de un phishing. El cuerpo tiene que decir
+// de quién viene y dar una dirección real a la que escribir. Se va el día que haya dominio propio.
+const FIRMA = `
+—
+Proxi · Portal de prácticas
+Facultad de Economía y Negocios · Universidad Alberto Hurtado
+¿Dudas? Escríbenos a uahmarketcl@gmail.com`;
+
 // En NODE_ENV=test no toca la red: ni SMTP real ni Ethereal. Las pruebas verifican que se generó
 // el token correcto, no que un correo de verdad haya salido.
 const enviarCorreo = async ({ para, asunto, texto }) => {
@@ -68,4 +79,4 @@ const enviarCorreo = async ({ para, asunto, texto }) => {
   }
 };
 
-module.exports = { enviarCorreo };
+module.exports = { enviarCorreo, FIRMA };
