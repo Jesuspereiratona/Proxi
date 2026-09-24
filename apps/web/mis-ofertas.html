@@ -22,8 +22,10 @@
     <p id="aviso-no-validada" class="text-body-secondary small" hidden></p>
     <p id="mensaje-estado" role="status" hidden></p>
 
-    <section id="seccion-formulario" class="card card-oferta mb-4" hidden>
-      <div class="card-body">
+    <!-- `panel` y no `card-oferta`: esa clase es la tarjeta de una oferta en la lista y es
+         `display:flex`, así que apretaba el formulario contra un ancho fijo y angosto en
+         escritorio (feedback del profesor, 23-09). Un formulario no es una tarjeta de lista. -->
+    <section id="seccion-formulario" class="panel mb-4" hidden>
         <h2 class="h5 mb-3" id="titulo-formulario">Nueva oferta</h2>
         <form id="formulario-oferta" novalidate>
           <div class="mb-3">
@@ -32,11 +34,11 @@
           </div>
           <div class="mb-3">
             <label for="descripcion" class="form-label">Descripción</label>
-            <textarea id="descripcion" name="descripcion" class="form-control" rows="3" required></textarea>
+            <textarea id="descripcion" name="descripcion" class="form-control campo-largo" rows="3" required></textarea>
           </div>
           <div class="mb-3">
             <label for="requisitos" class="form-label">Requisitos</label>
-            <textarea id="requisitos" name="requisitos" class="form-control" rows="2" required></textarea>
+            <textarea id="requisitos" name="requisitos" class="form-control campo-largo" rows="2" required></textarea>
           </div>
           <div class="mb-3">
             <label for="area" class="form-label">Área</label>
@@ -82,7 +84,6 @@
           <button type="submit" class="btn btn-primary">Guardar</button>
           <button type="button" id="boton-cancelar-formulario" class="btn btn-link">Cancelar</button>
         </form>
-      </div>
     </section>
 
     <div id="lista" class="d-flex flex-column gap-3" aria-live="polite"></div>

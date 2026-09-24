@@ -83,6 +83,19 @@ function iniciar() {
     return parche;
   };
 
+
+  // Señala en la lista de abajo cuál de las ofertas es la que el formulario está editando: sin
+  // esto, con varias ofertas el formulario abierto no dice a cuál corresponde (feedback del
+  // profesor, 23-09). aria-current además lo dice en voz alta, no solo con el borde.
+  const marcarEnEdicion = (ofertaId) => {
+    for (const tarjeta of lista.querySelectorAll('.card-oferta')) {
+      const esta = ofertaId !== null && tarjeta.dataset.ofertaId === String(ofertaId);
+      tarjeta.classList.toggle('card-oferta-editando', esta);
+      if (esta) tarjeta.setAttribute('aria-current', 'true');
+      else tarjeta.removeAttribute('aria-current');
+    }
+  };
+
   const abrirFormulario = (oferta = null) => {
     ofertaEnEdicion = oferta;
     formulario.reset();
@@ -101,11 +114,13 @@ function iniciar() {
       formulario.fechaCierre.value = oferta.fechaCierre ? oferta.fechaCierre.slice(0, 10) : '';
     }
     seccionFormulario.hidden = false;
+    marcarEnEdicion(oferta ? oferta.id : null);
     seccionFormulario.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const cerrarFormulario = () => {
     seccionFormulario.hidden = true;
+    marcarEnEdicion(null);
     ofertaEnEdicion = null;
     formulario.reset();
   };
@@ -227,6 +242,7 @@ function iniciar() {
   const crearTarjeta = (oferta) => {
     const tarjeta = document.createElement('article');
     tarjeta.className = 'card-oferta';
+    tarjeta.dataset.ofertaId = String(oferta.id);
     const cuerpo = document.createElement('div');
     cuerpo.className = 'oferta-cuerpo';
 
@@ -308,6 +324,7 @@ function iniciar() {
       }
       mostrarMensaje('');
       lista.replaceChildren(...ofertas.map(crearTarjeta));
+      marcarEnEdicion(ofertaEnEdicion ? ofertaEnEdicion.id : null);
     } catch (error) {
       mostrarMensaje(mensajeDeError(error));
     }

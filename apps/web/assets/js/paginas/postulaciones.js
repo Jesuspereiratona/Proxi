@@ -1,6 +1,6 @@
 import { protegerPagina } from '../componentes/proteger-pagina.js';
 import { listarMias, obtenerDetalle, retirar } from '../api/postulaciones.js';
-import { textoEstado, claseEstadoPostulacion, formatoLineaTiempo } from '../componentes/linea-tiempo.js';
+import { textoEstado, claseEstadoPostulacion, formatoLineaTiempo, pintarLineaTiempo } from '../componentes/linea-tiempo.js';
 import { ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { formatoFechaHora } from '../formato.js';
 
@@ -22,16 +22,7 @@ function iniciar() {
     try {
       const detalle = await obtenerDetalle(postulacionId);
       const eventos = formatoLineaTiempo(detalle.PostulacionEventos);
-      const listaEventos = document.createElement('ul');
-      listaEventos.className = 'list-unstyled small border-start ps-3 mb-0';
-      for (const evento of eventos) {
-        const item = document.createElement('li');
-        item.className = 'mb-1';
-        const fecha = formatoFechaHora(evento.fecha);
-        item.textContent = `${evento.texto} — ${evento.quien} — ${fecha}`;
-        listaEventos.append(item);
-      }
-      contenedor.append(listaEventos);
+      contenedor.append(pintarLineaTiempo(eventos, formatoFechaHora));
     } catch (error) {
       contenedor.textContent = error instanceof ErrorApi ? error.message : mensajeParaCodigo();
     }

@@ -768,3 +768,88 @@ main:has(#confirmacion:not([hidden])) > h1 {
     flex-wrap: wrap;
   }
 }
+
+/* Linea de tiempo de una postulacion. Antes era texto corrido con un borde a la izquierda
+   ("Recibida - Tu - 21 sept 2026") y no se distinguia donde terminaba un hito y empezaba el
+   siguiente. Ahora cada evento tiene su punto sobre una linea continua: el orden se ve, no se lee.
+   Compacta a proposito - el profesor pidio la forma, pero tambien que no ocupara tanto. */
+.linea-tiempo {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 1.35rem;
+  list-style: none;
+}
+/* La linea es un pseudo-elemento de la lista y no un borde de cada item: asi no asoma por arriba
+   del primer punto ni por debajo del ultimo. */
+.linea-tiempo::before {
+  content: "";
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  left: 0.29rem;
+  width: 1px;
+  background: var(--uah-gris-claro);
+}
+.linea-tiempo > li {
+  position: relative;
+  padding-bottom: 0.85rem;
+}
+.linea-tiempo > li:last-child {
+  padding-bottom: 0;
+}
+.linea-tiempo > li::before {
+  content: "";
+  position: absolute;
+  top: 0.3rem;
+  left: -1.35rem;
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 1px solid var(--uah-gris-1);
+  border-radius: 50%;
+  background: #fff;
+}
+/* El ultimo hito es el estado actual: relleno en vez de hueco. Es el unico que se distingue, y se
+   distingue por forma, no por color. */
+.linea-tiempo > li:last-child::before {
+  background: var(--uah-marengo-1);
+  border-color: var(--uah-marengo-1);
+}
+.lt-fecha {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--uah-gris-1);
+}
+.lt-texto {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--uah-marengo-1);
+}
+.lt-quien {
+  font-weight: 400;
+  color: var(--uah-gris-2);
+}
+.lt-motivo {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--uah-gris-2);
+  font-style: italic;
+}
+
+/* La oferta que el formulario de arriba esta editando. Con varias ofertas en la lista, el
+   formulario abierto no decia a cual correspondia (feedback del profesor, 23-09). */
+.card-oferta-editando {
+  border-color: var(--uah-marengo-1);
+  box-shadow: var(--uah-sombra-alta);
+}
+
+/* Los textarea del formulario de oferta: en escritorio quedaban tan bajos como en teléfono y
+   escribir una descripción larga era mirar por una ranura (feedback del profesor, 23-09).
+   El selector lleva `textarea` a propósito: Bootstrap fija la altura con `textarea.form-control`,
+   que gana por especificidad a una clase sola — con `.campo-largo` pelado la regla se parseaba
+   pero no aplicaba, y eso no se ve mirando el archivo, solo midiendo en el navegador. */
+@media (min-width: 768px) {
+  textarea.campo-largo {
+    min-height: 9rem;
+  }
+}

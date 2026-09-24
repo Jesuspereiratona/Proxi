@@ -68,3 +68,44 @@ export const formatoLineaTiempo = (eventos = [], rolPropio = 'estudiante') =>
     };
     return rolPropio === 'empresa' && evento.motivo ? { ...base, motivo: evento.motivo } : base;
   });
+
+// Pintado de la línea de tiempo, compartido por el panel de estudiante y el de postulantes de la
+// empresa. Las dos páginas tenían la suya, y las dos eran una lista de texto corrido
+// ("Recibida — Tú — 21 sept 2026, 12:31") con un borde a la izquierda: ahí no se distingue dónde
+// termina un evento y empieza el siguiente (feedback del profesor, 23-09).
+//
+// Es <ol> y no <ul> porque el orden ES el dato: son los estados por los que pasó la postulación.
+// El punto de cada hito lo dibuja el CSS; acá solo va la estructura.
+export const pintarLineaTiempo = (eventos, formatoFechaHora) => {
+  const lista = document.createElement('ol');
+  lista.className = 'linea-tiempo';
+
+  for (const evento of eventos) {
+    const item = document.createElement('li');
+
+    const fecha = document.createElement('time');
+    fecha.className = 'lt-fecha';
+    fecha.dateTime = evento.fecha.toISOString();
+    fecha.textContent = formatoFechaHora(evento.fecha);
+
+    const texto = document.createElement('p');
+    texto.className = 'lt-texto';
+    texto.textContent = evento.texto;
+
+    const quien = document.createElement('span');
+    quien.className = 'lt-quien';
+    quien.textContent = evento.quien;
+    texto.append(' ', quien);
+
+    item.append(fecha, texto);
+
+    if (evento.motivo) {
+      const motivo = document.createElement('p');
+      motivo.className = 'lt-motivo';
+      motivo.textContent = evento.motivo;
+      item.append(motivo);
+    }
+    lista.append(item);
+  }
+  return lista;
+};

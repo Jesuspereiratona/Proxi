@@ -1,7 +1,7 @@
 import { protegerPagina } from '../componentes/proteger-pagina.js';
 import { obtenerDetallePropio } from '../api/ofertas.js';
 import { listarDeOferta, obtenerDetalle, marcarEnRevision, marcarEntrevista, seleccionar, rechazar } from '../api/postulaciones.js';
-import { textoEstado, claseEstadoPostulacion, formatoLineaTiempo } from '../componentes/linea-tiempo.js';
+import { textoEstado, claseEstadoPostulacion, formatoLineaTiempo, pintarLineaTiempo } from '../componentes/linea-tiempo.js';
 import { descargarArchivo, ErrorApi, mensajeParaCodigo } from '../api/cliente.js';
 import { formatoFechaHora } from '../formato.js';
 
@@ -35,16 +35,7 @@ function iniciar() {
     try {
       const detalle = await obtenerDetalle(postulacionId);
       const eventos = formatoLineaTiempo(detalle.PostulacionEventos, 'empresa');
-      const listaEventos = document.createElement('ul');
-      listaEventos.className = 'list-unstyled small border-start ps-3 mb-0';
-      for (const evento of eventos) {
-        const item = document.createElement('li');
-        item.className = 'mb-1';
-        item.textContent = `${evento.texto} — ${evento.quien} — ${formatoFechaHora(evento.fecha)}`;
-        if (evento.motivo) item.textContent += ` — "${evento.motivo}"`;
-        listaEventos.append(item);
-      }
-      contenedor.append(listaEventos);
+      contenedor.append(pintarLineaTiempo(eventos, formatoFechaHora));
     } catch (error) {
       contenedor.textContent = mensajeDeError(error);
     }
