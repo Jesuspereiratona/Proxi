@@ -2158,3 +2158,40 @@ portada.
 Los tres los encontró el navegador, no la lectura del código: se midió cada página a 390px y a
 1280px con CDP, comprobando `scrollWidth - clientWidth` y las excepciones de consola. Ninguno
 aparecía en las pruebas ni en el lint.
+
+## 2026-09-23 — Feedback del profesor: formulario de oferta y línea de tiempo
+
+Cuatro observaciones externas, las cuatro ciertas. Vale anotarlas porque ninguna la habrían
+encontrado las pruebas: son de forma, y las pruebas solo miran comportamiento.
+
+**1. El formulario de editar oferta tenía ancho fijo en escritorio.** La causa era `card-oferta` en
+la sección del formulario: esa clase es la tarjeta de una oferta en la lista y es `display:flex`,
+así que apretaba el formulario contra un ancho angosto. Un formulario no es una tarjeta de lista.
+Pasa a `panel`, que es la clase del repositorio para exactamente esto.
+
+**2. Los textarea eran igual de bajos en escritorio que en teléfono.** El profesor lo dijo bien: los
+valores de móvil estaban decentes, el problema era escritorio. `min-height: 9rem` desde 768px.
+
+El detalle que casi se cuela: la primera versión usaba `.campo-largo` a secas y **la regla se
+parseaba pero no aplicaba**, porque Bootstrap fija la altura con `textarea.form-control`, que gana
+por especificidad a una clase sola. Eso no se ve leyendo el CSS ni comprobando que el archivo esté
+bien formado — se vio midiendo `getComputedStyle` en el navegador, que devolvía `min-height: 38px`
+con la regla presente en la hoja. Por eso el selector lleva `textarea`.
+
+**3. Con el formulario abierto no se sabía cuál oferta se estaba editando.** La lista de abajo
+mostraba todas iguales. Ahora la tarjeta correspondiente lleva borde marengo y `aria-current`, y la
+marca se repone tras recargar la lista, porque `replaceChildren` destruye las tarjetas anteriores.
+
+**4. La línea de tiempo era texto corrido.** Cada evento era una línea del tipo
+"Recibida — Tú — 21 sept 2026, 12:31" dentro de un `<ul>` con un borde a la izquierda: no se
+distinguía dónde terminaba un hito y empezaba el siguiente. Ahora cada evento tiene su punto sobre
+una línea continua, con la fecha arriba en gris y el estado en negrita.
+
+Dos decisiones dentro de esto. Es `<ol>` y no `<ul>` porque **el orden es el dato**: son los estados
+por los que pasó la postulación. Y el último punto va relleno en vez de hueco porque es el estado
+actual — se distingue por forma, no por color.
+
+El render estaba duplicado en el panel de estudiante y en el de postulantes, y las dos copias eran
+idénticas. Se unificó en `pintarLineaTiempo()`, en el mismo módulo que ya tenía las funciones puras
+de la línea de tiempo.
+
